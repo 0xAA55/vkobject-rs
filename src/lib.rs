@@ -4,10 +4,18 @@
 /// The VkCore initializer
 pub mod init;
 
+/// The Vulkan context
+pub mod context;
+
+/// The buffer object
+pub mod buffer;
+
 /// The common things for you to use
 pub mod prelude {
 	pub use vkcore_rs::*;
 	pub use crate::init::*;
+	pub use crate::context::*;
+	pub use crate::buffer::*;
 }
 
 #[cfg(test)]
