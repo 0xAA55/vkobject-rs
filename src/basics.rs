@@ -114,6 +114,30 @@ impl VulkanDevice {
 		})
 	}
 
+	pub fn choose_gpu(vkcore: Rc<VkCore>, flags: VkQueueFlags) -> Result<Self, VulkanError> {
+		for gpu in VulkanGpuInfo::get_gpu_info(vkcore.clone())?.iter() {
+			let index = gpu.get_queue_family_index(flags);
+			if index != u32::MAX {
+				return Ok(Self::new(vkcore, gpu.clone(), index)?);
+			}
+		}
+		Err(VulkanError::ChooseGpuFailed)
+	}
+
+	pub fn choose_gpu_with_graphic(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32)
+	}
+
+	pub fn choose_gpu_with_compute(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
+	}
+
+	pub fn choose_gpu_with_graphic_and_compute(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore,
+			VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 |
+			VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
+	}
+
 	pub fn get_gpu(&self) -> &VulkanGpuInfo {
 		&self.gpu
 	}
