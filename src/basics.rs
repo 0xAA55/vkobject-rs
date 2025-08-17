@@ -22,8 +22,8 @@ impl From<VkError> for VulkanError {
 #[derive(Debug, Clone)]
 pub struct VulkanGpuInfo {
 	gpu: VkPhysicalDevice,
-	queue_families: Vec<VkQueueFamilyProperties>,
 	properties: VkPhysicalDeviceProperties,
+	queue_families: Vec<VkQueueFamilyProperties>,
 	extension_properties: Vec<VkExtensionProperties>,
 }
 
@@ -36,13 +36,13 @@ impl VulkanGpuInfo {
 		unsafe {gpus.set_len(gpu_count as usize)};
 		let mut ret = Vec::<VulkanGpuInfo>::with_capacity(gpu_count as usize);
 		for gpu in gpus {
+			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
+			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
 			let mut num_queue_families = 0u32;
 			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut num_queue_families, null_mut())?;
 			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(num_queue_families as usize);
 			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut num_queue_families, queue_families.as_mut_ptr())?;
 			unsafe {queue_families.set_len(num_queue_families as usize)};
-			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
-			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
 			let mut num_extension_properties = 0u32;
 			vkcore.vkEnumerateDeviceExtensionProperties(gpu, null(), &mut num_extension_properties, null_mut())?;
 			let mut extension_properties = Vec::<VkExtensionProperties>::with_capacity(num_extension_properties as usize);
@@ -50,8 +50,8 @@ impl VulkanGpuInfo {
 			unsafe {extension_properties.set_len(num_extension_properties as usize)};
 			ret.push(VulkanGpuInfo {
 				gpu,
-				queue_families,
 				properties,
+				queue_families,
 				extension_properties,
 			});
 		}
