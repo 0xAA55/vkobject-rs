@@ -13,23 +13,23 @@ pub struct VulkanGpuInfo {
 impl VulkanGpuInfo{
 	pub fn get_gpu_info(vkcore: Rc<VkCore>) -> Result<Vec<VulkanGpuInfo>, VkError> {
 		let mut gpu_count = 0u32;
-		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, null_mut::<_>())?;
+		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, null_mut())?;
 		let mut gpus = Vec::<VkPhysicalDevice>::with_capacity(gpu_count as usize);
 		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, &mut gpus[0])?;
 		unsafe {gpus.set_len(gpu_count as usize)};
 		let mut ret = Vec::<VulkanGpuInfo>::with_capacity(gpu_count as usize);
 		for gpu in gpus {
 			let mut queue_family_count = 0u32;
-			vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, null())?;
+			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, null_mut())?;
 			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(queue_family_count as usize);
-			vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, &mut queue_families[0])?;
+			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, &mut queue_families[0])?;
 			unsafe {queue_families.set_len(queue_family_count as usize)};
 			ret.push(VulkanGpuInfo {
 				gpu,
 				queue_families,
 			});
 		}
-		ret
+		Ok(ret)
 	}
 
 	pub fn get_gpu(&self) -> VkPhysicalDevice {
@@ -66,19 +66,32 @@ impl VulkanDevice {
 			queueCount: 1,
 			pQueuePriorities: priorities.as_ptr(),
 		};
+		let extensions = CStringArray::from_iter(vkcore.extensions.iter());
+		let device_create_info = VkDeviceCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			queueCreateInfoCount: 1,
+			pQueueCreateInfos: &queue_create_info as *const _,
+			enabledLayerCount: 0,
+			ppEnabledLayerNames: null(),
+			enabledExtensionCount: extensions.len() as u32,
+			ppEnabledExtensionNames: extensions.as_ptr(),
+			pEnabledFeatures: null(),
+		};
 
 		let mut device: VkDevice = null();
-		vkCreateDevice(gpu, &device_create_info, null(), &mut device)?;
+		vkcore.vkCreateDevice(gpu, &device_create_info, null(), &mut device)?;
 
-		Self {
+		Ok(Self {
 			vkcore,
 			device,
-		}
+		})
 	}
 }
 
 impl Drop for VulkanDevice {
 	fn drop(&mut self) {
-
+		self.vkcore.vkDestroyDevice(self.device, null()).unwrap();
 	}
 }
