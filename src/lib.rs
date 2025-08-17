@@ -44,7 +44,9 @@ mod tests {
 		glfw.set_swap_interval(SwapInterval::Adaptive);
 
 		let vkcore = Rc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 3, 0)));
-		dbg!(VulkanGpuInfo::get_gpu_info(vkcore.clone()).unwrap());
+		let device = Rc::new(VulkanDevice::choose_gpu_with_graphics(vkcore.clone()).unwrap());
+
+		dbg!(device);
 
 		let start_time = glfw.get_time();
 		while !window.should_close() {
