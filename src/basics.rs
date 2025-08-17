@@ -8,6 +8,18 @@ use std::{
 };
 
 #[derive(Debug, Clone)]
+pub enum VulkanError {
+	VkError(VkError),
+	ChooseGpuFailed,
+}
+
+impl From<VkError> for VulkanError {
+	fn from(e: VkError) -> Self {
+		Self::VkError(e)
+	}
+}
+
+#[derive(Debug, Clone)]
 pub struct VulkanGpuInfo {
 	gpu: VkPhysicalDevice,
 	queue_families: Vec<VkQueueFamilyProperties>,
