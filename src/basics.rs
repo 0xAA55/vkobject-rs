@@ -10,36 +10,6 @@ pub struct VulkanGpuInfo {
 	queue_families: Vec<VkQueueFamilyProperties>,
 }
 
-impl VkQueueFamilyProperties {
-	pub fn can_graphic(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT) == VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT
-	}
-	pub fn can_compute(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT) == VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT
-	}
-	pub fn can_transfer(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT) == VkQueueFlagBits::VK_QUEUE_TRANSFER_BIT
-	}
-	pub fn can_sparse_binding(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_SPARSE_BINDING_BIT) == VkQueueFlagBits::VK_QUEUE_SPARSE_BINDING_BIT
-	}
-	pub fn can_protected(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_PROTECTED_BIT) == VkQueueFlagBits::VK_QUEUE_PROTECTED_BIT
-	}
-	pub fn can_video_decode(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_VIDEO_DECODE_BIT_KHR) == VkQueueFlagBits::VK_QUEUE_VIDEO_DECODE_BIT_KHR
-	}
-	pub fn can_video_encode(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_VIDEO_ENCODE_BIT_KHR) == VkQueueFlagBits::VK_QUEUE_VIDEO_ENCODE_BIT_KHR
-	}
-	pub fn can_optical_flow(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_OPTICAL_FLOW_BIT_NV) == VkQueueFlagBits::VK_QUEUE_OPTICAL_FLOW_BIT_NV
-	}
-	pub fn can_data_graph_flow(&self) -> bool {
-		(self.queueFlags & VkQueueFlagBits::VK_QUEUE_DATA_GRAPH_BIT_ARM) == VkQueueFlagBits::VK_QUEUE_DATA_GRAPH_BIT_ARM
-	}
-}
-
 impl VulkanGpuInfo{
 	pub fn get_gpu_info(vkcore: Rc<VkCore>) -> Result<Vec<VulkanGpuInfo>, VkError> {
 		let mut gpu_count = 0u32;
