@@ -101,7 +101,10 @@ impl VulkanDevice {
 			queueCount: 1,
 			pQueuePriorities: priorities.as_ptr(),
 		};
-		let extensions = CStringArray::from_iter(vkcore.extensions.iter());
+		let mut extensions = Vec::<*const i8>::with_capacity(gpu.extension_properties.len());
+		for ext in gpu.extension_properties.iter() {
+			extensions.push(&ext.extensionName[0] as *const _);
+		}
 		let device_create_info = VkDeviceCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			pNext: null(),
