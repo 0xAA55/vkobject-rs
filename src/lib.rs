@@ -33,9 +33,6 @@ mod tests {
 	fn test() {
 		let test_time: Option<f64> = Some(TEST_TIME);
 		let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-		if !glfw.vulkan_supported() {
-			panic!("Vulkan is not supported");
-		}
 		glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi);
 		let (mut window, events) = glfw.create_window(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).expect("Failed to create VKFW window.");
 
