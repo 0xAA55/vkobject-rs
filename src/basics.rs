@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
 	ptr::{null, null_mut},
 	rc::Rc,
@@ -62,11 +63,12 @@ impl VulkanGpuInfo{
 
 pub struct VulkanDevice {
 	pub vkcore: Rc<VkCore>,
-	pub device: VkDevice,
+	gpu: VulkanGpuInfo,
+	device: VkDevice,
 }
 
 impl VulkanDevice {
-	pub fn new(vkcore: Rc<VkCore>, gpu: VkPhysicalDevice, queue_family_index: u32) -> Result<Self, VkError> {
+	pub fn new(vkcore: Rc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VkError> {
 		let priorities = vec![1.0];
 		let queue_create_info = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -91,12 +93,30 @@ impl VulkanDevice {
 		};
 
 		let mut device: VkDevice = null();
-		vkcore.vkCreateDevice(gpu, &device_create_info, null(), &mut device)?;
+		vkcore.vkCreateDevice(gpu.get_gpu(), &device_create_info, null(), &mut device)?;
 
 		Ok(Self {
 			vkcore,
+			gpu,
 			device,
 		})
+	}
+
+	pub fn get_gpu(&self) -> &VulkanGpuInfo {
+		&self.gpu
+	}
+
+	pub fn get_device(&self) -> VkDevice {
+		self.device
+	}
+}
+
+impl Debug for VulkanDevice {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanDevice")
+		.field("gpu", &self.gpu)
+		.field("device", &self.device)
+		.finish()
 	}
 }
 
