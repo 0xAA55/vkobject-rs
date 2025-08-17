@@ -24,6 +24,9 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
+	use std::{
+		rc::Rc,
+	};
 	use glfw::*;
 	use crate::prelude::*;
 
@@ -40,7 +43,8 @@ mod tests {
 		window.make_current();
 		glfw.set_swap_interval(SwapInterval::Adaptive);
 
-		let vkcore = create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 3, 0));
+		let vkcore = Rc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 3, 0)));
+		dbg!(VulkanGpuInfo::get_gpu_info(vkcore.clone()).unwrap());
 
 		let start_time = glfw.get_time();
 		while !window.should_close() {
