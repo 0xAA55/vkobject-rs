@@ -31,14 +31,14 @@ impl VulkanGpuInfo {
 		let mut gpu_count = 0u32;
 		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, null_mut())?;
 		let mut gpus = Vec::<VkPhysicalDevice>::with_capacity(gpu_count as usize);
-		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, &mut gpus[0])?;
+		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, gpus.as_mut_ptr())?;
 		unsafe {gpus.set_len(gpu_count as usize)};
 		let mut ret = Vec::<VulkanGpuInfo>::with_capacity(gpu_count as usize);
 		for gpu in gpus {
 			let mut queue_family_count = 0u32;
 			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, null_mut())?;
 			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(queue_family_count as usize);
-			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, &mut queue_families[0])?;
+			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, queue_families.as_mut_ptr())?;
 			unsafe {queue_families.set_len(queue_family_count as usize)};
 			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
