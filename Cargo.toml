@@ -19,3 +19,6 @@ glfw = { version = "0.59.0", features = ["image"] }
 
 [features]
 glfw = ["dep:glfw"]
+
+[profile.release]
+lto = "fat"
