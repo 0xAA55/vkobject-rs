@@ -124,7 +124,7 @@ impl VulkanDevice {
 		Err(VulkanError::ChooseGpuFailed)
 	}
 
-	pub fn choose_gpu_with_graphic(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+	pub fn choose_gpu_with_graphics(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32)
 	}
 
@@ -132,7 +132,7 @@ impl VulkanDevice {
 		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
 	}
 
-	pub fn choose_gpu_with_graphic_and_compute(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+	pub fn choose_gpu_with_graphics_and_compute(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore,
 			VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 |
 			VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
