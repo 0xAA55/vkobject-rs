@@ -24,6 +24,7 @@ pub struct VulkanGpuInfo {
 	gpu: VkPhysicalDevice,
 	queue_families: Vec<VkQueueFamilyProperties>,
 	properties: VkPhysicalDeviceProperties,
+	extension_properties: Vec<VkExtensionProperties>,
 }
 
 impl VulkanGpuInfo {
@@ -35,17 +36,23 @@ impl VulkanGpuInfo {
 		unsafe {gpus.set_len(gpu_count as usize)};
 		let mut ret = Vec::<VulkanGpuInfo>::with_capacity(gpu_count as usize);
 		for gpu in gpus {
-			let mut queue_family_count = 0u32;
-			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, null_mut())?;
-			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(queue_family_count as usize);
-			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, queue_families.as_mut_ptr())?;
-			unsafe {queue_families.set_len(queue_family_count as usize)};
+			let mut num_queue_families = 0u32;
+			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut num_queue_families, null_mut())?;
+			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(num_queue_families as usize);
+			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut num_queue_families, queue_families.as_mut_ptr())?;
+			unsafe {queue_families.set_len(num_queue_families as usize)};
 			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
+			let mut num_extension_properties = 0u32;
+			vkcore.vkEnumerateDeviceExtensionProperties(gpu, null(), &mut num_extension_properties, null_mut())?;
+			let mut extension_properties = Vec::<VkExtensionProperties>::with_capacity(num_extension_properties as usize);
+			vkcore.vkEnumerateDeviceExtensionProperties(gpu, null(), &mut num_extension_properties, extension_properties.as_mut_ptr())?;
+			unsafe {extension_properties.set_len(num_extension_properties as usize)};
 			ret.push(VulkanGpuInfo {
 				gpu,
 				queue_families,
 				properties,
+				extension_properties,
 			});
 		}
 		Ok(ret)
@@ -70,6 +77,10 @@ impl VulkanGpuInfo {
 
 	pub fn get_properties(&self) -> &VkPhysicalDeviceProperties {
 		&self.properties
+	}
+
+	pub fn get_extension_properties(&self) -> &[VkExtensionProperties] {
+		self.extension_properties.as_ref()
 	}
 }
 
