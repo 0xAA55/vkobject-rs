@@ -14,7 +14,7 @@ pub struct VulkanGpuInfo {
 	properties: VkPhysicalDeviceProperties,
 }
 
-impl VulkanGpuInfo{
+impl VulkanGpuInfo {
 	pub fn get_gpu_info(vkcore: Rc<VkCore>) -> Result<Vec<VulkanGpuInfo>, VkError> {
 		let mut gpu_count = 0u32;
 		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, null_mut())?;
