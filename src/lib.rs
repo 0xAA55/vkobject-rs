@@ -1,6 +1,9 @@
 
 #![allow(unused_imports)]
 
+/// The common helper library
+pub mod common;
+
 /// The VkCore initializer
 pub mod init;
 
@@ -13,6 +16,7 @@ pub mod buffer;
 /// The common things for you to use
 pub mod prelude {
 	pub use vkcore_rs::*;
+	pub use crate::common::*;
 	pub use crate::init::*;
 	pub use crate::basics::*;
 	pub use crate::buffer::*;
