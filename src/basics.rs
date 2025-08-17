@@ -1,13 +1,16 @@
 
 use crate::prelude::*;
 use std::{
+	mem::MaybeUninit,
 	ptr::{null, null_mut},
 	rc::Rc,
 };
 
+#[derive(Debug, Clone)]
 pub struct VulkanGpuInfo {
 	gpu: VkPhysicalDevice,
 	queue_families: Vec<VkQueueFamilyProperties>,
+	properties: VkPhysicalDeviceProperties,
 }
 
 impl VulkanGpuInfo{
@@ -24,9 +27,12 @@ impl VulkanGpuInfo{
 			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(queue_family_count as usize);
 			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut queue_family_count, &mut queue_families[0])?;
 			unsafe {queue_families.set_len(queue_family_count as usize)};
+			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
+			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
 			ret.push(VulkanGpuInfo {
 				gpu,
 				queue_families,
+				properties,
 			});
 		}
 		Ok(ret)
@@ -47,6 +53,10 @@ impl VulkanGpuInfo{
 			}
 		}
 		u32::MAX
+	}
+
+	pub fn get_properties(&self) -> &VkPhysicalDeviceProperties {
+		&self.properties
 	}
 }
 
