@@ -603,6 +603,88 @@ impl Drop for VulkanSwapchain {
 		vkcore.vkDestroySwapchainKHR(states.get_vk_device(), self.swapchain, null()).unwrap();
 	}
 }
+
+#[derive(Debug)]
+pub struct VulkanCommandPool {
+	pub states: Weak<RefCell<VulkanStates>>,
+	pool: VkCommandPool,
+	cmd_buffers: Vec<VkCommandBuffer>,
+	fences: Vec<VkFence>,
+}
+
+impl VulkanCommandPool {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, max_concurrent_frames: usize) -> Result<Self, VkError> {
+		let vk_device = device.get_vk_device();
+		let pool_ci = VkCommandPoolCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
+			pNext: null(),
+			queueFamilyIndex: device.queue_family_index,
+			flags: VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT as u32,
+		};
+		let mut pool: VkCommandPool = null();
+		vkcore.vkCreateCommandPool(vk_device, &pool_ci, null(), &mut pool)?;
+		let cmd_buffers_ci = VkCommandBufferAllocateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO,
+			pNext: null(),
+			commandPool: pool,
+			level: VkCommandBufferLevel::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
+			commandBufferCount: max_concurrent_frames as u32,
+		};
+		let mut cmd_buffers = Vec::<VkCommandBuffer>::with_capacity(max_concurrent_frames);
+		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, cmd_buffers.as_mut_ptr())?;
+		unsafe {cmd_buffers.set_len(max_concurrent_frames)};
+		let mut fences = Vec::<VkFence>::with_capacity(max_concurrent_frames);
+		unsafe {fences.set_len(max_concurrent_frames)};
+		for fence in fences.iter_mut() {
+			let fence_ci = VkFenceCreateInfo {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+				pNext: null(),
+				flags: VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT as u32,
+			};
+			vkcore.vkCreateFence(vk_device, &fence_ci, null(), fence)?;
+		}
+		Ok(Self{
+			states: Weak::new(),
+			pool,
+			cmd_buffers,
+			fences,
+		})
+	}
+
+	/// Retrieve the command pool
+	pub fn get_pool(&self) -> VkCommandPool {
+		self.pool
+	}
+
+	/// Get the command buffers
+	pub fn get_cmd_buffers(&self) -> &[VkCommandBuffer] {
+		self.cmd_buffers.as_ref()
+	}
+
+	/// Get the command buffers as mutable reference
+	pub fn get_cmd_buffers_mut(&mut self) -> &mut [VkCommandBuffer] {
+		self.cmd_buffers.as_mut()
+	}
+
+	/// Get the fences
+	pub fn get_fences(&self) -> &[VkFence] {
+		self.fences.as_ref()
+	}
+}
+
+impl Drop for VulkanCommandPool {
+	fn drop(&mut self) {
+		let binding = self.states.upgrade().unwrap();
+		let states = binding.borrow_mut();
+		let vkcore = &states.vkcore;
+		let device = states.get_vk_device();
+		for fence in self.fences.iter() {
+			vkcore.vkDestroyFence(device, *fence, null()).unwrap();
+		}
+		vkcore.vkDestroyCommandPool(states.get_vk_device(), self.pool, null()).unwrap();
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct VulkanStates {
 	pub vkcore: Rc<VkCore>,
