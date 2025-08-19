@@ -187,6 +187,12 @@ impl Debug for VulkanDevice {
 	}
 }
 
+impl Clone for VulkanDevice {
+	fn clone(&self) -> Self {
+		Self::new(self.vkcore.clone(), self.gpu.clone(), self.queue_family_index).unwrap()
+	}
+}
+
 impl Drop for VulkanDevice {
 	fn drop(&mut self) {
 		self.vkcore.vkDestroyDevice(self.device, null()).unwrap();
