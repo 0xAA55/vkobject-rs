@@ -166,7 +166,14 @@ impl VulkanDevice {
 		self.gpu.get_vk_physical_device()
 	}
 
+	pub fn get_vk_device(&self) -> VkDevice {
 		self.device
+	}
+
+	pub fn get_supported_by_surface(&self, queue_index: usize, surface: VkSurfaceKHR) -> Result<bool, VkError> {
+		let mut result: VkBool32 = 0;
+		self.vkcore.vkGetPhysicalDeviceSurfaceSupportKHR(self.get_vk_physical_device(), queue_index as u32, surface, &mut result)?;
+		Ok(result != 0)
 	}
 }
 
