@@ -131,7 +131,7 @@ impl VulkanDevice {
 	}
 
 	pub fn choose_gpu(vkcore: Rc<VkCore>, flags: VkQueueFlags) -> Result<Self, VulkanError> {
-		for gpu in VulkanGpuInfo::get_gpu_info(vkcore.clone())?.iter() {
+		for gpu in VulkanGpuInfo::get_gpu_info(&vkcore)?.iter() {
 			let index = gpu.get_queue_family_index(flags);
 			if index != u32::MAX {
 				return Ok(Self::new(vkcore, gpu.clone(), index)?);
