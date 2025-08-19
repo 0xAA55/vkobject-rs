@@ -6,7 +6,7 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	mem::{MaybeUninit, transmute},
 	ptr::{null, null_mut},
-	rc::{Rc, Weak},
+	sync::{Arc, Weak},
 };
 
 #[derive(Debug, Clone)]
@@ -88,14 +88,14 @@ impl VulkanGpuInfo {
 }
 
 pub struct VulkanDevice {
-	pub vkcore: Rc<VkCore>,
+	pub vkcore: Arc<VkCore>,
 	queue_family_index: u32,
 	gpu: VulkanGpuInfo,
 	device: VkDevice,
 }
 
 impl VulkanDevice {
-	pub fn new(vkcore: Rc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VkError> {
+	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VkError> {
 		let priorities = vec![1.0];
 		let queue_create_info = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -133,7 +133,7 @@ impl VulkanDevice {
 		})
 	}
 
-	pub fn choose_gpu(vkcore: Rc<VkCore>, flags: VkQueueFlags) -> Result<Self, VulkanError> {
+	pub fn choose_gpu(vkcore: Arc<VkCore>, flags: VkQueueFlags) -> Result<Self, VulkanError> {
 		for gpu in VulkanGpuInfo::get_gpu_info(&vkcore)?.iter() {
 			let index = gpu.get_queue_family_index(flags);
 			if index != u32::MAX {
@@ -143,15 +143,15 @@ impl VulkanDevice {
 		Err(VulkanError::ChooseGpuFailed)
 	}
 
-	pub fn choose_gpu_with_graphics(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+	pub fn choose_gpu_with_graphics(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32)
 	}
 
-	pub fn choose_gpu_with_compute(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+	pub fn choose_gpu_with_compute(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
 	}
 
-	pub fn choose_gpu_with_graphics_and_compute(vkcore: Rc<VkCore>) -> Result<Self, VulkanError> {
+	pub fn choose_gpu_with_graphics_and_compute(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore,
 			VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 |
 			VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
@@ -218,15 +218,15 @@ pub struct VulkanSurface {
 }
 
 impl VulkanSurface {
-	pub fn new_from(states: Rc<VulkanStates>, surface: VkSurfaceKHR, format: VkSurfaceFormatKHR) -> Self {
+	pub fn new_from(states: Arc<VulkanStates>, surface: VkSurfaceKHR, format: VkSurfaceFormatKHR) -> Self {
 		Self {
-			states: Rc::downgrade(&states),
+			states: Arc::downgrade(&states),
 			surface,
 			format,
 		}
 	}
 	#[allow(dead_code)]
-	fn new_from_ci<T>(function_name: &'static str, states: Rc<VulkanStates>, vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Self, VulkanError> {
+	fn new_from_ci<T>(function_name: &'static str, states: Arc<VulkanStates>, vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Self, VulkanError> {
 		let vkcore = &states.vkcore;
 		let device = &states.device;
 		let gpu_info = &device.gpu;
@@ -287,13 +287,13 @@ impl VulkanSurface {
 		Ok(Self::new_from(states, surface, selected_format))
 	}
 	#[cfg(any(feature = "glfw", test))]
-	pub fn new(states: Rc<VulkanStates>, window: &glfw::PWindow) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, window: &glfw::PWindow) -> Result<Self, VkError> {
 		let vkcore = &states.vkcore;
 		let mut surface: VkSurfaceKHR = null();
 		Self::new_from_ci("vkCreateWindowSurfaceGLFW", states, vkCreateWindowSurfaceGLFW, window)
 	}
 	#[cfg(feature = "win32_khr")]
-	pub fn new(states: Rc<VulkanStates>, wnd: HWND, hinstance: HINSTANCE) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, wnd: HWND, hinstance: HINSTANCE) -> Result<Self, VkError> {
 		let surface_ci = VkWin32SurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -304,7 +304,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateWin32SurfaceKHR", states, vkCreateWin32SurfaceKHR, &surface_ci)
 	}
 	#[cfg(feature = "android_khr")]
-	pub fn new(states: Rc<VulkanStates>, window: *const ANativeWindow) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, window: *const ANativeWindow) -> Result<Self, VkError> {
 		let surface_ci = VkAndroidSurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -314,7 +314,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateAndroidSurfaceKHR", states, vkCreateAndroidSurfaceKHR, &surface_ci)
 	}
 	#[cfg(feature = "ios_mvk")]
-	pub fn new(states: Rc<VulkanStates>, view: *const c_void) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, view: *const c_void) -> Result<Self, VkError> {
 		let surface_ci = VkIOSSurfaceCreateInfoMVK {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IOS_SURFACE_CREATE_INFO_MVK,
 			pNext: null(),
@@ -324,7 +324,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateIOSSurfaceMVK", states, vkCreateIOSSurfaceMVK, &surface_ci)
 	}
 	#[cfg(feature = "macos_mvk")]
-	pub fn new(states: Rc<VulkanStates>, view: *const c_void) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, view: *const c_void) -> Result<Self, VkError> {
 		let surface_ci = VkMacOSSurfaceCreateInfoMVK {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
 			pNext: null(),
@@ -334,7 +334,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateMacOSSurfaceMVK", states, vkCreateMacOSSurfaceMVK, &surface_ci)
 	}
 	#[cfg(feature = "metal_ext")]
-	pub fn new(states: Rc<VulkanStates>, metal_layer: *const CAMetalLayer) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, metal_layer: *const CAMetalLayer) -> Result<Self, VkError> {
 		let surface_ci = VkMetalSurfaceCreateInfoEXT {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
 			pNext: null(),
@@ -344,7 +344,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateMetalSurfaceEXT", states, vkCreateMetalSurfaceEXT, &surface_ci)
 	}
 	#[cfg(feature = "wayland_khr")]
-	pub fn new(states: Rc<VulkanStates>, display: *const c_void, surface: *const c_void) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, display: *const c_void, surface: *const c_void) -> Result<Self, VkError> {
 		let surface_ci = VkWaylandSurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -355,7 +355,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateWaylandSurfaceKHR", states, vkCreateWaylandSurfaceKHR, &surface_ci)
 	}
 	#[cfg(feature = "xcb_khr")]
-	pub fn new(states: Rc<VulkanStates>, connection: *const c_void, window: xcb_window_t) -> Result<Self, VkError> {
+	pub fn new(states: Arc<VulkanStates>, connection: *const c_void, window: xcb_window_t) -> Result<Self, VkError> {
 		let surface_ci = VkXcbSurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -386,7 +386,7 @@ impl Drop for VulkanSurface {
 #[derive(Debug)]
 pub struct VulkanSwapchain {
 	pub states: Weak<RefCell<VulkanStates>>,
-	surface: Rc<VulkanSurface>,
+	surface: Arc<VulkanSurface>,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
 	present_mode: VkPresentModeKHR,
@@ -395,7 +395,7 @@ pub struct VulkanSwapchain {
 }
 
 impl VulkanSwapchain {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface: Rc<VulkanSurface>, width: u32, height: u32, vsync: bool) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool) -> Result<Self, VkError> {
 		let vk_device = device.get_vk_device();
 		let vk_phy_dev = device.get_vk_physical_device();
 		let vk_surface = surface.get_vk_surface();
@@ -687,24 +687,24 @@ impl Drop for VulkanCommandPool {
 
 #[derive(Debug, Clone)]
 pub struct VulkanStates {
-	pub vkcore: Rc<VkCore>,
-	pub device: Rc<VulkanDevice>,
-	pub surface: Rc<VulkanSurface>,
-	pub swapchain: Rc<RefCell<VulkanSwapchain>>,
-	pub cmdpool: Rc<RefCell<VulkanCommandPool>>,
+	pub vkcore: Arc<VkCore>,
+	pub device: Arc<VulkanDevice>,
+	pub surface: Arc<VulkanSurface>,
+	pub swapchain: Arc<RefCell<VulkanSwapchain>>,
+	pub cmdpool: Arc<RefCell<VulkanCommandPool>>,
 }
 
 impl VulkanStates{
 	/// Create a new `VulkanStates`
-	pub fn new(vkcore: Rc<VkCore>, device: Rc<VulkanDevice>, surface: Rc<VulkanSurface>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize) -> Result<Rc<RefCell<Self>>, VulkanError> {
-		let ret = Rc::new(RefCell::new(Self{
+	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize) -> Result<Arc<RefCell<Self>>, VulkanError> {
+		let ret = Arc::new(RefCell::new(Self{
 			vkcore: vkcore.clone(),
 			device: device.clone(),
 			surface: surface.clone(),
-			swapchain: Rc::new(RefCell::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync)?)),
-			cmdpool: Rc::new(RefCell::new(VulkanCommandPool::new(&vkcore, &device, max_concurrent_frames)?)),
+			swapchain: Arc::new(RefCell::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync)?)),
+			cmdpool: Arc::new(RefCell::new(VulkanCommandPool::new(&vkcore, &device, max_concurrent_frames)?)),
 		}));
-		let weak = Rc::downgrade(&ret);
+		let weak = Arc::downgrade(&ret);
 		if true {
 			let borrow = ret.borrow_mut();
 			borrow.swapchain.borrow_mut().states = weak.clone();
