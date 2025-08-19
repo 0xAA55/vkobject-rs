@@ -58,7 +58,7 @@ impl VulkanGpuInfo {
 		Ok(ret)
 	}
 
-	pub fn get_gpu(&self) -> VkPhysicalDevice {
+	pub fn get_vk_physical_device(&self) -> VkPhysicalDevice {
 		self.gpu
 	}
 
@@ -119,7 +119,7 @@ impl VulkanDevice {
 		};
 
 		let mut device: VkDevice = null();
-		vkcore.vkCreateDevice(gpu.get_gpu(), &device_create_info, null(), &mut device)?;
+		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_create_info, null(), &mut device)?;
 
 		Ok(Self {
 			vkcore,
@@ -156,7 +156,10 @@ impl VulkanDevice {
 		&self.gpu
 	}
 
-	pub fn get_device(&self) -> VkDevice {
+	pub fn get_vk_physical_device(&self) -> VkPhysicalDevice {
+		self.gpu.get_vk_physical_device()
+	}
+
 		self.device
 	}
 }
