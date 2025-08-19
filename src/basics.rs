@@ -28,13 +28,13 @@ pub struct VulkanGpuInfo {
 }
 
 impl VulkanGpuInfo {
-	pub fn get_gpu_info(vkcore: Rc<VkCore>) -> Result<Vec<VulkanGpuInfo>, VkError> {
-		let mut gpu_count = 0u32;
-		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, null_mut())?;
-		let mut gpus = Vec::<VkPhysicalDevice>::with_capacity(gpu_count as usize);
-		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut gpu_count, gpus.as_mut_ptr())?;
-		unsafe {gpus.set_len(gpu_count as usize)};
-		let mut ret = Vec::<VulkanGpuInfo>::with_capacity(gpu_count as usize);
+	pub fn get_gpu_info(vkcore: &VkCore) -> Result<Vec<VulkanGpuInfo>, VkError> {
+		let mut num_gpus = 0u32;
+		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut num_gpus, null_mut())?;
+		let mut gpus = Vec::<VkPhysicalDevice>::with_capacity(num_gpus as usize);
+		vkcore.vkEnumeratePhysicalDevices(vkcore.instance, &mut num_gpus, gpus.as_mut_ptr())?;
+		unsafe {gpus.set_len(num_gpus as usize)};
+		let mut ret = Vec::<VulkanGpuInfo>::with_capacity(num_gpus as usize);
 		for gpu in gpus {
 			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
