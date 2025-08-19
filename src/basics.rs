@@ -1,11 +1,12 @@
 
 use crate::prelude::*;
 use std::{
+	cell::RefCell,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
-	mem::MaybeUninit,
+	mem::{MaybeUninit, transmute},
 	ptr::{null, null_mut},
-	rc::Rc,
+	rc::{Rc, Weak},
 };
 
 #[derive(Debug, Clone)]
@@ -382,3 +383,276 @@ impl Drop for VulkanSurface {
 	}
 }
 
+#[derive(Debug)]
+pub struct VulkanSwapchain {
+	pub states: Weak<RefCell<VulkanStates>>,
+	surface: Rc<VulkanSurface>,
+	swapchain: VkSwapchainKHR,
+	swapchain_extent: VkExtent2D,
+	present_mode: VkPresentModeKHR,
+	images: Vec<VkImage>,
+	image_views: Vec<VkImageView>,
+}
+
+impl VulkanSwapchain {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface: Rc<VulkanSurface>, width: u32, height: u32, vsync: bool) -> Result<Self, VkError> {
+		let vk_device = device.get_vk_device();
+		let vk_phy_dev = device.get_vk_physical_device();
+		let vk_surface = surface.get_vk_surface();
+
+		let mut surf_caps: VkSurfaceCapabilitiesKHR  = unsafe {MaybeUninit::zeroed().assume_init()};
+		vkcore.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(vk_phy_dev, vk_surface, &mut surf_caps)?;
+
+		let swapchain_extent = if surf_caps.currentExtent.width == u32::MAX {
+			VkExtent2D {
+				width,
+				height,
+			}
+		} else {
+			surf_caps.currentExtent
+		};
+
+		let mut num_present_mode = 0u32;
+		vkcore.vkGetPhysicalDeviceSurfacePresentModesKHR(vk_phy_dev, vk_surface, &mut num_present_mode, null_mut())?;
+		let mut present_modes = Vec::<VkPresentModeKHR>::with_capacity(num_present_mode as usize);
+		vkcore.vkGetPhysicalDeviceSurfacePresentModesKHR(vk_phy_dev, vk_surface, &mut num_present_mode, present_modes.as_mut_ptr())?;
+		unsafe {present_modes.set_len(num_present_mode as usize)};
+
+		// Select a present mode for the swapchain
+		let mut present_mode = VkPresentModeKHR::VK_PRESENT_MODE_FIFO_KHR;
+
+		// If v-sync is not requested, try to find a mailbox mode
+		// It's the lowest latency non-tearing present mode available
+		if !vsync {
+			for mode in present_modes.iter() {
+				if *mode == VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR {
+					present_mode = *mode;
+					break;
+				} else if *mode == VkPresentModeKHR::VK_PRESENT_MODE_IMMEDIATE_KHR {
+					present_mode = *mode;
+					break;
+				}
+			}
+		}
+
+		// Determine the number of images
+		let mut desired_num_of_swapchain_images = surf_caps.minImageCount + 1;
+		if surf_caps.maxImageCount > 0 && desired_num_of_swapchain_images > surf_caps.maxImageCount {
+			desired_num_of_swapchain_images = surf_caps.maxImageCount;
+		}
+
+		// Find the transformation of the surface
+		let pre_transform: VkSurfaceTransformFlagBitsKHR = unsafe {transmute(if (surf_caps.supportedTransforms as u32 &
+			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as u32) ==
+			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as u32 {
+			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR
+		} else {
+			surf_caps.currentTransform
+		} as u32)};
+
+		// Find a supported composite alpha format (not all devices support alpha opaque)
+		let mut composite_alpha = VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
+		const COMPOSITE_ALPHA_FLAGS: [VkCompositeAlphaFlagBitsKHR; 4] = [
+			VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR,
+			VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_PRE_MULTIPLIED_BIT_KHR,
+			VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_POST_MULTIPLIED_BIT_KHR,
+			VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
+		];
+		for flag in COMPOSITE_ALPHA_FLAGS.iter() {
+			if (surf_caps.supportedCompositeAlpha as u32 & *flag as u32) == *flag as u32 {
+				composite_alpha = *flag;
+				break;
+			}
+		}
+
+		let swapchain_ci = VkSwapchainCreateInfoKHR {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SWAPCHAIN_CREATE_INFO_KHR,
+			pNext: null(),
+			flags: 0,
+			surface: vk_surface,
+			minImageCount: desired_num_of_swapchain_images,
+			imageFormat: surface.format.format,
+			imageColorSpace: surface.format.colorSpace,
+			imageExtent: swapchain_extent,
+			imageArrayLayers: 0,
+			imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as u32 |
+				(surf_caps.supportedUsageFlags as u32 & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as u32) |
+				(surf_caps.supportedUsageFlags as u32 & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as u32)
+				as VkImageUsageFlags,
+			imageSharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
+			queueFamilyIndexCount: 0,
+			pQueueFamilyIndices: null(),
+			preTransform: pre_transform,
+			compositeAlpha: composite_alpha,
+			presentMode: present_mode,
+			clipped: VK_TRUE,
+			oldSwapchain: null(),
+		};
+
+		let mut swapchain: VkSwapchainKHR = null();
+		vkcore.vkCreateSwapchainKHR(vk_device, &swapchain_ci, null(), &mut swapchain)?;
+
+		let mut num_images = 0u32;
+		vkcore.vkGetSwapchainImagesKHR(vk_device, swapchain, &mut num_images, null_mut())?;
+		let mut images = Vec::<VkImage>::with_capacity(num_images as usize);
+		vkcore.vkGetSwapchainImagesKHR(vk_device, swapchain, &mut num_images, images.as_mut_ptr())?;
+		unsafe {images.set_len(num_images as usize)};
+		let mut image_views = Vec::<VkImageView>::with_capacity(images.len());
+		for image in images.iter() {
+			let vk_image_view_ci = VkImageViewCreateInfo {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+				pNext: null(),
+				flags: 0,
+				image: *image,
+				viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
+				format: surface.format.format,
+				components: VkComponentMapping {
+					r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_R,
+					g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_G,
+					b: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_B,
+					a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_A,
+				},
+				subresourceRange: VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as u32,
+					baseMipLevel: 0,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+			};
+			let mut image_view: VkImageView = null();
+			vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
+			image_views.push(image_view);
+		}
+
+		Ok(Self {
+			states: Weak::new(),
+			surface,
+			swapchain,
+			swapchain_extent,
+			present_mode,
+			images,
+			image_views,
+		})
+	}
+
+	pub fn get_surface(&self) -> &VulkanSurface {
+		&self.surface
+	}
+
+	pub fn get_vk_swapchain(&self) -> VkSwapchainKHR {
+		self.swapchain
+	}
+
+	pub fn get_swapchain_extent(&self) -> VkExtent2D {
+		self.swapchain_extent
+	}
+
+	pub fn get_present_mode(&self) -> VkPresentModeKHR {
+		self.present_mode
+	}
+
+	pub fn get_vk_images(&self) -> &[VkImage] {
+		self.images.as_ref()
+	}
+
+	pub fn get_vk_image_views(&self) -> &[VkImageView] {
+		self.image_views.as_ref()
+	}
+
+	pub fn acquire_next_image(&self, states: &VulkanStates, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
+		let vkcore = &states.vkcore;
+		let device = states.get_vk_device();
+		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, present_complete_semaphore, null(), image_index)
+	}
+
+	pub fn queue_present(&self, states: &VulkanStates, queue: VkQueue, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
+		let vkcore = &states.vkcore;
+		let num_wait_semaphores;
+		let wait_semaphores;
+		if wait_semaphore != VK_NULL_HANDLE as _ {
+			num_wait_semaphores = 1;
+			wait_semaphores = &wait_semaphore as *const _;
+		} else {
+			num_wait_semaphores = 0;
+			wait_semaphores = null();
+		}
+		let present_info = VkPresentInfoKHR {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
+			pNext: null(),
+			waitSemaphoreCount: num_wait_semaphores,
+			pWaitSemaphores: wait_semaphores,
+			swapchainCount: 1,
+			pSwapchains: &self.swapchain as *const _,
+			pImageIndices: &image_index as *const _,
+			pResults: null_mut(),
+		};
+		vkcore.vkQueuePresentKHR(queue, &present_info)
+	}
+}
+
+impl Drop for VulkanSwapchain {
+	fn drop(&mut self) {
+		let binding = self.states.upgrade().unwrap();
+		let states = binding.borrow_mut();
+		let vkcore = &states.vkcore;
+		let device = states.get_vk_device();
+		for image_view in self.image_views.iter() {
+			vkcore.vkDestroyImageView(device, *image_view, null()).unwrap();
+		}
+		vkcore.vkDestroySwapchainKHR(states.get_vk_device(), self.swapchain, null()).unwrap();
+	}
+}
+#[derive(Debug, Clone)]
+pub struct VulkanStates {
+	pub vkcore: Rc<VkCore>,
+	pub device: Rc<VulkanDevice>,
+	pub surface: Rc<VulkanSurface>,
+	pub swapchain: Rc<RefCell<VulkanSwapchain>>,
+	pub cmdpool: Rc<RefCell<VulkanCommandPool>>,
+}
+
+impl VulkanStates{
+	/// Create a new `VulkanStates`
+	pub fn new(vkcore: Rc<VkCore>, device: Rc<VulkanDevice>, surface: Rc<VulkanSurface>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize) -> Result<Rc<RefCell<Self>>, VulkanError> {
+		let ret = Rc::new(RefCell::new(Self{
+			vkcore: vkcore.clone(),
+			device: device.clone(),
+			surface: surface.clone(),
+			swapchain: Rc::new(RefCell::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync)?)),
+			cmdpool: Rc::new(RefCell::new(VulkanCommandPool::new(&vkcore, &device, max_concurrent_frames)?)),
+		}));
+		let weak = Rc::downgrade(&ret);
+		if true {
+			let borrow = ret.borrow_mut();
+			borrow.swapchain.borrow_mut().states = weak.clone();
+			borrow.cmdpool.borrow_mut().states = weak.clone();
+		}
+		Ok(ret)
+	}
+
+	/// Get the Vulkan instance
+	pub fn get_instance(&self) -> VkInstance {
+		self.vkcore.instance
+	}
+
+	/// Get the current physical device
+	pub fn get_vk_physical_device(&self) -> VkPhysicalDevice {
+		self.device.get_vk_physical_device()
+	}
+
+	/// Get the current device
+	pub fn get_vk_device(&self) -> VkDevice {
+		self.device.get_vk_device()
+	}
+
+	/// Get the current surface
+	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
+		self.surface.get_vk_surface()
+	}
+
+	/// Get the current surface format
+	pub fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
+		self.surface.get_vk_surface_format()
+	}
+}
