@@ -28,3 +28,13 @@ glfw = ["dep:glfw"]
 
 [profile.release]
 lto = "fat"
+
+[features]
+glfw = ["dep:glfw"]
+win32_khr = ["vkcore-rs/win32_khr"]
+android_khr = ["vkcore-rs/android_khr"]
+ios_mvk = ["vkcore-rs/ios_mvk"]
+macos_mvk = ["vkcore-rs/macos_mvk"]
+metal_ext = ["vkcore-rs/metal_ext"]
+wayland_khr = ["vkcore-rs/wayland_khr"]
+xcb_khr = ["vkcore-rs/xcb_khr"]
