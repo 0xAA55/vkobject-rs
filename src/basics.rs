@@ -86,6 +86,7 @@ impl VulkanGpuInfo {
 
 pub struct VulkanDevice {
 	pub vkcore: Rc<VkCore>,
+	queue_family_index: u32,
 	gpu: VulkanGpuInfo,
 	device: VkDevice,
 }
@@ -123,6 +124,7 @@ impl VulkanDevice {
 
 		Ok(Self {
 			vkcore,
+			queue_family_index,
 			gpu,
 			device,
 		})
@@ -152,6 +154,10 @@ impl VulkanDevice {
 			VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
 	}
 
+	pub fn get_queue_family_index(&self) -> u32 {
+		self.queue_family_index
+	}
+
 	pub fn get_gpu(&self) -> &VulkanGpuInfo {
 		&self.gpu
 	}
@@ -167,6 +173,7 @@ impl VulkanDevice {
 impl Debug for VulkanDevice {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanDevice")
+		.field("queue_family_index", &self.queue_family_index)
 		.field("gpu", &self.gpu)
 		.field("device", &self.device)
 		.finish()
