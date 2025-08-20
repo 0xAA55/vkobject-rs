@@ -445,7 +445,7 @@ impl VulkanSwapchain {
 		}
 
 		// Find the transformation of the surface
-		let pre_transform: VkSurfaceTransformFlagBitsKHR = unsafe {transmute(if (surf_caps.supportedTransforms as u32 &
+		let pre_transform: VkSurfaceTransformFlagBitsKHR = unsafe {transmute(if (surf_caps.supportedTransforms &
 			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as u32) ==
 			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as u32 {
 			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR
@@ -462,7 +462,7 @@ impl VulkanSwapchain {
 			VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
 		];
 		for flag in COMPOSITE_ALPHA_FLAGS.iter() {
-			if (surf_caps.supportedCompositeAlpha as u32 & *flag as u32) == *flag as u32 {
+			if (surf_caps.supportedCompositeAlpha & *flag as u32) == *flag as u32 {
 				composite_alpha = *flag;
 				break;
 			}
@@ -479,8 +479,8 @@ impl VulkanSwapchain {
 			imageExtent: swapchain_extent,
 			imageArrayLayers: if !is_vr {1} else {2},
 			imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as u32 |
-				(surf_caps.supportedUsageFlags as u32 & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as u32) |
-				(surf_caps.supportedUsageFlags as u32 & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as u32)
+				(surf_caps.supportedUsageFlags & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as u32) |
+				(surf_caps.supportedUsageFlags & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as u32)
 				as VkImageUsageFlags,
 			imageSharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
 			queueFamilyIndexCount: 0,
