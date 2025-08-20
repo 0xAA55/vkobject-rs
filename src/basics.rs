@@ -688,7 +688,7 @@ impl Drop for VulkanCommandPool {
 pub struct VulkanStates {
 	pub vkcore: Arc<VkCore>,
 	pub device: Arc<VulkanDevice>,
-	pub surface: Arc<VulkanSurface>,
+	pub surface: Arc<RefCell<VulkanSurface>>,
 	pub swapchain: Arc<RefCell<VulkanSwapchain>>,
 	pub cmdpool: Arc<RefCell<VulkanCommandPool>>,
 }
