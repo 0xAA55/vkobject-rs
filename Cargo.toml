@@ -17,7 +17,7 @@ image = "0.25.6"
 nalgebra-glm = "0.20.0"
 struct_iterable = "0.1.1"
 turbojpeg = { version = "1.3.3", features = ["image"] }
-vkcore-rs = "0.3.3"
+vkcore-rs = "0.3.6"
 glfw = { version = "0.59.0", features = ["vulkan", "image"], optional = true }
 
 [dev-dependencies]
