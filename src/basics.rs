@@ -1,4 +1,6 @@
 
+#![allow(clippy::uninit_vec)]
+#![allow(clippy::too_many_arguments)]
 use crate::prelude::*;
 use std::{
 	ffi::c_void,
