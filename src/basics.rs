@@ -533,8 +533,10 @@ impl VulkanSwapchain {
 		})
 	}
 
-	pub fn get_surface(&self) -> &VulkanSurface {
-		&self.surface
+	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
+		let binding = self.surface.upgrade().unwrap();
+		let surface = binding.borrow();
+		surface.get_vk_surface()
 	}
 
 	pub fn get_vk_swapchain(&self) -> VkSwapchainKHR {
