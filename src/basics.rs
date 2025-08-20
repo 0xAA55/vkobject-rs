@@ -391,7 +391,8 @@ pub struct VulkanSwapchain {
 }
 
 impl VulkanSwapchain {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_arc: Arc<RefCell<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<Self, VkError> {
+		let surface = surface_arc.borrow();
 		let vk_device = device.get_vk_device();
 		let vk_phy_dev = device.get_vk_physical_device();
 		let vk_surface = surface.get_vk_surface();
