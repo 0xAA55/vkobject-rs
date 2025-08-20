@@ -524,7 +524,7 @@ impl VulkanSwapchain {
 
 		Ok(Self {
 			states: Weak::new(),
-			surface,
+			surface: Arc::downgrade(&surface_arc),
 			swapchain,
 			swapchain_extent,
 			present_mode,
