@@ -218,17 +218,15 @@ pub struct VulkanSurface {
 }
 
 impl VulkanSurface {
-	pub fn new_from(states: Arc<VulkanStates>, surface: VkSurfaceKHR, format: VkSurfaceFormatKHR) -> Self {
-		Self {
-			states: Arc::downgrade(&states),
+	pub fn new_from(surface: VkSurfaceKHR, format: VkSurfaceFormatKHR) -> Arc<RefCell<Self>> {
+		Arc::new(RefCell::new(Self {
+			states: Weak::new(),
 			surface,
 			format,
-		}
+		}))
 	}
 	#[allow(dead_code)]
-	fn new_from_ci<T>(function_name: &'static str, states: Arc<VulkanStates>, vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Self, VulkanError> {
-		let vkcore = &states.vkcore;
-		let device = &states.device;
+	fn new_from_ci<T>(function_name: &'static str, vkcore: &VkCore, device: &VulkanDevice,  vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let gpu_info = &device.gpu;
 		let mut surface: VkSurfaceKHR = null();
 		vk_check(function_name, vk_create_surface(vkcore.instance, surface_ci, null(), &mut surface))?;
@@ -284,16 +282,14 @@ impl VulkanSurface {
 				}
 			}
 		}
-		Ok(Self::new_from(states, surface, selected_format))
+		Ok(Self::new_from(surface, selected_format))
 	}
 	#[cfg(any(feature = "glfw", test))]
-	pub fn new(states: Arc<VulkanStates>, window: &glfw::PWindow) -> Result<Self, VkError> {
-		let vkcore = &states.vkcore;
-		let mut surface: VkSurfaceKHR = null();
-		Self::new_from_ci("vkCreateWindowSurfaceGLFW", states, vkCreateWindowSurfaceGLFW, window)
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  window: &glfw::PWindow) -> Result<Arc<RefCell<Self>>, VulkanError> {
+		Self::new_from_ci("vkCreateWindowSurfaceGLFW", vkcore, device, vkCreateWindowSurfaceGLFW, window)
 	}
 	#[cfg(feature = "win32_khr")]
-	pub fn new(states: Arc<VulkanStates>, wnd: HWND, hinstance: HINSTANCE) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  wnd: HWND, hinstance: HINSTANCE) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkWin32SurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_WIN32_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -301,50 +297,50 @@ impl VulkanSurface {
 			hinstance,
 			hwnd,
 		};
-		Self::new_from_ci("vkCreateWin32SurfaceKHR", states, vkCreateWin32SurfaceKHR, &surface_ci)
+		Self::new_from_ci("vkCreateWin32SurfaceKHR", vkcore, device, vkCreateWin32SurfaceKHR, &surface_ci)
 	}
 	#[cfg(feature = "android_khr")]
-	pub fn new(states: Arc<VulkanStates>, window: *const ANativeWindow) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  window: *const ANativeWindow) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkAndroidSurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_ANDROID_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
 			flags: 0,
 			window,
 		};
-		Self::new_from_ci("vkCreateAndroidSurfaceKHR", states, vkCreateAndroidSurfaceKHR, &surface_ci)
+		Self::new_from_ci("vkCreateAndroidSurfaceKHR", vkcore, device, vkCreateAndroidSurfaceKHR, &surface_ci)
 	}
 	#[cfg(feature = "ios_mvk")]
-	pub fn new(states: Arc<VulkanStates>, view: *const c_void) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  view: *const c_void) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkIOSSurfaceCreateInfoMVK {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IOS_SURFACE_CREATE_INFO_MVK,
 			pNext: null(),
 			flags: 0,
 			pView: view,
 		};
-		Self::new_from_ci("vkCreateIOSSurfaceMVK", states, vkCreateIOSSurfaceMVK, &surface_ci)
+		Self::new_from_ci("vkCreateIOSSurfaceMVK", vkcore, device, vkCreateIOSSurfaceMVK, &surface_ci)
 	}
 	#[cfg(feature = "macos_mvk")]
-	pub fn new(states: Arc<VulkanStates>, view: *const c_void) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  view: *const c_void) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkMacOSSurfaceCreateInfoMVK {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
 			pNext: null(),
 			flags: 0,
 			pView: view,
 		};
-		Self::new_from_ci("vkCreateMacOSSurfaceMVK", states, vkCreateMacOSSurfaceMVK, &surface_ci)
+		Self::new_from_ci("vkCreateMacOSSurfaceMVK", vkcore, device, vkCreateMacOSSurfaceMVK, &surface_ci)
 	}
 	#[cfg(feature = "metal_ext")]
-	pub fn new(states: Arc<VulkanStates>, metal_layer: *const CAMetalLayer) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  metal_layer: *const CAMetalLayer) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkMetalSurfaceCreateInfoEXT {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_METAL_SURFACE_CREATE_INFO_EXT,
 			pNext: null(),
 			flags: 0,
 			pLayer: metal_layer,
 		};
-		Self::new_from_ci("vkCreateMetalSurfaceEXT", states, vkCreateMetalSurfaceEXT, &surface_ci)
+		Self::new_from_ci("vkCreateMetalSurfaceEXT", vkcore, device, vkCreateMetalSurfaceEXT, &surface_ci)
 	}
 	#[cfg(feature = "wayland_khr")]
-	pub fn new(states: Arc<VulkanStates>, display: *const c_void, surface: *const c_void) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  display: *const c_void, surface: *const c_void) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkWaylandSurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_WAYLAND_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -352,10 +348,10 @@ impl VulkanSurface {
 			display,
 			surface,
 		};
-		Self::new_from_ci("vkCreateWaylandSurfaceKHR", states, vkCreateWaylandSurfaceKHR, &surface_ci)
+		Self::new_from_ci("vkCreateWaylandSurfaceKHR", vkcore, device, vkCreateWaylandSurfaceKHR, &surface_ci)
 	}
 	#[cfg(feature = "xcb_khr")]
-	pub fn new(states: Arc<VulkanStates>, connection: *const c_void, window: xcb_window_t) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice,  connection: *const c_void, window: xcb_window_t) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let surface_ci = VkXcbSurfaceCreateInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_XCB_SURFACE_CREATE_INFO_KHR,
 			pNext: null(),
@@ -363,7 +359,7 @@ impl VulkanSurface {
 			connection,
 			window,
 		};
-		Self::new_from_ci("vkCreateXcbSurfaceKHR", states, vkCreateXcbSurfaceKHR, &surface_ci)
+		Self::new_from_ci("vkCreateXcbSurfaceKHR", vkcore, device, vkCreateXcbSurfaceKHR, &surface_ci)
 	}
 
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
