@@ -36,12 +36,10 @@ mod tests {
 	fn test() {
 		let test_time: Option<f64> = Some(TEST_TIME);
 		let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-		glfw::WindowHint::ClientApi(glfw::ClientApiHint::NoApi);
+		glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
 		let (mut window, events) = glfw.create_window(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).expect("Failed to create VKFW window.");
 
 		window.set_key_polling(true);
-		window.make_current();
-		glfw.set_swap_interval(SwapInterval::Adaptive);
 
 		let vkcore = Rc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 3, 0)));
 		let device = Rc::new(VulkanDevice::choose_gpu_with_graphics(vkcore.clone()).unwrap());
@@ -52,7 +50,6 @@ mod tests {
 		while !window.should_close() {
 			let cur_frame_time = glfw.get_time();
 
-			window.swap_buffers();
 			glfw.poll_events();
 			for (_, event) in glfw::flush_messages(&events) {
 				match event {
