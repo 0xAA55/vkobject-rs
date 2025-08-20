@@ -382,7 +382,7 @@ impl Drop for VulkanSurface {
 #[derive(Debug)]
 pub struct VulkanSwapchain {
 	pub states: Weak<RefCell<VulkanStates>>,
-	surface: Arc<VulkanSurface>,
+	pub surface: Weak<RefCell<VulkanSurface>>,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
 	present_mode: VkPresentModeKHR,
