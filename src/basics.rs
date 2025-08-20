@@ -212,7 +212,7 @@ fn vk_check(function_name: &'static str, result: VkResult) -> Result<(), VkError
 
 #[derive(Debug)]
 pub struct VulkanSurface {
-	pub states: Weak<VulkanStates>,
+	pub states: Weak<RefCell<VulkanStates>>,
 	surface: VkSurfaceKHR,
 	format: VkSurfaceFormatKHR,
 }
