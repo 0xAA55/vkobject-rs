@@ -277,11 +277,13 @@ impl VulkanSurface {
 			VkFormat::VK_FORMAT_A8B8G8R8_UNORM_PACK32,
 		];
 
-		'find_format: for pf in PREFERRED_FORMAT.iter() {
-			for f in formats.iter() {
-				if f.format == *pf {
-					selected_format = *f;
-					break 'find_format;
+		'find_format: {
+			for pf in PREFERRED_FORMAT.iter() {
+				for f in formats.iter() {
+					if f.format == *pf {
+						selected_format = *f;
+						break 'find_format;
+					}
 				}
 			}
 		}
