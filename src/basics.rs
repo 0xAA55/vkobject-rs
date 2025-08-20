@@ -97,7 +97,7 @@ pub struct VulkanDevice {
 
 impl VulkanDevice {
 	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VkError> {
-		let priorities = vec![1.0];
+		let priorities = [1.0];
 		let queue_create_info = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			pNext: null(),
