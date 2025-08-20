@@ -730,11 +730,13 @@ impl VulkanStates {
 
 	/// Get the current surface
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
-		self.surface.get_vk_surface()
+		let surface = self.surface.borrow();
+		surface.get_vk_surface()
 	}
 
 	/// Get the current surface format
-	pub fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
-		self.surface.get_vk_surface_format()
+	pub fn get_vk_surface_format(&self) -> VkSurfaceFormatKHR {
+		let surface = self.surface.borrow();
+		*surface.get_vk_surface_format()
 	}
 }
