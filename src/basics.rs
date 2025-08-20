@@ -373,9 +373,11 @@ impl VulkanSurface {
 
 impl Drop for VulkanSurface {
 	fn drop(&mut self) {
-		let states = self.states.upgrade().unwrap();
-		let vkcore = &states.vkcore;
-		vkcore.vkDestroySurfaceKHR(vkcore.instance, self.surface, null()).unwrap();
+		if let Some(binding) = self.states.upgrade() {
+			let states = binding.borrow_mut();
+			let vkcore = &states.vkcore;
+			vkcore.vkDestroySurfaceKHR(vkcore.instance, self.surface, null()).unwrap();
+		}
 	}
 }
 
@@ -592,14 +594,15 @@ impl VulkanSwapchain {
 
 impl Drop for VulkanSwapchain {
 	fn drop(&mut self) {
-		let binding = self.states.upgrade().unwrap();
-		let states = binding.borrow_mut();
-		let vkcore = &states.vkcore;
-		let device = states.get_vk_device();
-		for image_view in self.image_views.iter() {
-			vkcore.vkDestroyImageView(device, *image_view, null()).unwrap();
+		if let Some(binding) = self.states.upgrade() {
+			let states = binding.borrow_mut();
+			let vkcore = &states.vkcore;
+			let device = states.get_vk_device();
+			for image_view in self.image_views.iter() {
+				vkcore.vkDestroyImageView(device, *image_view, null()).unwrap();
+			}
+			vkcore.vkDestroySwapchainKHR(states.get_vk_device(), self.swapchain, null()).unwrap();
 		}
-		vkcore.vkDestroySwapchainKHR(states.get_vk_device(), self.swapchain, null()).unwrap();
 	}
 }
 
@@ -673,14 +676,15 @@ impl VulkanCommandPool {
 
 impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
-		let binding = self.states.upgrade().unwrap();
-		let states = binding.borrow_mut();
-		let vkcore = &states.vkcore;
-		let device = states.get_vk_device();
-		for fence in self.fences.iter() {
-			vkcore.vkDestroyFence(device, *fence, null()).unwrap();
+		if let Some(binding) = self.states.upgrade() {
+			let states = binding.borrow_mut();
+			let vkcore = &states.vkcore;
+			let device = states.get_vk_device();
+			for fence in self.fences.iter() {
+				vkcore.vkDestroyFence(device, *fence, null()).unwrap();
+			}
+			vkcore.vkDestroyCommandPool(states.get_vk_device(), self.pool, null()).unwrap();
 		}
-		vkcore.vkDestroyCommandPool(states.get_vk_device(), self.pool, null()).unwrap();
 	}
 }
 
