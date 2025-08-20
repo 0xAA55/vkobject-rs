@@ -693,19 +693,20 @@ pub struct VulkanStates {
 	pub cmdpool: Arc<RefCell<VulkanCommandPool>>,
 }
 
-impl VulkanStates{
+impl VulkanStates {
 	/// Create a new `VulkanStates`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize) -> Result<Arc<RefCell<Self>>, VulkanError> {
+	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: Arc<RefCell<VulkanSurface>>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<Arc<RefCell<Self>>, VulkanError> {
 		let ret = Arc::new(RefCell::new(Self{
 			vkcore: vkcore.clone(),
 			device: device.clone(),
 			surface: surface.clone(),
-			swapchain: Arc::new(RefCell::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync)?)),
+			swapchain: Arc::new(RefCell::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync, is_vr)?)),
 			cmdpool: Arc::new(RefCell::new(VulkanCommandPool::new(&vkcore, &device, max_concurrent_frames)?)),
 		}));
 		let weak = Arc::downgrade(&ret);
 		if true {
 			let borrow = ret.borrow_mut();
+			borrow.surface.borrow_mut().states = weak.clone();
 			borrow.swapchain.borrow_mut().states = weak.clone();
 			borrow.cmdpool.borrow_mut().states = weak.clone();
 		}
