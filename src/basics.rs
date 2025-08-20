@@ -431,10 +431,7 @@ impl VulkanSwapchain {
 		// It's the lowest latency non-tearing present mode available
 		if !vsync {
 			for mode in present_modes.iter() {
-				if *mode == VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR {
-					present_mode = *mode;
-					break;
-				} else if *mode == VkPresentModeKHR::VK_PRESENT_MODE_IMMEDIATE_KHR {
+				if *mode == VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR || *mode == VkPresentModeKHR::VK_PRESENT_MODE_IMMEDIATE_KHR {
 					present_mode = *mode;
 					break;
 				}
