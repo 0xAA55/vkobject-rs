@@ -471,7 +471,7 @@ impl VulkanSwapchain {
 			imageFormat: surface.format.format,
 			imageColorSpace: surface.format.colorSpace,
 			imageExtent: swapchain_extent,
-			imageArrayLayers: 0,
+			imageArrayLayers: if !is_vr {1} else {2},
 			imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as u32 |
 				(surf_caps.supportedUsageFlags as u32 & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as u32) |
 				(surf_caps.supportedUsageFlags as u32 & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as u32)
