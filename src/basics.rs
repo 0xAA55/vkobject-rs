@@ -752,3 +752,4 @@ impl VulkanStates {
 		*surface.get_vk_surface_format()
 	}
 }
+
