@@ -706,13 +706,18 @@ impl VulkanSwapchain {
 		self.images.as_ref()
 	}
 
-	pub fn acquire_next_image(&self, ctx: &VulkanContext, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
+	pub fn acquire_next_image(&self, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
 		let vkcore = &ctx.vkcore;
 		let device = ctx.get_vk_device();
-		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, present_complete_semaphore, null(), image_index)
+		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, present_complete_semaphore, null(), image_index)?;
+		Ok(())
 	}
 
-	pub fn queue_present(&self, ctx: &VulkanContext, queue: VkQueue, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
+	pub fn queue_present(&self, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
 		let vkcore = &ctx.vkcore;
 		let num_wait_semaphores;
 		let wait_semaphores;
@@ -733,7 +738,8 @@ impl VulkanSwapchain {
 			pImageIndices: &image_index as *const _,
 			pResults: null_mut(),
 		};
-		vkcore.vkQueuePresentKHR(queue, &present_info)
+		vkcore.vkQueuePresentKHR(ctx.get_vk_queue(), &present_info)?;
+		Ok(())
 	}
 }
 
