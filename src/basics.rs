@@ -213,7 +213,7 @@ fn vk_check(function_name: &'static str, result: VkResult) -> Result<(), VkError
 
 #[derive(Debug)]
 pub struct VulkanSurface {
-	pub states: Weak<Mutex<VulkanStates>>,
+	pub ctx: Weak<Mutex<VulkanContext>>,
 	surface: VkSurfaceKHR,
 	format: VkSurfaceFormatKHR,
 }
@@ -223,7 +223,7 @@ unsafe impl Send for VulkanSurface {}
 impl VulkanSurface {
 	pub fn new_from(surface: VkSurfaceKHR, format: VkSurfaceFormatKHR) -> Arc<Mutex<Self>> {
 		Arc::new(Mutex::new(Self {
-			states: Weak::new(),
+			ctx: Weak::new(),
 			surface,
 			format,
 		}))
@@ -378,9 +378,9 @@ impl VulkanSurface {
 
 impl Drop for VulkanSurface {
 	fn drop(&mut self) {
-		if let Some(binding) = self.states.upgrade() {
-			let states = binding.lock().unwrap();
-			let vkcore = &states.vkcore;
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = &ctx.vkcore;
 			vkcore.vkDestroySurfaceKHR(vkcore.instance, self.surface, null()).unwrap();
 		}
 	}
@@ -388,7 +388,7 @@ impl Drop for VulkanSurface {
 
 #[derive(Debug)]
 pub struct VulkanSwapchain {
-	pub states: Weak<Mutex<VulkanStates>>,
+	pub ctx: Weak<Mutex<VulkanContext>>,
 	pub surface: Weak<Mutex<VulkanSurface>>,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
@@ -529,7 +529,7 @@ impl VulkanSwapchain {
 		}
 
 		Ok(Self {
-			states: Weak::new(),
+			ctx: Weak::new(),
 			surface: Arc::downgrade(&surface_arc),
 			swapchain,
 			swapchain_extent,
@@ -565,14 +565,14 @@ impl VulkanSwapchain {
 		self.image_views.as_ref()
 	}
 
-	pub fn acquire_next_image(&self, states: &VulkanStates, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
-		let vkcore = &states.vkcore;
-		let device = states.get_vk_device();
+	pub fn acquire_next_image(&self, ctx: &VulkanContext, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
+		let vkcore = &ctx.vkcore;
+		let device = ctx.get_vk_device();
 		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, present_complete_semaphore, null(), image_index)
 	}
 
-	pub fn queue_present(&self, states: &VulkanStates, queue: VkQueue, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
-		let vkcore = &states.vkcore;
+	pub fn queue_present(&self, ctx: &VulkanContext, queue: VkQueue, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
+		let vkcore = &ctx.vkcore;
 		let num_wait_semaphores;
 		let wait_semaphores;
 		if wait_semaphore != VK_NULL_HANDLE as _ {
@@ -598,21 +598,21 @@ impl VulkanSwapchain {
 
 impl Drop for VulkanSwapchain {
 	fn drop(&mut self) {
-		if let Some(binding) = self.states.upgrade() {
-			let states = binding.lock().unwrap();
-			let vkcore = &states.vkcore;
-			let device = states.get_vk_device();
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = &ctx.vkcore;
+			let device = ctx.get_vk_device();
 			for image_view in self.image_views.iter() {
 				vkcore.vkDestroyImageView(device, *image_view, null()).unwrap();
 			}
-			vkcore.vkDestroySwapchainKHR(states.get_vk_device(), self.swapchain, null()).unwrap();
+			vkcore.vkDestroySwapchainKHR(ctx.get_vk_device(), self.swapchain, null()).unwrap();
 		}
 	}
 }
 
 #[derive(Debug)]
 pub struct VulkanCommandPool {
-	pub states: Weak<Mutex<VulkanStates>>,
+	pub ctx: Weak<Mutex<VulkanContext>>,
 	pool: VkCommandPool,
 	cmd_buffers: Vec<VkCommandBuffer>,
 	fences: Vec<VkFence>,
@@ -652,7 +652,7 @@ impl VulkanCommandPool {
 			vkcore.vkCreateFence(vk_device, &fence_ci, null(), fence)?;
 		}
 		Ok(Self{
-			states: Weak::new(),
+			ctx: Weak::new(),
 			pool,
 			cmd_buffers,
 			fences,
@@ -682,20 +682,20 @@ impl VulkanCommandPool {
 
 impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
-		if let Some(binding) = self.states.upgrade() {
-			let states = binding.lock().unwrap();
-			let vkcore = &states.vkcore;
-			let device = states.get_vk_device();
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = &ctx.vkcore;
+			let device = ctx.get_vk_device();
 			for fence in self.fences.iter() {
 				vkcore.vkDestroyFence(device, *fence, null()).unwrap();
 			}
-			vkcore.vkDestroyCommandPool(states.get_vk_device(), self.pool, null()).unwrap();
+			vkcore.vkDestroyCommandPool(ctx.get_vk_device(), self.pool, null()).unwrap();
 		}
 	}
 }
 
 #[derive(Debug, Clone)]
-pub struct VulkanStates {
+pub struct VulkanContext {
 	pub vkcore: Arc<VkCore>,
 	pub device: Arc<VulkanDevice>,
 	pub surface: Arc<Mutex<VulkanSurface>>,
@@ -703,10 +703,10 @@ pub struct VulkanStates {
 	pub cmdpool: Arc<Mutex<VulkanCommandPool>>,
 }
 
-unsafe impl Send for VulkanStates {}
+unsafe impl Send for VulkanContext {}
 
-impl VulkanStates {
-	/// Create a new `VulkanStates`
+impl VulkanContext {
+	/// Create a new `VulkanContext`
 	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let ret = Arc::new(Mutex::new(Self{
 			vkcore: vkcore.clone(),
@@ -718,9 +718,9 @@ impl VulkanStates {
 		let weak = Arc::downgrade(&ret);
 		if true {
 			let borrow = ret.lock().unwrap();
-			borrow.surface.lock().unwrap().states = weak.clone();
-			borrow.swapchain.lock().unwrap().states = weak.clone();
-			borrow.cmdpool.lock().unwrap().states = weak.clone();
+			borrow.surface.lock().unwrap().ctx = weak.clone();
+			borrow.swapchain.lock().unwrap().ctx = weak.clone();
+			borrow.cmdpool.lock().unwrap().ctx = weak.clone();
 		}
 		Ok(ret)
 	}
