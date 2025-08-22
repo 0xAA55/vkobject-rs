@@ -93,6 +93,7 @@ pub struct VulkanDevice {
 	queue_family_index: u32,
 	gpu: VulkanGpuInfo,
 	device: VkDevice,
+	queue: VkQueue,
 }
 
 impl VulkanDevice {
@@ -126,11 +127,15 @@ impl VulkanDevice {
 		let mut device: VkDevice = null();
 		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_ci, null(), &mut device)?;
 
+		let mut queue: VkQueue = null();
+		vkcore.vkGetDeviceQueue(device, queue_family_index, 0, &mut queue)?;
+
 		Ok(Self {
 			vkcore,
 			queue_family_index,
 			gpu,
 			device,
+			queue,
 		})
 	}
 
@@ -172,6 +177,10 @@ impl VulkanDevice {
 
 	pub fn get_vk_device(&self) -> VkDevice {
 		self.device
+	}
+
+	pub fn get_vk_queue(&self) -> VkQueue {
+		self.queue
 	}
 
 	pub fn get_supported_by_surface(&self, queue_index: usize, surface: VkSurfaceKHR) -> Result<bool, VkError> {
