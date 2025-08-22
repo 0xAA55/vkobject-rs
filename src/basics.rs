@@ -98,7 +98,7 @@ pub struct VulkanDevice {
 impl VulkanDevice {
 	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VkError> {
 		let priorities = [1.0];
-		let queue_create_info = VkDeviceQueueCreateInfo {
+		let queue_ci = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
@@ -110,12 +110,12 @@ impl VulkanDevice {
 		for ext in gpu.extension_properties.iter() {
 			extensions.push(&ext.extensionName[0] as *const _);
 		}
-		let device_create_info = VkDeviceCreateInfo {
+		let device_ci = VkDeviceCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 			queueCreateInfoCount: 1,
-			pQueueCreateInfos: &queue_create_info as *const _,
+			pQueueCreateInfos: &queue_ci as *const _,
 			enabledLayerCount: 0,
 			ppEnabledLayerNames: null(),
 			enabledExtensionCount: extensions.len() as u32,
@@ -124,7 +124,7 @@ impl VulkanDevice {
 		};
 
 		let mut device: VkDevice = null();
-		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_create_info, null(), &mut device)?;
+		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_ci, null(), &mut device)?;
 
 		Ok(Self {
 			vkcore,
