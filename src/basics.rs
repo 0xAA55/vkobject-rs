@@ -253,6 +253,44 @@ impl Drop for VulkanSemaphore {
 	}
 }
 
+#[derive(Debug)]
+pub struct VulkanFence {
+	ctx: Weak<Mutex<VulkanContext>>,
+	fence: VkFence,
+}
+
+unsafe impl Send for VulkanFence {}
+
+impl VulkanFence {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VkError> {
+		let ci = VkFenceCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+		};
+		let mut fence: VkFence = null();
+		vkcore.vkCreateFence(device.get_vk_device(), &ci, null(), &mut fence)?;
+		Ok(Self{
+			ctx: Weak::new(),
+			fence,
+		})
+	}
+
+	pub fn get_vk_fence(&self) -> VkFence {
+		self.fence
+	}
+
+	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.ctx = ctx;
+	}
+}
+
+impl Drop for VulkanFence {
+	fn drop(&mut self) {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = &ctx.vkcore;
+		vkcore.vkDestroyFence(ctx.get_vk_device(), self.fence, null()).unwrap();
 	}
 }
 
