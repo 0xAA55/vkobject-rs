@@ -827,6 +827,63 @@ impl Drop for VulkanCommandPool {
 	}
 }
 
+#[derive(Debug)]
+pub struct VulkanCommandPoolInUse<'a> {
+	ctx: Arc<Mutex<VulkanContext>>,
+	cmdpool: &'a VulkanCommandPool,
+	image_index: usize,
+}
+
+impl<'a> VulkanCommandPoolInUse<'a> {
+	pub fn new(cmdpool: &'a VulkanCommandPool, image_index: usize) -> Result<Self, VkError> {
+		let ctx = cmdpool.ctx.upgrade().unwrap();
+		let ctx_g = ctx.lock().unwrap();
+		let vkcore = &ctx_g.vkcore;
+		let cmdbuf = cmdpool.get_vk_cmd_buffer();
+		let begin_info = VkCommandBufferBeginInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			pNext: null(),
+			flags: VkCommandBufferUsageFlagBits::VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT as u32,
+			pInheritanceInfo: null(),
+		};
+		vkcore.vkBeginCommandBuffer(cmdbuf, &begin_info)?;
+		Ok(Self {
+			ctx: ctx.clone(),
+			cmdpool,
+			image_index,
+		})
+	}
+
+	pub fn submit(self) {}
+}
+
+impl Drop for VulkanCommandPoolInUse<'_> {
+	fn drop(&mut self) {
+		let ctx = self.ctx.lock().unwrap();
+		let vkcore = &ctx.vkcore;
+		let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+		vkcore.vkEndCommandBuffer(cmdbuf).unwrap();
+
+		let swapchain = ctx.swapchain.lock().unwrap();
+		let images = swapchain.get_images();
+
+		let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
+		let cmd_buffers = [cmdbuf];
+		let submit_info = VkSubmitInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
+			pNext: null(),
+			waitSemaphoreCount: 1,
+			pWaitSemaphores: &images[self.image_index].acquire_semaphore.get_vk_semaphore(),
+			pWaitDstStageMask: wait_stage.as_ptr(),
+			commandBufferCount: 1,
+			pCommandBuffers: cmd_buffers.as_ptr(),
+			signalSemaphoreCount: 1,
+			pSignalSemaphores: &images[self.image_index].release_semaphore.get_vk_semaphore(),
+		};
+		vkcore.vkQueueSubmit(ctx.get_vk_queue(), 1, &submit_info, images[self.image_index].queue_submit_fence.get_vk_fence()).unwrap();
+	}
+}
+
 #[derive(Debug, Clone)]
 pub struct VulkanContext {
 	vkcore: Arc<VkCore>,
