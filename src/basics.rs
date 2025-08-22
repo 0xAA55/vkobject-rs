@@ -246,10 +246,11 @@ impl VulkanSemaphore {
 
 impl Drop for VulkanSemaphore {
 	fn drop(&mut self) {
-		let binding = self.ctx.upgrade().unwrap();
-		let ctx = binding.lock().unwrap();
-		let vkcore = &ctx.vkcore;
-		vkcore.vkDestroySemaphore(ctx.get_vk_device(), self.semaphore, null()).unwrap();
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = &ctx.vkcore;
+			vkcore.vkDestroySemaphore(ctx.get_vk_device(), self.semaphore, null()).unwrap();
+		}
 	}
 }
 
@@ -287,10 +288,11 @@ impl VulkanFence {
 
 impl Drop for VulkanFence {
 	fn drop(&mut self) {
-		let binding = self.ctx.upgrade().unwrap();
-		let ctx = binding.lock().unwrap();
-		let vkcore = &ctx.vkcore;
-		vkcore.vkDestroyFence(ctx.get_vk_device(), self.fence, null()).unwrap();
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = &ctx.vkcore;
+			vkcore.vkDestroyFence(ctx.get_vk_device(), self.fence, null()).unwrap();
+		}
 	}
 }
 
@@ -536,11 +538,12 @@ impl VulkanSwapchainImage {
 
 impl Drop for VulkanSwapchainImage {
 	fn drop(&mut self) {
-		let binding = self.ctx.upgrade().unwrap();
-		let ctx = binding.lock().unwrap();
-		let vkcore = &ctx.vkcore;
-		let device = ctx.get_vk_device();
-		vkcore.vkDestroyImageView(device, self.image_view, null()).unwrap();
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = &ctx.vkcore;
+			let device = ctx.get_vk_device();
+			vkcore.vkDestroyImageView(device, self.image_view, null()).unwrap();
+		}
 	}
 }
 
