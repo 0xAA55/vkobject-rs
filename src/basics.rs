@@ -212,11 +212,6 @@ impl Drop for VulkanDevice {
 	}
 }
 
-#[allow(dead_code)]
-fn vk_check(function_name: &'static str, result: VkResult) -> Result<(), VkError> {
-	match result {
-		VkResult::VK_SUCCESS => Ok(()),
-		others => vk_convert_result(function_name, Ok(others)),
 	}
 }
 
@@ -241,7 +236,7 @@ impl VulkanSurface {
 	fn new_from_ci<T>(function_name: &'static str, vkcore: &VkCore, device: &VulkanDevice,  vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let gpu_info = &device.gpu;
 		let mut surface: VkSurfaceKHR = null();
-		vk_check(function_name, vk_create_surface(vkcore.instance, surface_ci, null(), &mut surface))?;
+		vk_result_conv(function_name, vk_create_surface(vkcore.instance, surface_ci, null(), &mut surface))?;
 
 		let mut supported = Vec::<bool>::with_capacity(gpu_info.queue_families.len());
 		for i in 0..gpu_info.queue_families.len() {
