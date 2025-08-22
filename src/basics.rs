@@ -475,6 +475,7 @@ impl Drop for VulkanSurface {
 pub struct VulkanSwapchain {
 	ctx: Weak<Mutex<VulkanContext>>,
 	pub surface: Weak<Mutex<VulkanSurface>>,
+	surf_caps: VkSurfaceCapabilitiesKHR,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
 	present_mode: VkPresentModeKHR,
@@ -616,6 +617,7 @@ impl VulkanSwapchain {
 		Ok(Self {
 			ctx: Weak::new(),
 			surface: Arc::downgrade(&surface_arc),
+			surf_caps,
 			swapchain,
 			swapchain_extent,
 			present_mode,
@@ -632,6 +634,10 @@ impl VulkanSwapchain {
 
 	pub fn get_vk_swapchain(&self) -> VkSwapchainKHR {
 		self.swapchain
+	}
+
+	pub fn get_vk_surf_caps(&self) -> &VkSurfaceCapabilitiesKHR {
+		&self.surf_caps
 	}
 
 	pub fn get_swapchain_extent(&self) -> VkExtent2D {
