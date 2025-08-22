@@ -472,6 +472,79 @@ impl Drop for VulkanSurface {
 }
 
 #[derive(Debug)]
+pub struct VulkanSwapchainImage {
+	ctx: Weak<Mutex<VulkanContext>>,
+	image: VkImage,
+	image_view: VkImageView,
+	acquire_semaphore: VulkanSemaphore,
+	release_semaphore: VulkanSemaphore,
+	queue_submit_fence: VulkanFence,
+}
+
+unsafe impl Send for VulkanSwapchainImage {}
+
+impl VulkanSwapchainImage {
+	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: &VulkanDevice) -> Result<Self, VkError> {
+		let vk_image_view_ci = VkImageViewCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			image,
+			viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
+			format: surface.format.format,
+			components: VkComponentMapping {
+				r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_R,
+				g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_G,
+				b: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_B,
+				a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_A,
+			},
+			subresourceRange: VkImageSubresourceRange {
+				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as u32,
+				baseMipLevel: 0,
+				levelCount: 1,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+		};
+		let mut image_view: VkImageView = null();
+		let acquire_semaphore = VulkanSemaphore::new(vkcore, device)?;
+		let release_semaphore = VulkanSemaphore::new(vkcore, device)?;
+		let queue_submit_fence = VulkanFence::new(vkcore, device)?;
+		let vk_device = device.get_vk_device();
+		vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
+		Ok(Self{
+			ctx: Weak::new(),
+			image,
+			image_view,
+			acquire_semaphore,
+			release_semaphore,
+			queue_submit_fence,
+		})
+	}
+
+	pub fn get_vk_image(&self) -> VkImage {
+		self.image
+	}
+
+	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.acquire_semaphore.set_ctx(ctx.clone());
+		self.release_semaphore.set_ctx(ctx.clone());
+		self.queue_submit_fence.set_ctx(ctx.clone());
+		self.ctx = ctx;
+	}
+}
+
+impl Drop for VulkanSwapchainImage {
+	fn drop(&mut self) {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = &ctx.vkcore;
+		let device = ctx.get_vk_device();
+		vkcore.vkDestroyImageView(device, self.image_view, null()).unwrap();
+	}
+}
+
+#[derive(Debug)]
 pub struct VulkanSwapchain {
 	ctx: Weak<Mutex<VulkanContext>>,
 	pub surface: Weak<Mutex<VulkanSurface>>,
@@ -479,8 +552,7 @@ pub struct VulkanSwapchain {
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
 	present_mode: VkPresentModeKHR,
-	images: Vec<VkImage>,
-	image_views: Vec<VkImageView>,
+	images: Vec<VulkanSwapchainImage>,
 }
 
 unsafe impl Send for VulkanSwapchain {}
@@ -580,38 +652,14 @@ impl VulkanSwapchain {
 
 		let mut swapchain: VkSwapchainKHR = null();
 		vkcore.vkCreateSwapchainKHR(vk_device, &swapchain_ci, null(), &mut swapchain)?;
-
 		let mut num_images = 0u32;
 		vkcore.vkGetSwapchainImagesKHR(vk_device, swapchain, &mut num_images, null_mut())?;
-		let mut images = Vec::<VkImage>::with_capacity(num_images as usize);
-		vkcore.vkGetSwapchainImagesKHR(vk_device, swapchain, &mut num_images, images.as_mut_ptr())?;
-		unsafe {images.set_len(num_images as usize)};
-		let mut image_views = Vec::<VkImageView>::with_capacity(images.len());
-		for image in images.iter() {
-			let vk_image_view_ci = VkImageViewCreateInfo {
-				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
-				pNext: null(),
-				flags: 0,
-				image: *image,
-				viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
-				format: surface.format.format,
-				components: VkComponentMapping {
-					r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_R,
-					g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_G,
-					b: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_B,
-					a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_A,
-				},
-				subresourceRange: VkImageSubresourceRange {
-					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as u32,
-					baseMipLevel: 0,
-					levelCount: 1,
-					baseArrayLayer: 0,
-					layerCount: 1,
-				},
-			};
-			let mut image_view: VkImageView = null();
-			vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
-			image_views.push(image_view);
+		let mut vk_images = Vec::<VkImage>::with_capacity(num_images as usize);
+		vkcore.vkGetSwapchainImagesKHR(vk_device, swapchain, &mut num_images, vk_images.as_mut_ptr())?;
+		unsafe {vk_images.set_len(num_images as usize)};
+		let mut images = Vec::<VulkanSwapchainImage>::with_capacity(vk_images.len());
+		for vk_image in vk_images.iter() {
+			images.push(VulkanSwapchainImage::new(vkcore, *vk_image, &surface, device)?);
 		}
 
 		Ok(Self {
@@ -622,8 +670,14 @@ impl VulkanSwapchain {
 			swapchain_extent,
 			present_mode,
 			images,
-			image_views,
 		})
+	}
+
+	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		for image in self.images.iter_mut() {
+			image.set_ctx(ctx.clone());
+		}
+		self.ctx = ctx;
 	}
 
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
@@ -648,12 +702,8 @@ impl VulkanSwapchain {
 		self.present_mode
 	}
 
-	pub fn get_vk_images(&self) -> &[VkImage] {
+	pub fn get_images(&self) -> &[VulkanSwapchainImage] {
 		self.images.as_ref()
-	}
-
-	pub fn get_vk_image_views(&self) -> &[VkImageView] {
-		self.image_views.as_ref()
 	}
 
 	pub fn acquire_next_image(&self, ctx: &VulkanContext, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
