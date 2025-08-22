@@ -212,6 +212,47 @@ impl Drop for VulkanDevice {
 	}
 }
 
+#[derive(Debug)]
+pub struct VulkanSemaphore {
+	ctx: Weak<Mutex<VulkanContext>>,
+	semaphore: VkSemaphore,
+}
+
+unsafe impl Send for VulkanSemaphore {}
+
+impl VulkanSemaphore {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VkError> {
+		let ci = VkSemaphoreCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+		};
+		let mut semaphore: VkSemaphore = null();
+		vkcore.vkCreateSemaphore(device.get_vk_device(), &ci, null(), &mut semaphore)?;
+		Ok(Self{
+			ctx: Weak::new(),
+			semaphore,
+		})
+	}
+
+	pub fn get_vk_semaphore(&self) -> VkSemaphore {
+		self.semaphore
+	}
+
+	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.ctx = ctx;
+	}
+}
+
+impl Drop for VulkanSemaphore {
+	fn drop(&mut self) {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = &ctx.vkcore;
+		vkcore.vkDestroySemaphore(ctx.get_vk_device(), self.semaphore, null()).unwrap();
+	}
+}
+
 	}
 }
 
