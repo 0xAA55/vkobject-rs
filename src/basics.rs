@@ -748,10 +748,7 @@ impl Drop for VulkanSwapchain {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
 			let vkcore = &ctx.vkcore;
-			let device = ctx.get_vk_device();
-			for image_view in self.image_views.iter() {
-				vkcore.vkDestroyImageView(device, *image_view, null()).unwrap();
-			}
+			self.images.clear();
 			vkcore.vkDestroySwapchainKHR(ctx.get_vk_device(), self.swapchain, null()).unwrap();
 		}
 	}
