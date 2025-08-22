@@ -450,10 +450,12 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateXcbSurfaceKHR", vkcore, device, vkCreateXcbSurfaceKHR, &surface_ci)
 	}
 
+	/// Get the current `VkSurfaceKHR`
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
 		self.surface
 	}
 
+	/// Get the `VkSurfaceFormatKHR`
 	pub fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
 		&self.format
 	}
