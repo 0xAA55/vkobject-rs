@@ -46,9 +46,9 @@ mod tests {
 		let vkcore = Arc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 3, 0)));
 		let device = Arc::new(VulkanDevice::choose_gpu_with_graphics(vkcore.clone()).unwrap());
 		let surface = VulkanSurface::new(&vkcore, &device, &window).unwrap();
-		let states = VulkanStates::new(vkcore, device, surface, width as u32, height as u32, true, 2, false).unwrap();
+		let ctx = VulkanContext::new(vkcore, device, surface, width as u32, height as u32, true, 3, false).unwrap();
 
-		dbg!(states);
+		dbg!(ctx);
 
 		let start_time = glfw.get_time();
 		while !window.should_close() {
