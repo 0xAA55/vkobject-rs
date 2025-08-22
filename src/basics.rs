@@ -890,7 +890,7 @@ pub struct VulkanContext {
 	pub device: Arc<VulkanDevice>,
 	pub surface: Arc<Mutex<VulkanSurface>>,
 	pub swapchain: Arc<Mutex<VulkanSwapchain>>,
-	pub cmdpool: Arc<Mutex<VulkanCommandPool>>,
+	pub cmdpools: Vec<Arc<Mutex<VulkanCommandPool>>>,
 }
 
 unsafe impl Send for VulkanContext {}
@@ -898,19 +898,25 @@ unsafe impl Send for VulkanContext {}
 impl VulkanContext {
 	/// Create a new `VulkanContext`
 	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<Arc<Mutex<Self>>, VulkanError> {
+		let mut cmdpools = Vec::<Arc<Mutex<VulkanCommandPool>>>::with_capacity(max_concurrent_frames);
+		for _ in 0..max_concurrent_frames {
+			cmdpools.push(Arc::new(Mutex::new(VulkanCommandPool::new(&vkcore, &device)?)));
+		}
 		let ret = Arc::new(Mutex::new(Self{
 			vkcore: vkcore.clone(),
 			device: device.clone(),
 			surface: surface.clone(),
 			swapchain: Arc::new(Mutex::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync, is_vr)?)),
-			cmdpool: Arc::new(Mutex::new(VulkanCommandPool::new(&vkcore, &device, max_concurrent_frames)?)),
+			cmdpools,
 		}));
 		let weak = Arc::downgrade(&ret);
 		if true {
-			let borrow = ret.lock().unwrap();
+			let mut borrow = ret.lock().unwrap();
 			borrow.surface.lock().unwrap().ctx = weak.clone();
-			borrow.swapchain.lock().unwrap().ctx = weak.clone();
-			borrow.cmdpool.lock().unwrap().ctx = weak.clone();
+			borrow.swapchain.lock().unwrap().set_ctx(weak.clone());
+			for cmdpool in borrow.cmdpools.iter_mut() {
+				cmdpool.lock().unwrap().ctx = weak.clone();
+			}
 		}
 		Ok(ret)
 	}
@@ -928,6 +934,11 @@ impl VulkanContext {
 	/// Get the current device
 	pub fn get_vk_device(&self) -> VkDevice {
 		self.device.get_vk_device()
+	}
+
+	/// Get the current queue for the current device
+	pub fn get_vk_queue(&self) -> VkQueue {
+		self.device.get_vk_queue()
 	}
 
 	/// Get the current surface
