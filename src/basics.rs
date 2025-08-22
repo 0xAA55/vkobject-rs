@@ -89,7 +89,7 @@ impl VulkanGpuInfo {
 }
 
 pub struct VulkanDevice {
-	pub vkcore: Arc<VkCore>,
+	vkcore: Arc<VkCore>,
 	queue_family_index: u32,
 	gpu: VulkanGpuInfo,
 	device: VkDevice,
@@ -213,7 +213,7 @@ fn vk_check(function_name: &'static str, result: VkResult) -> Result<(), VkError
 
 #[derive(Debug)]
 pub struct VulkanSurface {
-	pub ctx: Weak<Mutex<VulkanContext>>,
+	ctx: Weak<Mutex<VulkanContext>>,
 	surface: VkSurfaceKHR,
 	format: VkSurfaceFormatKHR,
 }
@@ -388,7 +388,7 @@ impl Drop for VulkanSurface {
 
 #[derive(Debug)]
 pub struct VulkanSwapchain {
-	pub ctx: Weak<Mutex<VulkanContext>>,
+	ctx: Weak<Mutex<VulkanContext>>,
 	pub surface: Weak<Mutex<VulkanSurface>>,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
@@ -612,7 +612,7 @@ impl Drop for VulkanSwapchain {
 
 #[derive(Debug)]
 pub struct VulkanCommandPool {
-	pub ctx: Weak<Mutex<VulkanContext>>,
+	ctx: Weak<Mutex<VulkanContext>>,
 	pool: VkCommandPool,
 	cmd_buffers: Vec<VkCommandBuffer>,
 	fences: Vec<VkFence>,
@@ -696,7 +696,7 @@ impl Drop for VulkanCommandPool {
 
 #[derive(Debug, Clone)]
 pub struct VulkanContext {
-	pub vkcore: Arc<VkCore>,
+	vkcore: Arc<VkCore>,
 	pub device: Arc<VulkanDevice>,
 	pub surface: Arc<Mutex<VulkanSurface>>,
 	pub swapchain: Arc<Mutex<VulkanSwapchain>>,
