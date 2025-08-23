@@ -894,6 +894,7 @@ pub struct VulkanContext {
 	pub surface: Arc<Mutex<VulkanSurface>>,
 	pub swapchain: Arc<Mutex<VulkanSwapchain>>,
 	pub cmdpools: Vec<Arc<Mutex<VulkanCommandPool>>>,
+	cur_swapchain_image_index: u32,
 }
 
 unsafe impl Send for VulkanContext {}
@@ -911,6 +912,7 @@ impl VulkanContext {
 			surface: surface.clone(),
 			swapchain: Arc::new(Mutex::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync, is_vr)?)),
 			cmdpools,
+			cur_swapchain_image_index: 0,
 		}));
 		let weak = Arc::downgrade(&ret);
 		if true {
@@ -954,6 +956,11 @@ impl VulkanContext {
 	pub fn get_vk_surface_format(&self) -> VkSurfaceFormatKHR {
 		let surface = self.surface.lock().unwrap();
 		*surface.get_vk_surface_format()
+	}
+
+	/// Get the current swapchain image index
+	pub fn get_swapchain_image_index(&self) -> u32 {
+		self.cur_swapchain_image_index
 	}
 }
 
