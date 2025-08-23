@@ -914,10 +914,10 @@ impl VulkanContext {
 		}));
 		let weak = Arc::downgrade(&ret);
 		if true {
-			let mut borrow = ret.lock().unwrap();
-			borrow.surface.lock().unwrap().ctx = weak.clone();
-			borrow.swapchain.lock().unwrap().set_ctx(weak.clone());
-			for cmdpool in borrow.cmdpools.iter_mut() {
+			let mut lock = ret.lock().unwrap();
+			lock.surface.lock().unwrap().ctx = weak.clone();
+			lock.swapchain.lock().unwrap().set_ctx(weak.clone());
+			for cmdpool in lock.cmdpools.iter_mut() {
 				cmdpool.lock().unwrap().ctx = weak.clone();
 			}
 		}
