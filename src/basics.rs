@@ -831,59 +831,99 @@ impl Drop for VulkanCommandPool {
 }
 
 #[derive(Debug)]
-pub struct VulkanCommandPoolInUse<'a> {
+pub struct VulkanCommandPoolInUse<'a, 'b> {
 	ctx: Arc<Mutex<VulkanContext>>,
 	cmdpool: &'a VulkanCommandPool,
-	image_index: usize,
+	swapchain_image: &'b VulkanSwapchainImage,
+	one_time_submit: bool,
+	ended: bool,
+	pub submitted: bool,
 }
 
-impl<'a> VulkanCommandPoolInUse<'a> {
-	pub fn new(cmdpool: &'a VulkanCommandPool, image_index: usize) -> Result<Self, VkError> {
+impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
+	pub fn new(cmdpool: &'a VulkanCommandPool, swapchain_image: &'b VulkanSwapchainImage, one_time_submit: bool) -> Result<Self, VkError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
-		let vkcore = &ctx_g.vkcore;
+		let vkcore = ctx_g.get_vkcore();
 		let cmdbuf = cmdpool.get_vk_cmd_buffer();
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			pNext: null(),
-			flags: VkCommandBufferUsageFlagBits::VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT as u32,
+			flags: if one_time_submit {VkCommandBufferUsageFlagBits::VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT as u32} else {0u32},
 			pInheritanceInfo: null(),
 		};
 		vkcore.vkBeginCommandBuffer(cmdbuf, &begin_info)?;
 		Ok(Self {
 			ctx: ctx.clone(),
 			cmdpool,
-			image_index,
+			swapchain_image,
+			one_time_submit,
+			ended: false,
+			submitted: false,
 		})
 	}
 
-	pub fn submit(self) {}
+	pub fn end_cmd(&mut self) -> Result<(), VkError> {
+		if !self.ended {
+			let ctx = self.ctx.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+			vkcore.vkEndCommandBuffer(cmdbuf)?;
+			self.ended = true;
+			Ok(())
+		} else {
+			panic!("Duplicated call to `VulkanCommandPoolInUse::end()`")
+		}
+	}
+
+	pub fn is_ended(&self) -> bool {
+		self.ended
+	}
+
+	pub fn submit(&mut self) -> Result<(), VkError> {
+		if !self.ended {
+			self.end_cmd()?;
+		}
+		if !self.submitted {
+			let ctx = self.ctx.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+
+			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
+			let cmd_buffers = [cmdbuf];
+			let submit_info = VkSubmitInfo {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
+				pNext: null(),
+				waitSemaphoreCount: 1,
+				pWaitSemaphores: &self.swapchain_image.acquire_semaphore.get_vk_semaphore(),
+				pWaitDstStageMask: wait_stage.as_ptr(),
+				commandBufferCount: 1,
+				pCommandBuffers: cmd_buffers.as_ptr(),
+				signalSemaphoreCount: 1,
+				pSignalSemaphores: &self.swapchain_image.release_semaphore.get_vk_semaphore(),
+			};
+			vkcore.vkQueueSubmit(ctx.get_vk_queue(), 1, &submit_info, self.swapchain_image.queue_submit_fence.get_vk_fence())?;
+			self.submitted = true;
+			Ok(())
+		} else {
+			panic!("Duplicated call to `VulkanCommandPoolInUse::submit()`, please set the `submitted` member to false to re-submit again if you wish.")
+		}
+	}
+
+	pub fn end(self) {}
 }
 
-impl Drop for VulkanCommandPoolInUse<'_> {
+impl Drop for VulkanCommandPoolInUse<'_, '_> {
 	fn drop(&mut self) {
-		let ctx = self.ctx.lock().unwrap();
-		let vkcore = &ctx.vkcore;
-		let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
-		vkcore.vkEndCommandBuffer(cmdbuf).unwrap();
-
-		let swapchain = ctx.swapchain.lock().unwrap();
-		let images = swapchain.get_images();
-
-		let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
-		let cmd_buffers = [cmdbuf];
-		let submit_info = VkSubmitInfo {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
-			pNext: null(),
-			waitSemaphoreCount: 1,
-			pWaitSemaphores: &images[self.image_index].acquire_semaphore.get_vk_semaphore(),
-			pWaitDstStageMask: wait_stage.as_ptr(),
-			commandBufferCount: 1,
-			pCommandBuffers: cmd_buffers.as_ptr(),
-			signalSemaphoreCount: 1,
-			pSignalSemaphores: &images[self.image_index].release_semaphore.get_vk_semaphore(),
-		};
-		vkcore.vkQueueSubmit(ctx.get_vk_queue(), 1, &submit_info, images[self.image_index].queue_submit_fence.get_vk_fence()).unwrap();
+		if !self.submitted {
+			self.submit().unwrap();
+		}
+		if !self.one_time_submit {
+			let ctx = self.ctx.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+			vkcore.vkResetCommandBuffer(cmdbuf, 0).unwrap();
+		}
 	}
 }
 
