@@ -248,7 +248,7 @@ impl Drop for VulkanSemaphore {
 	fn drop(&mut self) {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
-			let vkcore = &ctx.vkcore;
+			let vkcore = ctx.get_vkcore();
 			vkcore.vkDestroySemaphore(ctx.get_vk_device(), self.semaphore, null()).unwrap();
 		}
 	}
@@ -290,7 +290,7 @@ impl Drop for VulkanFence {
 	fn drop(&mut self) {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
-			let vkcore = &ctx.vkcore;
+			let vkcore = ctx.get_vkcore();
 			vkcore.vkDestroyFence(ctx.get_vk_device(), self.fence, null()).unwrap();
 		}
 	}
@@ -467,7 +467,7 @@ impl Drop for VulkanSurface {
 	fn drop(&mut self) {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
-			let vkcore = &ctx.vkcore;
+			let vkcore = ctx.get_vkcore();
 			vkcore.vkDestroySurfaceKHR(vkcore.instance, self.surface, null()).unwrap();
 		}
 	}
@@ -540,7 +540,7 @@ impl Drop for VulkanSwapchainImage {
 	fn drop(&mut self) {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
-			let vkcore = &ctx.vkcore;
+			let vkcore = ctx.get_vkcore();
 			let device = ctx.get_vk_device();
 			vkcore.vkDestroyImageView(device, self.image_view, null()).unwrap();
 		}
@@ -712,7 +712,7 @@ impl VulkanSwapchain {
 	pub fn acquire_next_image(&self, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
-		let vkcore = &ctx.vkcore;
+		let vkcore = ctx.get_vkcore();
 		let device = ctx.get_vk_device();
 		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, present_complete_semaphore, null(), image_index)?;
 		Ok(())
@@ -721,7 +721,7 @@ impl VulkanSwapchain {
 	pub fn queue_present(&self, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
-		let vkcore = &ctx.vkcore;
+		let vkcore = ctx.get_vkcore();
 		let num_wait_semaphores;
 		let wait_semaphores;
 		if wait_semaphore != VK_NULL_HANDLE as _ {
@@ -750,7 +750,7 @@ impl Drop for VulkanSwapchain {
 	fn drop(&mut self) {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
-			let vkcore = &ctx.vkcore;
+			let vkcore = ctx.get_vkcore();
 			self.images.clear();
 			vkcore.vkDestroySwapchainKHR(ctx.get_vk_device(), self.swapchain, null()).unwrap();
 		}
@@ -822,7 +822,7 @@ impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
-			let vkcore = &ctx.vkcore;
+			let vkcore = ctx.get_vkcore();
 			let device = ctx.get_vk_device();
 			vkcore.vkDestroyFence(device, self.fence, null()).unwrap();
 			vkcore.vkDestroyCommandPool(ctx.get_vk_device(), self.pool, null()).unwrap();
@@ -929,6 +929,11 @@ impl VulkanContext {
 	/// Get the Vulkan instance
 	pub fn get_instance(&self) -> VkInstance {
 		self.vkcore.instance
+	}
+
+	/// get the `VkCore`
+	fn get_vkcore(&self) -> &VkCore {
+		&self.vkcore
 	}
 
 	/// Get the current physical device
