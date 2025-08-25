@@ -22,6 +22,9 @@ pub mod swapchain;
 /// The Vulkan command pool
 pub mod cmdpool;
 
+/// The Vulkan command pool
+pub mod context;
+
 /// The buffer object
 pub mod buffer;
 
@@ -35,6 +38,7 @@ pub mod prelude {
 	pub use crate::surface::*;
 	pub use crate::swapchain::*;
 	pub use crate::cmdpool::*;
+	pub use crate::context::*;
 	pub use crate::buffer::*;
 }
 
