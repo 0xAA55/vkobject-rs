@@ -10,6 +10,9 @@ pub mod init;
 /// The Vulkan basics
 pub mod basics;
 
+/// The Vulkan device
+pub mod device;
+
 /// The buffer object
 pub mod buffer;
 
@@ -19,6 +22,7 @@ pub mod prelude {
 	pub use crate::common::*;
 	pub use crate::init::*;
 	pub use crate::basics::*;
+	pub use crate::device::*;
 	pub use crate::buffer::*;
 }
 
