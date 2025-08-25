@@ -7,7 +7,7 @@ use std::{
 
 #[derive(Debug)]
 pub struct Buffer {
-	pub ctx: Weak<RefCell<VulkanContext>>,
+	ctx: Weak<RefCell<VulkanContext>>,
 	memory: VkDeviceMemory,
 	buffer: VkBuffer,
 }
