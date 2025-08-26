@@ -154,5 +154,14 @@ impl VulkanContext {
 	pub fn get_swapchain_image_index(&self) -> u32 {
 		self.cur_swapchain_image_index
 	}
+
+	/// Get another swapchain image index
+	pub fn switch_next_swapchain_image_index(&mut self) -> u32 {
+		self.cur_swapchain_image_index += 1;
+		if self.cur_swapchain_image_index as usize >= self.swapchain.images.len() {
+			self.cur_swapchain_image_index = 0;
+		}
+		self.cur_swapchain_image_index
+	}
 }
 
