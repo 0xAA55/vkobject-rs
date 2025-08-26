@@ -40,8 +40,6 @@ pub struct VulkanContextCreateInfo<'a> {
 	#[cfg(feature = "xcb_khr")]
 	pub window: xcb_window_t,
 
-	pub width: u32,
-	pub height: u32,
 	pub vsync: bool,
 	pub max_concurrent_frames: usize,
 	pub is_vr: bool,
