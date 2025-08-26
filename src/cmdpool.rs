@@ -24,7 +24,7 @@ impl VulkanCommandPool {
 		let pool_ci = VkCommandPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
 			pNext: null(),
-			queueFamilyIndex: device.queue_family_index,
+			queueFamilyIndex: device.get_queue_family_index(),
 			flags: VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT as u32,
 		};
 		let mut pool: VkCommandPool = null();

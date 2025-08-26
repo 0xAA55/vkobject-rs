@@ -27,17 +27,18 @@ impl VulkanSurface {
 	}
 	#[allow(dead_code)]
 	fn new_from_ci<T>(function_name: &'static str, vkcore: &VkCore, device: &VulkanDevice, vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Arc<Mutex<Self>>, VulkanError> {
-		let gpu_info = &device.gpu;
+		let gpu_info = device.get_gpu();
 		let mut surface: VkSurfaceKHR = null();
 		vk_result_conv(function_name, vk_create_surface(vkcore.get_instance(), surface_ci, null(), &mut surface))?;
 
-		let mut supported = Vec::<bool>::with_capacity(gpu_info.queue_families.len());
-		for i in 0..gpu_info.queue_families.len() {
+		let queue_families = gpu_info.get_queue_families();
+		let mut supported = Vec::<bool>::with_capacity(queue_families.len());
+		for i in 0..queue_families.len() {
 			supported.push(device.get_supported_by_surface(i, surface)?);
 		}
 		let mut graphics_queue_node_index = u32::MAX;
 		let mut present_queue_node_index = u32::MAX;
-		for (i, queue_family) in gpu_info.queue_families.iter().enumerate() {
+		for (i, queue_family) in queue_families.iter().enumerate() {
 			if (queue_family.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32) == VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 {
 				graphics_queue_node_index = i as u32;
 				if supported[i] {

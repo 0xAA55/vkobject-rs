@@ -28,7 +28,7 @@ impl VulkanSwapchainImage {
 			flags: 0,
 			image,
 			viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
-			format: surface.format.format,
+			format: surface.get_vk_surface_format().format,
 			components: VkComponentMapping {
 				r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_R,
 				g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_G,
@@ -170,8 +170,8 @@ impl VulkanSwapchain {
 			flags: 0,
 			surface: vk_surface,
 			minImageCount: desired_num_of_swapchain_images,
-			imageFormat: surface.format.format,
-			imageColorSpace: surface.format.colorSpace,
+			imageFormat: surface.get_vk_surface_format().format,
+			imageColorSpace: surface.get_vk_surface_format().colorSpace,
 			imageExtent: swapchain_extent,
 			imageArrayLayers: if !is_vr {1} else {2},
 			imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as u32 |
