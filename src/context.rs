@@ -8,6 +8,48 @@ use std::{
 	sync::{Mutex, Arc, Weak},
 };
 
+#[derive(Debug)]
+pub struct VulkanContextCreateInfo<'a> {
+	pub vkcore: Arc<VkCore>,
+	pub device: VulkanDevice,
+
+	#[cfg(any(feature = "glfw", test))]
+	pub window: &'a glfw::PWindow,
+
+	#[cfg(feature = "win32_khr")]
+	pub hwnd: HWND,
+	#[cfg(feature = "win32_khr")]
+	pub hinstance: HINSTANCE,
+
+	#[cfg(feature = "android_khr")]
+	pub window: *const ANativeWindow,
+
+	#[cfg(feature = "ios_mvk")]
+	pub view: *const c_void,
+
+	#[cfg(feature = "macos_mvk")]
+	pub view: *const c_void,
+
+	#[cfg(feature = "metal_ext")]
+	pub metal_layer: *const CAMetalLayer,
+
+	#[cfg(feature = "wayland_khr")]
+	pub display: *const c_void,
+	#[cfg(feature = "wayland_khr")]
+	pub surface: *const c_void,
+
+	#[cfg(feature = "xcb_khr")]
+	pub connection: *const c_void,
+	#[cfg(feature = "xcb_khr")]
+	pub window: xcb_window_t,
+
+	pub width: u32,
+	pub height: u32,
+	pub vsync: bool,
+	pub max_concurrent_frames: usize,
+	pub is_vr: bool,
+}
+
 #[derive(Debug, Clone)]
 pub struct VulkanContext {
 	vkcore: Arc<VkCore>,
@@ -22,28 +64,48 @@ unsafe impl Send for VulkanContext {}
 
 impl VulkanContext {
 	/// Create a new `VulkanContext`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<Arc<Mutex<Self>>, VulkanError> {
-		let mut cmdpools = Vec::<Arc<Mutex<VulkanCommandPool>>>::with_capacity(max_concurrent_frames);
-		for _ in 0..max_concurrent_frames {
-			cmdpools.push(Arc::new(Mutex::new(VulkanCommandPool::new(&vkcore, &device)?)));
+	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Arc<Mutex<Self>>, VulkanError> {
+		let vkcore = &create_info.vkcore;
+		let device = &create_info.device;
+
+		#[cfg(any(feature = "glfw", test))]
+		let surface = VulkanSurface::new(vkcore, device, create_info.window)?;
+		#[cfg(feature = "win32_khr")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.hwnd, create_info.hinstance)?;
+		#[cfg(feature = "android_khr")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.window)?;
+		#[cfg(feature = "ios_mvk")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.view)?;
+		#[cfg(feature = "macos_mvk")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.view)?;
+		#[cfg(feature = "metal_ext")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.metal_layer)?;
+		#[cfg(feature = "wayland_khr")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.display, create_info.surface)?;
+		#[cfg(feature = "xcb_khr")]
+		let surface = VulkanSurface::new(vkcore, device, create_info.connection, create_info.window)?;
+
+		let mut cmdpools = Vec::<VulkanCommandPool>::with_capacity(create_info.max_concurrent_frames);
+		for _ in 0..create_info.max_concurrent_frames {
+			cmdpools.push(VulkanCommandPool::new(vkcore, device)?);
 		}
-		let ret = Arc::new(Mutex::new(Self{
-			vkcore: vkcore.clone(),
-			device: device.clone(),
-			surface: surface.clone(),
-			swapchain: Arc::new(Mutex::new(VulkanSwapchain::new(&vkcore, &device, surface.clone(), width, height, vsync, is_vr)?)),
+		let swapchain = VulkanSwapchain::new(vkcore, device, surface.clone(), create_info.width, create_info.height, create_info.vsync, create_info.is_vr)?;
+		let ret = Arc::new(Mutex::new(Self {
+			vkcore: create_info.vkcore,
+			device: Arc::new(create_info.device),
+			surface,
+			swapchain,
 			cmdpools,
 			cur_swapchain_image_index: 0,
 		}));
 		let weak = Arc::downgrade(&ret);
-		if true {
-			let mut lock = ret.lock().unwrap();
-			lock.surface.lock().unwrap().ctx = weak.clone();
-			lock.swapchain.lock().unwrap().set_ctx(weak.clone());
-			for cmdpool in lock.cmdpools.iter_mut() {
-				cmdpool.lock().unwrap().ctx = weak.clone();
-			}
+		let mut lock = ret.lock().unwrap();
+		lock.surface.lock().unwrap().set_ctx(weak.clone());
+		lock.swapchain.set_ctx(weak.clone());
+		for cmdpool in lock.cmdpools.iter_mut() {
+			cmdpool.set_ctx(weak.clone());
 		}
+		drop(lock);
 		Ok(ret)
 	}
 
