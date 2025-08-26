@@ -85,6 +85,8 @@ impl Drop for VulkanSwapchainImage {
 pub struct VulkanSwapchain {
 	ctx: Weak<Mutex<VulkanContext>>,
 	pub surface: Arc<Mutex<VulkanSurface>>,
+	vsync: bool,
+	is_vr: bool,
 	surf_caps: VkSurfaceCapabilitiesKHR,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
@@ -95,7 +97,7 @@ pub struct VulkanSwapchain {
 unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let surface = surface_.lock().unwrap();
 		let vk_device = device.get_vk_device();
 		let vk_phy_dev = device.get_vk_physical_device();
@@ -184,7 +186,10 @@ impl VulkanSwapchain {
 			compositeAlpha: composite_alpha,
 			presentMode: present_mode,
 			clipped: VK_TRUE,
-			oldSwapchain: null(),
+			oldSwapchain: match old_swapchain {
+				Some(chain) => chain,
+				None => null(),
+			},
 		};
 
 		let mut swapchain: VkSwapchainKHR = null();
@@ -203,6 +208,8 @@ impl VulkanSwapchain {
 		Ok(Self {
 			ctx: Weak::new(),
 			surface: surface_,
+			vsync,
+			is_vr,
 			surf_caps,
 			swapchain,
 			swapchain_extent,
@@ -241,6 +248,14 @@ impl VulkanSwapchain {
 
 	pub fn get_images(&self) -> &[VulkanSwapchainImage] {
 		self.images.as_ref()
+	}
+
+	pub fn get_is_vsync(&self) -> bool {
+		self.vsync
+	}
+
+	pub fn get_is_vr(&self) -> bool {
+		self.is_vr
 	}
 
 	pub fn acquire_next_image(&self, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VulkanError> {
