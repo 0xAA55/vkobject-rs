@@ -1,10 +1,12 @@
 
 #[cfg(any(feature = "glfw", test))]
 pub mod init_from_glfw {
+	use crate::prelude::*;
 	use vkcore_rs::*;
 	use std::{
 		ffi::{c_void, CString},
 		ptr::null,
+		sync::{Arc, Mutex},
 	};
 
 	unsafe extern "C" {
@@ -25,6 +27,24 @@ pub mod init_from_glfw {
 			apiVersion: api_version,
 		};
 		VkCore::new(app_info, |instance, proc_name|unsafe {glfwGetInstanceProcAddress(instance, CString::new(proc_name).unwrap().as_ptr())})
+	}
+
+	/// Create a Vulkan context
+	pub fn create_vulkan_context(window: &glfw::PWindow, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<Arc<Mutex<VulkanContext>>, VulkanError> {
+		let vkcore = Arc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 4, 0))?);
+		let device = VulkanDevice::choose_gpu_with_graphics(vkcore.clone())?;
+		let (width, height) = window.get_framebuffer_size();
+		let context_ci = VulkanContextCreateInfo {
+			vkcore,
+			device,
+			window,
+			width: width as u32,
+			height: height as u32,
+			vsync,
+			max_concurrent_frames,
+			is_vr,
+		};
+		Ok(VulkanContext::new(context_ci)?)
 	}
 }
 
