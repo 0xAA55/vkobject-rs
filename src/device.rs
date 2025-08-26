@@ -176,6 +176,11 @@ impl VulkanDevice {
 		self.vkcore.vkGetPhysicalDeviceSurfaceSupportKHR(self.get_vk_physical_device(), queue_index as u32, surface, &mut result)?;
 		Ok(result != 0)
 	}
+
+	pub fn wait_idle(&self) -> Result<(), VulkanError> {
+		self.vkcore.vkDeviceWaitIdle(self.device)?;
+		Ok(())
+	}
 }
 
 impl Debug for VulkanDevice {
