@@ -28,6 +28,7 @@ vkcore-rs = { version = "0.5.0", features = ["glfw"] }
 lto = "fat"
 
 [features]
+default = ["glfw"]
 glfw = ["dep:glfw", "vkcore-rs/glfw"]
 win32_khr = ["vkcore-rs/win32_khr"]
 android_khr = ["vkcore-rs/android_khr"]
