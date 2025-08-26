@@ -96,8 +96,8 @@ pub struct VulkanSwapchain {
 unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_arc: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<Self, VkError> {
-		let surface = surface_arc.lock().unwrap();
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<Self, VkError> {
+		let surface = surface_.lock().unwrap();
 		let vk_device = device.get_vk_device();
 		let vk_phy_dev = device.get_vk_physical_device();
 		let vk_surface = surface.get_vk_surface();
@@ -200,9 +200,10 @@ impl VulkanSwapchain {
 			images.push(VulkanSwapchainImage::new(vkcore, *vk_image, &surface, device)?);
 		}
 
+		drop(surface);
 		Ok(Self {
 			ctx: Weak::new(),
-			surface: Arc::downgrade(&surface_arc),
+			surface: surface_,
 			surf_caps,
 			swapchain,
 			swapchain_extent,
@@ -219,8 +220,7 @@ impl VulkanSwapchain {
 	}
 
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
-		let binding = self.surface.upgrade().unwrap();
-		let surface = binding.lock().unwrap();
+		let surface = self.surface.lock().unwrap();
 		surface.get_vk_surface()
 	}
 
