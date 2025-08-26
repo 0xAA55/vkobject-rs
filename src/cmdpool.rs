@@ -47,12 +47,12 @@ impl VulkanCommandPool {
 	}
 
 	/// Retrieve the command pool
-	pub fn get_vk_cmdpool(&self) -> VkCommandPool {
+	pub(crate) fn get_vk_cmdpool(&self) -> VkCommandPool {
 		self.pool
 	}
 
 	/// Get the command buffers
-	pub fn get_vk_cmd_buffer(&self) -> VkCommandBuffer {
+	pub(crate) fn get_vk_cmd_buffer(&self) -> VkCommandBuffer {
 		self.cmd_buffer
 	}
 
@@ -80,12 +80,12 @@ impl Drop for VulkanCommandPool {
 
 #[derive(Debug)]
 pub struct VulkanCommandPoolInUse<'a, 'b> {
-	ctx: Arc<Mutex<VulkanContext>>,
+	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 	cmdpool: &'a VulkanCommandPool,
 	swapchain_image: &'b VulkanSwapchainImage,
-	one_time_submit: bool,
-	ended: bool,
-	pub submitted: bool,
+	pub(crate) one_time_submit: bool,
+	pub(crate) ended: bool,
+	pub(crate) submitted: bool,
 }
 
 impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {

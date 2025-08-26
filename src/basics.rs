@@ -25,7 +25,7 @@ impl From<VkError> for VulkanError {
 
 #[derive(Debug)]
 pub struct VulkanSemaphore {
-	ctx: Weak<Mutex<VulkanContext>>,
+	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
 	semaphore: VkSemaphore,
 }
 
@@ -46,11 +46,11 @@ impl VulkanSemaphore {
 		})
 	}
 
-	pub fn get_vk_semaphore(&self) -> VkSemaphore {
+	pub(crate) fn get_vk_semaphore(&self) -> VkSemaphore {
 		self.semaphore
 	}
 
-	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.ctx = ctx;
 	}
 }
@@ -67,7 +67,7 @@ impl Drop for VulkanSemaphore {
 
 #[derive(Debug)]
 pub struct VulkanFence {
-	ctx: Weak<Mutex<VulkanContext>>,
+	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
 	fence: VkFence,
 }
 
@@ -88,11 +88,11 @@ impl VulkanFence {
 		})
 	}
 
-	pub fn get_vk_fence(&self) -> VkFence {
+	pub(crate) fn get_vk_fence(&self) -> VkFence {
 		self.fence
 	}
 
-	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.ctx = ctx;
 	}
 }

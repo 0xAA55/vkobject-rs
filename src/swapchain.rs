@@ -10,12 +10,12 @@ use std::{
 
 #[derive(Debug)]
 pub struct VulkanSwapchainImage {
-	ctx: Weak<Mutex<VulkanContext>>,
-	image: VkImage,
-	image_view: VkImageView,
-	acquire_semaphore: VulkanSemaphore,
-	release_semaphore: VulkanSemaphore,
-	queue_submit_fence: VulkanFence,
+	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
+	pub image: VkImage,
+	pub image_view: VkImageView,
+	pub acquire_semaphore: VulkanSemaphore,
+	pub release_semaphore: VulkanSemaphore,
+	pub queue_submit_fence: VulkanFence,
 }
 
 unsafe impl Send for VulkanSwapchainImage {}
@@ -85,12 +85,12 @@ impl Drop for VulkanSwapchainImage {
 #[derive(Debug)]
 pub struct VulkanSwapchain {
 	ctx: Weak<Mutex<VulkanContext>>,
-	pub surface: Weak<Mutex<VulkanSurface>>,
+	pub surface: Arc<Mutex<VulkanSurface>>,
 	surf_caps: VkSurfaceCapabilitiesKHR,
 	swapchain: VkSwapchainKHR,
 	swapchain_extent: VkExtent2D,
 	present_mode: VkPresentModeKHR,
-	images: Vec<VulkanSwapchainImage>,
+	pub images: Vec<VulkanSwapchainImage>,
 }
 
 unsafe impl Send for VulkanSwapchain {}
@@ -212,7 +212,7 @@ impl VulkanSwapchain {
 		})
 	}
 
-	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		for image in self.images.iter_mut() {
 			image.set_ctx(ctx.clone());
 		}
@@ -224,7 +224,7 @@ impl VulkanSwapchain {
 		surface.get_vk_surface()
 	}
 
-	pub fn get_vk_swapchain(&self) -> VkSwapchainKHR {
+	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
 		self.swapchain
 	}
 

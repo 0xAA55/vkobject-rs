@@ -169,12 +169,12 @@ impl VulkanSurface {
 	}
 
 	/// Get the current `VkSurfaceKHR`
-	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
+	pub(crate) fn get_vk_surface(&self) -> VkSurfaceKHR {
 		self.surface
 	}
 
 	/// Get the `VkSurfaceFormatKHR`
-	pub fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
+	pub(crate) fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
 		&self.format
 	}
 }
