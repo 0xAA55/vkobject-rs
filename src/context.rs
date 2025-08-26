@@ -145,6 +145,10 @@ impl VulkanContext {
 		self.swapchain.get_vk_swapchain()
 	}
 
+	pub(crate) fn get_swapchain_extent(&self) -> VkExtent2D {
+		self.swapchain.get_swapchain_extent()
+	}
+
 	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<Mutex<VulkanSurface>>) -> Result<VkExtent2D, VulkanError> {
 		let mut surface_properties: VkSurfaceCapabilitiesKHR = unsafe {MaybeUninit::zeroed().assume_init()};
 		let surface = surface.lock().unwrap();
@@ -154,6 +158,21 @@ impl VulkanContext {
 
 	pub fn get_surface_size(&self) -> Result<VkExtent2D, VulkanError> {
 		Self::get_surface_size_(&self.vkcore, &self.device, self.surface.clone())
+	}
+
+	pub fn on_resize(&mut self) -> Result<bool, VulkanError> {
+		let surface_size = self.get_surface_size()?;
+		let swapchain_extent = self.get_swapchain_extent();
+		if	swapchain_extent.width == surface_size.width &&
+			swapchain_extent.height == surface_size.height {
+			Ok(false)
+		} else {
+			self.device.wait_idle()?;
+			let prev_chain = self.get_vk_swapchain();
+			let new_chain = VulkanSwapchain::new(&self.vkcore, &self.device, self.surface.clone(), surface_size.width, surface_size.height, self.swapchain.get_is_vsync(), self.swapchain.get_is_vr(), Some(prev_chain))?;
+			self.swapchain = new_chain;
+			Ok(true)
+		}
 	}
 
 	/// Get the current swapchain image index
