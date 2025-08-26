@@ -29,7 +29,7 @@ impl VulkanSurface {
 	fn new_from_ci<T>(function_name: &'static str, vkcore: &VkCore, device: &VulkanDevice,  vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let gpu_info = &device.gpu;
 		let mut surface: VkSurfaceKHR = null();
-		vk_result_conv(function_name, vk_create_surface(vkcore.instance, surface_ci, null(), &mut surface))?;
+		vk_result_conv(function_name, vk_create_surface(vkcore.get_instance(), surface_ci, null(), &mut surface))?;
 
 		let mut supported = Vec::<bool>::with_capacity(gpu_info.queue_families.len());
 		for i in 0..gpu_info.queue_families.len() {
@@ -180,7 +180,7 @@ impl Drop for VulkanSurface {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			vkcore.vkDestroySurfaceKHR(vkcore.instance, self.surface, null()).unwrap();
+			vkcore.vkDestroySurfaceKHR(vkcore.get_instance(), self.surface, null()).unwrap();
 		}
 	}
 }
