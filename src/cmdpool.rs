@@ -61,6 +61,10 @@ impl VulkanCommandPool {
 		self.fence.get_vk_fence()
 	}
 
+	/// Set the context
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.fence.set_ctx(ctx.clone());
+		self.ctx = ctx;
 	}
 }
 
