@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{
 	cell::RefCell,
-	sync::{Arc, Weak},
+	sync::Weak,
 };
 
 #[derive(Debug)]

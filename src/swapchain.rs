@@ -1,8 +1,7 @@
 
 use crate::prelude::*;
 use std::{
-	ffi::c_void,
-	fmt::{self, Debug, Formatter},
+	fmt::Debug,
 	mem::{MaybeUninit, transmute},
 	ptr::{null, null_mut},
 	sync::{Mutex, Arc, Weak},

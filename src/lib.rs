@@ -1,5 +1,5 @@
 
-#![allow(unused_imports)]
+#![allow(dead_code)]
 
 /// The common helper library
 pub mod common;
@@ -44,9 +44,6 @@ pub mod prelude {
 
 #[cfg(test)]
 mod tests {
-	use std::{
-		sync::Arc,
-	};
 	use glfw::*;
 	use crate::prelude::*;
 

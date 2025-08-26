@@ -3,11 +3,9 @@
 #![allow(clippy::too_many_arguments)]
 use crate::prelude::*;
 use std::{
-	ffi::c_void,
-	fmt::{self, Debug, Formatter},
-	mem::{MaybeUninit, transmute},
-	ptr::{null, null_mut},
-	sync::{Mutex, Arc, Weak},
+	fmt::Debug,
+	ptr::null,
+	sync::{Mutex, Weak},
 };
 
 #[derive(Debug, Clone)]
