@@ -19,7 +19,7 @@ impl Buffer {
 	}
 
 	/// Get the buffer
-	pub fn get_buffer(&self) ->VkBuffer {
+	pub fn get_buffer(&self) -> VkBuffer {
 		self.buffer
 	}
 }
