@@ -11,6 +11,7 @@ use std::{
 pub struct VulkanGpuInfo {
 	gpu: VkPhysicalDevice,
 	properties: VkPhysicalDeviceProperties,
+	mem_properties: VkPhysicalDeviceMemoryProperties,
 	queue_families: Vec<VkQueueFamilyProperties>,
 	extension_properties: Vec<VkExtensionProperties>,
 }
@@ -26,6 +27,8 @@ impl VulkanGpuInfo {
 		for gpu in gpus {
 			let mut properties: VkPhysicalDeviceProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 			vkcore.vkGetPhysicalDeviceProperties(gpu, &mut properties)?;
+			let mut mem_properties: VkPhysicalDeviceMemoryProperties = unsafe {MaybeUninit::zeroed().assume_init()};
+			vkcore.vkGetPhysicalDeviceMemoryProperties(gpu, &mut mem_properties)?;
 			let mut num_queue_families = 0u32;
 			vkcore.vkGetPhysicalDeviceQueueFamilyProperties(gpu, &mut num_queue_families, null_mut())?;
 			let mut queue_families = Vec::<VkQueueFamilyProperties>::with_capacity(num_queue_families as usize);
@@ -39,6 +42,7 @@ impl VulkanGpuInfo {
 			ret.push(VulkanGpuInfo {
 				gpu,
 				properties,
+				mem_properties,
 				queue_families,
 				extension_properties,
 			});
