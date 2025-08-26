@@ -13,7 +13,7 @@ pub struct VulkanCommandPool {
 	ctx: Weak<Mutex<VulkanContext>>,
 	pool: VkCommandPool,
 	cmd_buffer: VkCommandBuffer,
-	fence: VkFence,
+	pub(crate) fence: VulkanFence,
 }
 
 unsafe impl Send for VulkanCommandPool {}
@@ -38,18 +38,11 @@ impl VulkanCommandPool {
 		};
 		let mut cmd_buffer: VkCommandBuffer = null();
 		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, &mut cmd_buffer)?;
-		let mut fence: VkFence = null();
-		let fence_ci = VkFenceCreateInfo {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
-			pNext: null(),
-			flags: VkFenceCreateFlagBits::VK_FENCE_CREATE_SIGNALED_BIT as u32,
-		};
-		vkcore.vkCreateFence(vk_device, &fence_ci, null(), &mut fence)?;
 		Ok(Self{
 			ctx: Weak::new(),
 			pool,
 			cmd_buffer,
-			fence,
+			fence: VulkanFence::new(vkcore, device)?,
 		})
 	}
 
@@ -64,8 +57,10 @@ impl VulkanCommandPool {
 	}
 
 	/// Get the fences
-	pub fn get_vk_fence(&self) -> VkFence {
-		self.fence
+	pub(crate) fn get_vk_fence(&self) -> VkFence {
+		self.fence.get_vk_fence()
+	}
+
 	}
 }
 
@@ -74,8 +69,6 @@ impl Drop for VulkanCommandPool {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let device = ctx.get_vk_device();
-			vkcore.vkDestroyFence(device, self.fence, null()).unwrap();
 			vkcore.vkDestroyCommandPool(ctx.get_vk_device(), self.pool, null()).unwrap();
 		}
 	}
