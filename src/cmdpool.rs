@@ -107,6 +107,10 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
 		})
 	}
 
+	pub fn is_one_time_submit(&self) -> bool {
+		self.one_time_submit
+	}
+
 	pub fn end_cmd(&mut self) -> Result<(), VkError> {
 		if !self.ended {
 			let ctx = self.ctx.lock().unwrap();
