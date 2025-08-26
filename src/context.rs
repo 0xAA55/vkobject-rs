@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use std::{
 	fmt::Debug,
+	mem::MaybeUninit,
 	sync::{Mutex, Arc},
 };
 
@@ -84,7 +85,8 @@ impl VulkanContext {
 		for _ in 0..create_info.max_concurrent_frames {
 			cmdpools.push(VulkanCommandPool::new(vkcore, device)?);
 		}
-		let swapchain = VulkanSwapchain::new(vkcore, device, surface.clone(), create_info.width, create_info.height, create_info.vsync, create_info.is_vr)?;
+		let size = Self::get_surface_size_(vkcore, device, surface.clone())?;
+		let swapchain = VulkanSwapchain::new(vkcore, device, surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
 		let ret = Arc::new(Mutex::new(Self {
 			vkcore: create_info.vkcore,
 			device: Arc::new(create_info.device),
@@ -141,6 +143,17 @@ impl VulkanContext {
 
 	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
 		self.swapchain.get_vk_swapchain()
+	}
+
+	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<Mutex<VulkanSurface>>) -> Result<VkExtent2D, VulkanError> {
+		let mut surface_properties: VkSurfaceCapabilitiesKHR = unsafe {MaybeUninit::zeroed().assume_init()};
+		let surface = surface.lock().unwrap();
+		vkcore.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.get_vk_physical_device(), surface.get_vk_surface(), &mut surface_properties)?;
+		Ok(surface_properties.currentExtent)
+	}
+
+	pub fn get_surface_size(&self) -> Result<VkExtent2D, VulkanError> {
+		Self::get_surface_size_(&self.vkcore, &self.device, self.surface.clone())
 	}
 
 	/// Get the current swapchain image index
