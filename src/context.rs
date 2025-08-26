@@ -146,6 +146,10 @@ impl VulkanContext {
 		*surface.get_vk_surface_format()
 	}
 
+	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
+		self.swapchain.get_vk_swapchain()
+	}
+
 	/// Get the current swapchain image index
 	pub fn get_swapchain_image_index(&self) -> u32 {
 		self.cur_swapchain_image_index
