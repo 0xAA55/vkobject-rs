@@ -164,6 +164,10 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateXcbSurfaceKHR", vkcore, device, vkCreateXcbSurfaceKHR, &surface_ci)
 	}
 
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.ctx = ctx;
+	}
+
 	/// Get the current `VkSurfaceKHR`
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
 		self.surface
