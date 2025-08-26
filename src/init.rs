@@ -14,7 +14,7 @@ pub mod init_from_glfw {
 	}
 
 	/// Create a `VkCore` from GLFW
-	pub fn create_vkcore_from_glfw(app_name: &str, engine_name: &str, app_version: u32, engine_version: u32, api_version: u32) -> Result<VkCore, VkError> {
+	pub fn create_vkcore_from_glfw(app_name: &str, engine_name: &str, app_version: u32, engine_version: u32, api_version: u32) -> Result<VkCore, VulkanError> {
 		let app_name = CString::new(app_name).unwrap();
 		let engine_name = CString::new(engine_name).unwrap();
 		let app_info = VkApplicationInfo {
@@ -26,7 +26,7 @@ pub mod init_from_glfw {
 			engineVersion: engine_version,
 			apiVersion: api_version,
 		};
-		VkCore::new(app_info, |instance, proc_name|unsafe {glfwGetInstanceProcAddress(instance, CString::new(proc_name).unwrap().as_ptr())})
+		Ok(VkCore::new(app_info, |instance, proc_name|unsafe {glfwGetInstanceProcAddress(instance, CString::new(proc_name).unwrap().as_ptr())})?)
 	}
 
 	/// Create a Vulkan context

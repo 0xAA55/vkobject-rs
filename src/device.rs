@@ -17,7 +17,7 @@ pub struct VulkanGpuInfo {
 }
 
 impl VulkanGpuInfo {
-	pub fn get_gpu_info(vkcore: &VkCore) -> Result<Vec<VulkanGpuInfo>, VkError> {
+	pub fn get_gpu_info(vkcore: &VkCore) -> Result<Vec<VulkanGpuInfo>, VulkanError> {
 		let mut num_gpus = 0u32;
 		vkcore.vkEnumeratePhysicalDevices(vkcore.get_instance(), &mut num_gpus, null_mut())?;
 		let mut gpus = Vec::<VkPhysicalDevice>::with_capacity(num_gpus as usize);
@@ -85,7 +85,7 @@ pub struct VulkanDevice {
 }
 
 impl VulkanDevice {
-	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VkError> {
+	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VulkanError> {
 		let priorities = [1.0];
 		let queue_ci = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -171,7 +171,7 @@ impl VulkanDevice {
 		self.queue
 	}
 
-	pub fn get_supported_by_surface(&self, queue_index: usize, surface: VkSurfaceKHR) -> Result<bool, VkError> {
+	pub fn get_supported_by_surface(&self, queue_index: usize, surface: VkSurfaceKHR) -> Result<bool, VulkanError> {
 		let mut result: VkBool32 = 0;
 		self.vkcore.vkGetPhysicalDeviceSurfaceSupportKHR(self.get_vk_physical_device(), queue_index as u32, surface, &mut result)?;
 		Ok(result != 0)

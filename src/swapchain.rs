@@ -20,7 +20,7 @@ pub struct VulkanSwapchainImage {
 unsafe impl Send for VulkanSwapchainImage {}
 
 impl VulkanSwapchainImage {
-	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: &VulkanDevice) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: &VulkanDevice) -> Result<Self, VulkanError> {
 		let vk_image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			pNext: null(),
@@ -243,7 +243,7 @@ impl VulkanSwapchain {
 		self.images.as_ref()
 	}
 
-	pub fn acquire_next_image(&self, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VkError> {
+	pub fn acquire_next_image(&self, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
 		let vkcore = ctx.get_vkcore();
@@ -252,7 +252,7 @@ impl VulkanSwapchain {
 		Ok(())
 	}
 
-	pub fn queue_present(&self, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VkError> {
+	pub fn queue_present(&self, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
 		let vkcore = ctx.get_vkcore();

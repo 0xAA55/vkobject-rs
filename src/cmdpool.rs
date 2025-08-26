@@ -17,7 +17,7 @@ pub struct VulkanCommandPool {
 unsafe impl Send for VulkanCommandPool {}
 
 impl VulkanCommandPool {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VulkanError> {
 		let vk_device = device.get_vk_device();
 		let pool_ci = VkCommandPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -87,7 +87,7 @@ pub struct VulkanCommandPoolInUse<'a, 'b> {
 }
 
 impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
-	pub fn new(cmdpool: &'a VulkanCommandPool, swapchain_image: &'b VulkanSwapchainImage, one_time_submit: bool) -> Result<Self, VkError> {
+	pub fn new(cmdpool: &'a VulkanCommandPool, swapchain_image: &'b VulkanSwapchainImage, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
 		let vkcore = ctx_g.get_vkcore();
@@ -113,7 +113,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
 		self.one_time_submit
 	}
 
-	pub fn end_cmd(&mut self) -> Result<(), VkError> {
+	pub fn end_cmd(&mut self) -> Result<(), VulkanError> {
 		if !self.ended {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
@@ -130,7 +130,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
 		self.ended
 	}
 
-	pub fn submit(&mut self) -> Result<(), VkError> {
+	pub fn submit(&mut self) -> Result<(), VulkanError> {
 		if !self.ended {
 			self.end_cmd()?;
 		}

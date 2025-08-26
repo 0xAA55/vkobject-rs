@@ -30,7 +30,7 @@ pub struct VulkanSemaphore {
 unsafe impl Send for VulkanSemaphore {}
 
 impl VulkanSemaphore {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VulkanError> {
 		let ci = VkSemaphoreCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 			pNext: null(),
@@ -72,7 +72,7 @@ pub struct VulkanFence {
 unsafe impl Send for VulkanFence {}
 
 impl VulkanFence {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VkError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VulkanError> {
 		let ci = VkFenceCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 			pNext: null(),
