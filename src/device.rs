@@ -9,11 +9,11 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct VulkanGpuInfo {
-	gpu: VkPhysicalDevice,
-	properties: VkPhysicalDeviceProperties,
-	mem_properties: VkPhysicalDeviceMemoryProperties,
-	queue_families: Vec<VkQueueFamilyProperties>,
-	extension_properties: Vec<VkExtensionProperties>,
+	pub(crate) gpu: VkPhysicalDevice,
+	pub(crate) properties: VkPhysicalDeviceProperties,
+	pub(crate) mem_properties: VkPhysicalDeviceMemoryProperties,
+	pub(crate) queue_families: Vec<VkQueueFamilyProperties>,
+	pub(crate) extension_properties: Vec<VkExtensionProperties>,
 }
 
 impl VulkanGpuInfo {
@@ -77,11 +77,11 @@ impl VulkanGpuInfo {
 }
 
 pub struct VulkanDevice {
-	vkcore: Arc<VkCore>,
+	pub(crate) vkcore: Arc<VkCore>,
 	queue_family_index: u32,
 	gpu: VulkanGpuInfo,
 	device: VkDevice,
-	queue: VkQueue,
+	pub(crate) queues: Vec<Arc<Mutex<VkQueue>>>,
 }
 
 impl VulkanDevice {
@@ -159,11 +159,13 @@ impl VulkanDevice {
 		&self.gpu
 	}
 
-	pub fn get_vk_physical_device(&self) -> VkPhysicalDevice {
+	/// Get the `VkPhysicalDevice`
+	pub(crate) fn get_vk_physical_device(&self) -> VkPhysicalDevice {
 		self.gpu.get_vk_physical_device()
 	}
 
-	pub fn get_vk_device(&self) -> VkDevice {
+	/// Get the `VkDevice`
+	pub(crate) fn get_vk_device(&self) -> VkDevice {
 		self.device
 	}
 
