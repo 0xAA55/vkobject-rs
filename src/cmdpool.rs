@@ -94,7 +94,7 @@ impl Drop for VulkanCommandPool {
 #[derive(Debug)]
 pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
-	cmdpool: &'a VulkanCommandPool,
+	pub(crate) cmdpool: &'a VulkanCommandPool,
 	cmdbuf_index: u32,
 	swapchain_image_index: usize,
 	pub(crate) one_time_submit: bool,
