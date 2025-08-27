@@ -126,8 +126,14 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		})
 	}
 
+	/// Get the current command buffer index
 	pub fn get_cmdbuf_index(&self) -> usize {
 		self.cmdbuf_index as usize
+	}
+
+	/// Get the current command buffer
+	pub fn get_vk_cmdbuf(&self) -> VkCommandBuffer {
+		self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()]
 	}
 
 	pub fn is_one_time_submit(&self) -> bool {
@@ -138,8 +144,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		if !self.ended {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
-			vkcore.vkEndCommandBuffer(cmdbuf)?;
+			vkcore.vkEndCommandBuffer(self.get_vk_cmdbuf())?;
 			self.ended = true;
 			Ok(())
 		} else {
@@ -158,11 +163,10 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		if !self.submitted {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
 
 			let swapchain_image = ctx.get_swapchain_image(self.swapchain_image_index);
 			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
-			let cmd_buffers = [cmdbuf];
+			let cmd_buffers = [self.get_vk_cmdbuf()];
 			let submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				pNext: null(),
