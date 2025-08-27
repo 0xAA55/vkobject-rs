@@ -92,6 +92,8 @@ pub struct VulkanSwapchain {
 	swapchain_extent: VkExtent2D,
 	present_mode: VkPresentModeKHR,
 	pub images: Vec<VulkanSwapchainImage>,
+	pub acquire_semaphore: VulkanSemaphore,
+	cur_image_index: u32,
 }
 
 unsafe impl Send for VulkanSwapchain {}
@@ -215,6 +217,8 @@ impl VulkanSwapchain {
 			swapchain_extent,
 			present_mode,
 			images,
+			acquire_semaphore: VulkanSemaphore::new(vkcore, device)?,
+			cur_image_index: 0,
 		})
 	}
 
@@ -250,6 +254,18 @@ impl VulkanSwapchain {
 		self.images.as_ref()
 	}
 
+	pub fn get_image(&self, index: usize) -> &VulkanSwapchainImage {
+		&self.images[index]
+	}
+
+	pub fn get_cur_image(&self) -> &VulkanSwapchainImage {
+		&self.images[self.cur_image_index as usize]
+	}
+
+	pub fn get_image_index(&self) -> u32 {
+		self.cur_image_index
+	}
+
 	pub fn get_is_vsync(&self) -> bool {
 		self.vsync
 	}
@@ -258,39 +274,34 @@ impl VulkanSwapchain {
 		self.is_vr
 	}
 
-	pub fn acquire_next_image(&self, present_complete_semaphore: VkSemaphore, image_index: &mut u32) -> Result<(), VulkanError> {
+	pub(crate) fn acquire_next_image(&mut self) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
 		let vkcore = ctx.get_vkcore();
 		let device = ctx.get_vk_device();
-		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, present_complete_semaphore, null(), image_index)?;
+		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, self.acquire_semaphore.get_vk_semaphore(), null(), &mut self.cur_image_index)?;
 		Ok(())
 	}
 
-	pub fn queue_present(&self, image_index: u32, wait_semaphore: VkSemaphore) -> Result<(), VulkanError> {
+	pub(crate) fn queue_present(&self, queue_index: usize) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
 		let vkcore = ctx.get_vkcore();
-		let num_wait_semaphores;
-		let wait_semaphores;
-		if wait_semaphore != VK_NULL_HANDLE as _ {
-			num_wait_semaphores = 1;
-			wait_semaphores = &wait_semaphore as *const _;
-		} else {
-			num_wait_semaphores = 0;
-			wait_semaphores = null();
-		}
+		let swapchains = [self.swapchain];
+		let image_indices = [self.cur_image_index];
+		let wait_semaphores = [self.get_cur_image().release_semaphore.get_vk_semaphore()];
 		let present_info = VkPresentInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			pNext: null(),
-			waitSemaphoreCount: num_wait_semaphores,
-			pWaitSemaphores: wait_semaphores,
+			waitSemaphoreCount: 1,
+			pWaitSemaphores: wait_semaphores.as_ptr(),
 			swapchainCount: 1,
-			pSwapchains: &self.swapchain as *const _,
-			pImageIndices: &image_index as *const _,
+			pSwapchains: swapchains.as_ptr(),
+			pImageIndices: image_indices.as_ptr(),
 			pResults: null_mut(),
 		};
-		vkcore.vkQueuePresentKHR(ctx.get_vk_queue(), &present_info)?;
+
+		vkcore.vkQueuePresentKHR(*ctx.get_vk_queue(queue_index), &present_info)?;
 		Ok(())
 	}
 }
