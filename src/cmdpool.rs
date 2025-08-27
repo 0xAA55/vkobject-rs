@@ -77,17 +77,17 @@ impl Drop for VulkanCommandPool {
 }
 
 #[derive(Debug)]
-pub struct VulkanCommandPoolInUse<'a, 'b> {
+pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 	cmdpool: &'a VulkanCommandPool,
-	swapchain_image: &'b VulkanSwapchainImage,
+	swapchain_image_index: usize,
 	pub(crate) one_time_submit: bool,
 	pub(crate) ended: bool,
 	pub(crate) submitted: bool,
 }
 
-impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
-	pub fn new(cmdpool: &'a VulkanCommandPool, swapchain_image: &'b VulkanSwapchainImage, one_time_submit: bool) -> Result<Self, VulkanError> {
+impl<'a, 'b> VulkanCommandPoolInUse<'a> {
+	pub fn new(cmdpool: &'a VulkanCommandPool, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
 		let vkcore = ctx_g.get_vkcore();
@@ -102,7 +102,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
 		Ok(Self {
 			ctx: ctx.clone(),
 			cmdpool,
-			swapchain_image,
+			swapchain_image_index,
 			one_time_submit,
 			ended: false,
 			submitted: false,
@@ -139,20 +139,21 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
 			let vkcore = ctx.get_vkcore();
 			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
 
+			let swapchain_image = ctx.get_swapchain_image(self.swapchain_image_index);
 			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
 			let cmd_buffers = [cmdbuf];
 			let submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				pNext: null(),
 				waitSemaphoreCount: 1,
-				pWaitSemaphores: &self.swapchain_image.acquire_semaphore.get_vk_semaphore(),
+				pWaitSemaphores: &swapchain_image.acquire_semaphore.get_vk_semaphore(),
 				pWaitDstStageMask: wait_stage.as_ptr(),
 				commandBufferCount: 1,
 				pCommandBuffers: cmd_buffers.as_ptr(),
 				signalSemaphoreCount: 1,
-				pSignalSemaphores: &self.swapchain_image.release_semaphore.get_vk_semaphore(),
+				pSignalSemaphores: &swapchain_image.release_semaphore.get_vk_semaphore(),
 			};
-			vkcore.vkQueueSubmit(ctx.get_vk_queue(), 1, &submit_info, self.swapchain_image.queue_submit_fence.get_vk_fence())?;
+			vkcore.vkQueueSubmit(*ctx.get_vk_queue(self.swapchain_image_index), 1, &submit_info, swapchain_image.queue_submit_fence.get_vk_fence())?;
 			self.submitted = true;
 			Ok(())
 		} else {
@@ -163,7 +164,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a, 'b> {
 	pub fn end(self) {}
 }
 
-impl Drop for VulkanCommandPoolInUse<'_, '_> {
+impl Drop for VulkanCommandPoolInUse<'_> {
 	fn drop(&mut self) {
 		if !self.submitted {
 			self.submit().unwrap();
