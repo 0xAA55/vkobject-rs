@@ -20,7 +20,7 @@ pub struct VulkanSwapchainImage {
 unsafe impl Send for VulkanSwapchainImage {}
 
 impl VulkanSwapchainImage {
-	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: &VulkanDevice) -> Result<Self, VulkanError> {
+	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: VkDevice) -> Result<Self, VulkanError> {
 		let vk_image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			pNext: null(),
@@ -43,11 +43,10 @@ impl VulkanSwapchainImage {
 			},
 		};
 		let mut image_view: VkImageView = null();
-		let acquire_semaphore = VulkanSemaphore::new(vkcore, device)?;
-		let release_semaphore = VulkanSemaphore::new(vkcore, device)?;
-		let queue_submit_fence = VulkanFence::new(vkcore, device)?;
-		let vk_device = device.get_vk_device();
-		vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
+		let acquire_semaphore = VulkanSemaphore::new_(vkcore, device)?;
+		let release_semaphore = VulkanSemaphore::new_(vkcore, device)?;
+		let queue_submit_fence = VulkanFence::new_(vkcore, device)?;
+		vkcore.vkCreateImageView(device, &vk_image_view_ci, null(), &mut image_view)?;
 		Ok(Self{
 			ctx: Weak::new(),
 			image,
@@ -203,7 +202,7 @@ impl VulkanSwapchain {
 		unsafe {vk_images.set_len(num_images as usize)};
 		let mut images = Vec::<VulkanSwapchainImage>::with_capacity(vk_images.len());
 		for vk_image in vk_images.iter() {
-			images.push(VulkanSwapchainImage::new(vkcore, *vk_image, &surface, device)?);
+			images.push(VulkanSwapchainImage::new(vkcore, *vk_image, &surface, vk_device)?);
 		}
 
 		drop(surface);
@@ -217,7 +216,7 @@ impl VulkanSwapchain {
 			swapchain_extent,
 			present_mode,
 			images,
-			acquire_semaphore: VulkanSemaphore::new(vkcore, device)?,
+			acquire_semaphore: VulkanSemaphore::new_(vkcore, vk_device)?,
 			cur_image_index: 0,
 		})
 	}
@@ -226,6 +225,7 @@ impl VulkanSwapchain {
 		for image in self.images.iter_mut() {
 			image.set_ctx(ctx.clone());
 		}
+		self.acquire_semaphore.set_ctx(ctx.clone());
 		self.ctx = ctx;
 	}
 

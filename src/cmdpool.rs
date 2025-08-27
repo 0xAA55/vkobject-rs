@@ -40,7 +40,7 @@ impl VulkanCommandPool {
 			ctx: Weak::new(),
 			pool,
 			cmd_buffer,
-			fence: VulkanFence::new(vkcore, device)?,
+			fence: VulkanFence::new_(vkcore, vk_device)?,
 		})
 	}
 
