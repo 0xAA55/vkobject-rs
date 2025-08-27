@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	mem::MaybeUninit,
-	sync::{Mutex, Arc},
+	sync::{Mutex, Arc, MutexGuard},
 };
 
 #[derive(Debug)]
@@ -126,9 +126,9 @@ impl VulkanContext {
 		self.device.get_vk_device()
 	}
 
-	/// Get the current queue for the current device
-	pub(crate) fn get_vk_queue(&self) -> VkQueue {
-		self.device.get_vk_queue()
+	/// Get a queue for the current device
+	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> MutexGuard<'_, VkQueue> {
+		self.device.get_vk_queue(queue_index)
 	}
 
 	/// Get the current surface
@@ -147,6 +147,10 @@ impl VulkanContext {
 
 	pub(crate) fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.swapchain.get_swapchain_extent()
+	}
+
+	pub(crate) fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
+		self.swapchain.get_image(index)
 	}
 
 	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<Mutex<VulkanSurface>>) -> Result<VkExtent2D, VulkanError> {
@@ -177,16 +181,7 @@ impl VulkanContext {
 
 	/// Get the current swapchain image index
 	pub fn get_swapchain_image_index(&self) -> u32 {
-		self.cur_swapchain_image_index
-	}
-
-	/// Get another swapchain image index
-	pub fn switch_next_swapchain_image_index(&mut self) -> u32 {
-		self.cur_swapchain_image_index += 1;
-		if self.cur_swapchain_image_index as usize >= self.swapchain.images.len() {
-			self.cur_swapchain_image_index = 0;
-		}
-		self.cur_swapchain_image_index
+		self.swapchain.get_image_index()
 	}
 }
 
