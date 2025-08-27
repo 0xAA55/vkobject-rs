@@ -3,9 +3,10 @@
 #![allow(clippy::too_many_arguments)]
 use crate::prelude::*;
 use std::{
+	ffi::c_void,
 	fmt::Debug,
 	ptr::null,
-	sync::{Mutex, Weak},
+	sync::{Arc, Mutex, Weak},
 };
 
 #[derive(Debug, Clone)]
@@ -25,23 +26,76 @@ impl From<VkError> for VulkanError {
 pub struct VulkanSemaphore {
 	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
 	semaphore: VkSemaphore,
+	pub(crate) timeline: u64,
 }
 
 unsafe impl Send for VulkanSemaphore {}
 
 impl VulkanSemaphore {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VulkanError> {
+	pub fn new_(vkcore: &VkCore, device: VkDevice) -> Result<Self, VulkanError> {
 		let ci = VkSemaphoreCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 		};
 		let mut semaphore: VkSemaphore = null();
-		vkcore.vkCreateSemaphore(device.get_vk_device(), &ci, null(), &mut semaphore)?;
+		vkcore.vkCreateSemaphore(device, &ci, null(), &mut semaphore)?;
 		Ok(Self{
 			ctx: Weak::new(),
 			semaphore,
+			timeline: 0,
 		})
+	}
+
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>) -> Result<Self, VulkanError> {
+		let ctx_lock = ctx.lock().unwrap();
+		let mut ret = Self::new_(ctx_lock.get_vkcore(), ctx_lock.get_vk_device())?;
+		drop(ctx_lock);
+		ret.set_ctx(Arc::downgrade(&ctx));
+		Ok(ret)
+	}
+
+	pub fn new_timeline_(vkcore: &VkCore, device: VkDevice, initial_value: u64) -> Result<Self, VulkanError> {
+		let ci_next = VkSemaphoreTypeCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_TYPE_CREATE_INFO,
+			pNext: null(),
+			semaphoreType: VkSemaphoreType::VK_SEMAPHORE_TYPE_TIMELINE,
+			initialValue: initial_value,
+		};
+		let ci = VkSemaphoreCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO,
+			pNext: &ci_next as *const VkSemaphoreTypeCreateInfo as *const c_void,
+			flags: 0,
+		};
+		let mut semaphore: VkSemaphore = null();
+		vkcore.vkCreateSemaphore(device, &ci, null(), &mut semaphore)?;
+		Ok(Self{
+			ctx: Weak::new(),
+			semaphore,
+			timeline: initial_value,
+		})
+	}
+
+	pub fn new_timeline(ctx: Arc<Mutex<VulkanContext>>, initial_value: u64) -> Result<Self, VulkanError> {
+		let ctx_lock = ctx.lock().unwrap();
+		let mut ret = Self::new_timeline_(ctx_lock.get_vkcore(), ctx_lock.get_vk_device(), initial_value)?;
+		drop(ctx_lock);
+		ret.set_ctx(Arc::downgrade(&ctx));
+		Ok(ret)
+	}
+
+	pub fn signal(&self, value: u64) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let signal_i = VkSemaphoreSignalInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_SIGNAL_INFO,
+			pNext: null(),
+			semaphore: self.semaphore,
+			value,
+		};
+		vkcore.vkSignalSemaphore(ctx.get_vk_device(), &signal_i)?;
+		Ok(())
 	}
 
 	pub(crate) fn get_vk_semaphore(&self) -> VkSemaphore {
@@ -50,6 +104,46 @@ impl VulkanSemaphore {
 
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.ctx = ctx;
+	}
+
+	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let semaphores = [self.semaphore];
+		let timelines = [self.timeline];
+		let wait_i = VkSemaphoreWaitInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+			pNext: null(),
+			flags: 0,
+			semaphoreCount: 1,
+			pSemaphores: semaphores.as_ptr(),
+			pValues: timelines.as_ptr(),
+		};
+		vkcore.vkWaitSemaphores(ctx.get_vk_device(), &wait_i, timeout)?;
+		Ok(())
+	}
+
+	pub fn wait_multi(semaphores: &[Self], timeout: u64, any: bool) -> Result<(), VulkanError> {
+		if semaphores.is_empty() {
+			Ok(())
+		} else {
+			let binding = semaphores[0].ctx.upgrade().unwrap();
+			let ctx = binding.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let timelines: Vec<u64> = semaphores.iter().map(|s|s.timeline).collect();
+			let semaphores: Vec<VkSemaphore> = semaphores.iter().map(|s|s.get_vk_semaphore()).collect();
+			let wait_i = VkSemaphoreWaitInfo {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+				pNext: null(),
+				flags: if any {VkSemaphoreWaitFlagBits::VK_SEMAPHORE_WAIT_ANY_BIT as u32} else {0},
+				semaphoreCount: semaphores.len() as u32,
+				pSemaphores: semaphores.as_ptr(),
+				pValues: timelines.as_ptr(),
+			};
+			vkcore.vkWaitSemaphores(ctx.get_vk_device(), &wait_i, timeout)?;
+			Ok(())
+		}
 	}
 }
 
@@ -72,18 +166,26 @@ pub struct VulkanFence {
 unsafe impl Send for VulkanFence {}
 
 impl VulkanFence {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VulkanError> {
+	pub fn new_(vkcore: &VkCore, device: VkDevice) -> Result<Self, VulkanError> {
 		let ci = VkFenceCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_FENCE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 		};
 		let mut fence: VkFence = null();
-		vkcore.vkCreateFence(device.get_vk_device(), &ci, null(), &mut fence)?;
+		vkcore.vkCreateFence(device, &ci, null(), &mut fence)?;
 		Ok(Self{
 			ctx: Weak::new(),
 			fence,
 		})
+	}
+
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>) -> Result<Self, VulkanError> {
+		let ctx_lock = ctx.lock().unwrap();
+		let mut ret = Self::new_(ctx_lock.get_vkcore(), ctx_lock.get_vk_device())?;
+		drop(ctx_lock);
+		ret.set_ctx(Arc::downgrade(&ctx));
+		Ok(ret)
 	}
 
 	pub(crate) fn get_vk_fence(&self) -> VkFence {
