@@ -10,14 +10,15 @@ use std::{
 pub struct VulkanCommandPool {
 	ctx: Weak<Mutex<VulkanContext>>,
 	pool: VkCommandPool,
-	cmd_buffer: VkCommandBuffer,
+	cmd_buffers: Vec<VkCommandBuffer>,
+	pub last_buf_index: u32,
 	pub(crate) fence: VulkanFence,
 }
 
 unsafe impl Send for VulkanCommandPool {}
 
 impl VulkanCommandPool {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice) -> Result<Self, VulkanError> {
+	pub fn new(vkcore: &VkCore, device: &VulkanDevice, num_buffers: usize) -> Result<Self, VulkanError> {
 		let vk_device = device.get_vk_device();
 		let pool_ci = VkCommandPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -32,14 +33,16 @@ impl VulkanCommandPool {
 			pNext: null(),
 			commandPool: pool,
 			level: VkCommandBufferLevel::VK_COMMAND_BUFFER_LEVEL_PRIMARY,
-			commandBufferCount: 1,
+			commandBufferCount: num_buffers as u32,
 		};
-		let mut cmd_buffer: VkCommandBuffer = null();
-		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, &mut cmd_buffer)?;
+		let mut cmd_buffers: Vec<VkCommandBuffer> = Vec::with_capacity(num_buffers);
+		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, cmd_buffers.as_mut_ptr())?;
+		unsafe {cmd_buffers.set_len(num_buffers)};
 		Ok(Self{
 			ctx: Weak::new(),
 			pool,
-			cmd_buffer,
+			cmd_buffers,
+			last_buf_index: 0,
 			fence: VulkanFence::new_(vkcore, vk_device)?,
 		})
 	}
@@ -50,8 +53,8 @@ impl VulkanCommandPool {
 	}
 
 	/// Get the command buffers
-	pub(crate) fn get_vk_cmd_buffer(&self) -> VkCommandBuffer {
-		self.cmd_buffer
+	pub(crate) fn get_vk_cmd_buffers(&self) -> &[VkCommandBuffer] {
+		&self.cmd_buffers
 	}
 
 	/// Get the fences
@@ -63,6 +66,16 @@ impl VulkanCommandPool {
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.fence.set_ctx(ctx.clone());
 		self.ctx = ctx;
+	}
+
+	/// Use a command buffer
+	pub fn use_buf<'a>(&'a mut self, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+		let index = self.last_buf_index as usize;
+		self.last_buf_index += 1;
+		if self.last_buf_index as usize > self.cmd_buffers.len() {
+			self.last_buf_index = 0;
+		}
+		VulkanCommandPoolInUse::new(self, index, swapchain_image_index, one_time_submit)
 	}
 }
 
@@ -80,6 +93,7 @@ impl Drop for VulkanCommandPool {
 pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 	cmdpool: &'a VulkanCommandPool,
+	cmdbuf_index: u32,
 	swapchain_image_index: usize,
 	pub(crate) one_time_submit: bool,
 	pub(crate) ended: bool,
@@ -87,11 +101,11 @@ pub struct VulkanCommandPoolInUse<'a> {
 }
 
 impl<'a, 'b> VulkanCommandPoolInUse<'a> {
-	pub fn new(cmdpool: &'a VulkanCommandPool, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &'a VulkanCommandPool, cmdbuf_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
 		let vkcore = ctx_g.get_vkcore();
-		let cmdbuf = cmdpool.get_vk_cmd_buffer();
+		let cmdbuf = cmdpool.get_vk_cmd_buffers()[cmdbuf_index];
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			pNext: null(),
@@ -102,11 +116,16 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		Ok(Self {
 			ctx: ctx.clone(),
 			cmdpool,
+			cmdbuf_index: cmdbuf_index as u32,
 			swapchain_image_index,
 			one_time_submit,
 			ended: false,
 			submitted: false,
 		})
+	}
+
+	pub fn get_cmdbuf_index(&self) -> usize {
+		self.cmdbuf_index as usize
 	}
 
 	pub fn is_one_time_submit(&self) -> bool {
@@ -117,7 +136,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		if !self.ended {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
 			vkcore.vkEndCommandBuffer(cmdbuf)?;
 			self.ended = true;
 			Ok(())
@@ -137,7 +156,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		if !self.submitted {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
 
 			let swapchain_image = ctx.get_swapchain_image(self.swapchain_image_index);
 			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
@@ -172,7 +191,7 @@ impl Drop for VulkanCommandPoolInUse<'_> {
 		if !self.one_time_submit {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let cmdbuf = self.cmdpool.get_vk_cmd_buffer();
+			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
 			vkcore.vkResetCommandBuffer(cmdbuf, 0).unwrap();
 		}
 	}
