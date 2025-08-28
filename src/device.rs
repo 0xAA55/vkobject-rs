@@ -7,6 +7,7 @@ use std::{
 	sync::{Arc, Mutex, MutexGuard},
 };
 
+/// The physical device info
 #[derive(Debug, Clone)]
 pub struct VulkanGpuInfo {
 	/// The physical device

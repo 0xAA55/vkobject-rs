@@ -7,6 +7,7 @@ use std::{
 	sync::{Mutex, Arc, Weak},
 };
 
+/// An image of a swap chain
 #[derive(Debug)]
 pub struct VulkanSwapchainImage {
 	/// The `VulkanContext` that helps to manage the resources of the swapchain image
@@ -99,6 +100,7 @@ impl Drop for VulkanSwapchainImage {
 	}
 }
 
+/// A swapchain for presenting frames to the window surface.
 #[derive(Debug)]
 pub struct VulkanSwapchain {
 	/// The `VulkanContext` that helps to manage the resources of the swapchain
@@ -287,7 +289,7 @@ impl VulkanSwapchain {
 		&self.surf_caps
 	}
 
-	// Get the current swapchain extent
+	/// Get the current swapchain extent
 	pub fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.swapchain_extent
 	}
