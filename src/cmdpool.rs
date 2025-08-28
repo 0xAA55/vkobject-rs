@@ -138,7 +138,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) submitted: bool,
 }
 
-impl<'a, 'b> VulkanCommandPoolInUse<'a> {
+impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
 	fn new(cmdpool: &'a VulkanCommandPool, cmdbuf_index: usize, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
