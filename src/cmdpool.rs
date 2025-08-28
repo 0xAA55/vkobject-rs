@@ -80,13 +80,13 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer
-	pub fn use_buf<'a>(&'a mut self, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
-		let index = self.last_buf_index as usize;
+	pub fn use_buf<'a>(&'a mut self, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+		let cmdbuf_index = self.last_buf_index as usize;
 		self.last_buf_index += 1;
 		if self.last_buf_index as usize > self.cmd_buffers.len() {
 			self.last_buf_index = 0;
 		}
-		VulkanCommandPoolInUse::new(self, index, swapchain_image_index, one_time_submit)
+		VulkanCommandPoolInUse::new(self, cmdbuf_index, queue_index, swapchain_image_index, one_time_submit)
 	}
 }
 
@@ -105,6 +105,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 	pub(crate) cmdpool: &'a VulkanCommandPool,
 	cmdbuf_index: u32,
+	queue_index: usize,
 	swapchain_image_index: usize,
 	pub(crate) one_time_submit: bool,
 	pub(crate) ended: bool,
@@ -112,7 +113,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 }
 
 impl<'a, 'b> VulkanCommandPoolInUse<'a> {
-	fn new(cmdpool: &'a VulkanCommandPool, cmdbuf_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &'a VulkanCommandPool, cmdbuf_index: usize, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
 		let vkcore = ctx_g.get_vkcore();
@@ -128,6 +129,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 			ctx: ctx.clone(),
 			cmdpool,
 			cmdbuf_index: cmdbuf_index as u32,
+			queue_index,
 			swapchain_image_index,
 			one_time_submit,
 			ended: false,
@@ -187,7 +189,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 				signalSemaphoreCount: 1,
 				pSignalSemaphores: &swapchain_image.release_semaphore.get_vk_semaphore(),
 			};
-			vkcore.vkQueueSubmit(*ctx.get_vk_queue(self.swapchain_image_index), 1, &submit_info, swapchain_image.queue_submit_fence.get_vk_fence())?;
+			vkcore.vkQueueSubmit(*ctx.get_vk_queue(self.queue_index), 1, &submit_info, swapchain_image.queue_submit_fence.get_vk_fence())?;
 			self.submitted = true;
 			Ok(())
 		} else {
