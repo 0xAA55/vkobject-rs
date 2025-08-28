@@ -72,7 +72,7 @@ impl VulkanGpuInfo {
 	}
 
 	/// Find a queue family index that matches the flags
-	pub fn get_queue_family_index(&self, queue_flag_match: u32) -> u32 {
+	pub fn get_queue_family_index_by_flags(&self, queue_flag_match: u32) -> u32 {
 		for i in 0..self.queue_families.len() {
 			if (self.queue_families[i].queueFlags & queue_flag_match) == queue_flag_match {
 				return i as u32;
@@ -170,7 +170,7 @@ impl VulkanDevice {
 	/// Choose a GPU that matches the `VkQueueFlags`
 	pub fn choose_gpu(vkcore: Arc<VkCore>, flags: VkQueueFlags, queue_count: usize) -> Result<Self, VulkanError> {
 		for gpu in VulkanGpuInfo::get_gpu_info(&vkcore)?.iter() {
-			let index = gpu.get_queue_family_index(flags);
+			let index = gpu.get_queue_family_index_by_flags(flags);
 			if index != u32::MAX {
 				return Self::new(vkcore, gpu.clone(), index, queue_count);
 			}
