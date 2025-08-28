@@ -115,9 +115,9 @@ pub struct VulkanDevice {
 
 impl VulkanDevice {
 	/// Create the `VulkanDevice` by the given `VkPhysicalDevice` and the queue family index
-	/// * `queue_count`: **important**: This argument determines how many concurrent rendering tasks are allowed in the GPU
-	///   Too much causes huge system memory/video memory usage,
-	///   while too little causes the GPU to be unable to run multiple drawing command queues at once.
+	/// * `queue_count`: **important**: This argument determines how many concurrent rendering tasks are allowed in the GPU.
+	///   * Too much causes huge system memory/video memory usage,
+	///     while too little causes the GPU to be unable to run multiple drawing command queues at once.
 	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32, queue_count: usize) -> Result<Self, VulkanError> {
 		let priorities = [1.0];
 		let queue_ci = VkDeviceQueueCreateInfo {
