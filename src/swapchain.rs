@@ -10,8 +10,8 @@ use std::{
 #[derive(Debug)]
 pub struct VulkanSwapchainImage {
 	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
-	pub image: VkImage,
-	pub image_view: VkImageView,
+	image: VkImage,
+	image_view: VkImageView,
 	pub acquire_semaphore: VulkanSemaphore,
 	pub release_semaphore: VulkanSemaphore,
 	pub queue_submit_fence: VulkanFence,
@@ -59,6 +59,10 @@ impl VulkanSwapchainImage {
 
 	pub fn get_vk_image(&self) -> VkImage {
 		self.image
+	}
+
+	pub fn get_vk_image_view(&self) -> VkImageView {
+		self.image_view
 	}
 
 	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
