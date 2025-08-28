@@ -3,12 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	ptr::null,
-	sync::{
-		Arc,
-		atomic::{AtomicBool, Ordering},
-		Mutex,
-		Weak
-	},
+	sync::{Arc, Mutex, MutexGuard, Weak},
 };
 
 /// The Vulkan command pool, and the associated buffers, fence. Support multiple buffers; you can use one buffer for command recording and another for submitting to a queue, interleaved.
@@ -18,7 +13,7 @@ pub struct VulkanCommandPool {
 	ctx: Weak<Mutex<VulkanContext>>,
 
 	/// The handle to the command pool
-	pool: VkCommandPool,
+	pool: Mutex<VkCommandPool>,
 
 	/// The command buffers of the command pool
 	cmd_buffers: Vec<VkCommandBuffer>,
@@ -28,9 +23,6 @@ pub struct VulkanCommandPool {
 
 	/// The fence for the command pool
 	pub(crate) fence: VulkanFence,
-
-	/// Is the command pool in use now?
-	pub(crate) is_inuse: AtomicBool,
 }
 
 unsafe impl Send for VulkanCommandPool {}
@@ -59,11 +51,10 @@ impl VulkanCommandPool {
 		unsafe {cmd_buffers.set_len(num_buffers)};
 		Ok(Self{
 			ctx: Weak::new(),
-			pool,
+			pool: Mutex::new(pool),
 			cmd_buffers,
 			last_buf_index: 0,
 			fence: VulkanFence::new_(vkcore, vk_device)?,
-			is_inuse: AtomicBool::new(false),
 		})
 	}
 
@@ -78,8 +69,16 @@ impl VulkanCommandPool {
 	}
 
 	/// Retrieve the command pool
-	pub(crate) fn get_vk_cmdpool(&self) -> VkCommandPool {
-		self.pool
+	pub(crate) fn get_vk_cmdpool<'a>(&'a self) -> MutexGuard<'a, VkCommandPool> {
+		self.pool.lock().unwrap()
+	}
+
+	/// Retrieve the command pool
+	pub(crate) fn try_get_vk_cmdpool<'a>(&'a self) -> Result<MutexGuard<'a, VkCommandPool>, VulkanError> {
+		match self.pool.try_lock() {
+			Ok(guard) => Ok(guard),
+			_ => Err(VulkanError::CommandPoolIsInUse),
+		}
 	}
 
 	/// Get the command buffers
@@ -98,17 +97,26 @@ impl VulkanCommandPool {
 		self.ctx = ctx;
 	}
 
-	/// Use a command buffer
-	pub fn use_buf<'a>(&'a mut self, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
-		if let Err(_) = self.is_inuse.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
-			return Err(VulkanError::CommandPoolIsInUse);
-		}
+	/// Update the buffer index
+	fn get_next_vk_cmd_buffer(&mut self) -> VkCommandBuffer {
 		let cmdbuf_index = self.last_buf_index as usize;
 		self.last_buf_index += 1;
 		if self.last_buf_index as usize > self.cmd_buffers.len() {
 			self.last_buf_index = 0;
 		}
-		VulkanCommandPoolInUse::new(self, cmdbuf_index, queue_index, swapchain_image_index, one_time_submit)
+		self.cmd_buffers[cmdbuf_index]
+	}
+
+	/// Use a command buffer of the command pool to record draw commands
+	pub fn use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+		let buf = self.get_next_vk_cmd_buffer();
+		VulkanCommandPoolInUse::new(self, self.get_vk_cmdpool(), buf, queue_index, swapchain_image_index, one_time_submit)
+	}
+
+	/// Try to acquire the command pool to record draw commands
+	pub fn try_use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+		let buf = self.get_next_vk_cmd_buffer();
+		VulkanCommandPoolInUse::new(self, self.try_get_vk_cmdpool()?, buf, queue_index, swapchain_image_index, one_time_submit)
 	}
 }
 
@@ -117,7 +125,7 @@ impl Drop for VulkanCommandPool {
 		if let Some(binding) = self.ctx.upgrade() {
 			let ctx = binding.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			vkcore.vkDestroyCommandPool(ctx.get_vk_device(), self.pool, null()).unwrap();
+			vkcore.vkDestroyCommandPool(ctx.get_vk_device(), *self.pool.lock().unwrap(), null()).unwrap();
 		}
 	}
 }
@@ -128,17 +136,17 @@ pub struct VulkanCommandPoolInUse<'a> {
 	/// The `VulkanContext` that helps to manage the resources of the command pool
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 
-	/// The command pool we are using here
-	pub(crate) cmdpool: &'a VulkanCommandPool,
+	/// The command buffer we are using here
+	cmdbuf: VkCommandBuffer,
 
-	/// The command buffer index using right now
-	cmdbuf_index: usize,
+	/// The locked state of the `VkCommandPool`
+	pool_lock: MutexGuard<'a, VkCommandPool>,
 
 	/// The queue index for the command pool to submit
-	queue_index: usize,
+	queue_index: Option<usize>,
 
 	/// The swapchain image index for the command pool to draw to
-	swapchain_image_index: usize,
+	pub(crate) swapchain_image_index: usize,
 
 	/// Is this command buffer got automatically cleaned when submitted
 	pub(crate) one_time_submit: bool,
@@ -152,11 +160,10 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &'a VulkanCommandPool, cmdbuf_index: usize, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
 		let vkcore = ctx_g.get_vkcore();
-		let cmdbuf = cmdpool.get_vk_cmd_buffers()[cmdbuf_index];
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			pNext: null(),
@@ -166,8 +173,8 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		vkcore.vkBeginCommandBuffer(cmdbuf, &begin_info)?;
 		Ok(Self {
 			ctx: ctx.clone(),
-			cmdpool,
-			cmdbuf_index,
+			cmdbuf,
+			pool_lock,
 			queue_index,
 			swapchain_image_index,
 			one_time_submit,
@@ -178,12 +185,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 
 	/// Get the current command buffer
 	pub(crate) fn get_vk_cmdbuf(&self) -> VkCommandBuffer {
-		self.cmdpool.get_vk_cmd_buffers()[self.cmdbuf_index]
-	}
-
-	/// Get the current command buffer index
-	pub fn get_cmdbuf_index(&self) -> usize {
-		self.cmdbuf_index
+		self.cmdbuf
 	}
 
 	/// Is this command buffer an one time submit command buffer
@@ -220,7 +222,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 
 			let swapchain_image = ctx.get_swapchain_image(self.swapchain_image_index);
 			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
-			let cmd_buffers = [self.get_vk_cmdbuf()];
+			let cmd_buffers = [self.cmdbuf];
 			let submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				pNext: null(),
@@ -232,7 +234,13 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 				signalSemaphoreCount: 1,
 				pSignalSemaphores: &swapchain_image.release_semaphore.get_vk_semaphore(),
 			};
-			vkcore.vkQueueSubmit(*ctx.get_vk_queue(self.queue_index), 1, &submit_info, swapchain_image.queue_submit_fence.get_vk_fence())?;
+			let queue = if let Some(queue_index) = self.queue_index {
+				ctx.get_vk_queue(queue_index)
+			} else {
+				let mut queue_index = 0;
+				ctx.get_any_vk_queue_anyway(&mut queue_index)
+			};
+			vkcore.vkQueueSubmit(*queue, 1, &submit_info, swapchain_image.queue_submit_fence.get_vk_fence())?;
 			self.submitted = true;
 			Ok(())
 		} else {
@@ -249,12 +257,10 @@ impl Drop for VulkanCommandPoolInUse<'_> {
 		if !self.submitted {
 			self.submit().unwrap();
 		}
+		let ctx = self.ctx.lock().unwrap();
 		if !self.one_time_submit {
-			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
-			vkcore.vkResetCommandBuffer(cmdbuf, 0).unwrap();
+			vkcore.vkResetCommandBuffer(self.cmdbuf, 0).unwrap();
 		}
-		self.cmdpool.is_inuse.store(false, Ordering::Release);
 	}
 }
