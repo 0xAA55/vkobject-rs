@@ -6,7 +6,9 @@ use std::{
 	sync::{Mutex, Arc, MutexGuard},
 };
 
+/// The struct to provide the information of the surface
 #[derive(Debug)]
+pub struct VulkanSurfaceInfo<'a> {
 	#[cfg(any(feature = "glfw", test))]
 	/// The window from GLFW
 	pub window: &'a glfw::PWindow,
@@ -47,6 +49,8 @@ use std::{
 	#[cfg(feature = "xcb_khr")]
 	/// The XCB window
 	pub window: xcb_window_t,
+}
+
 /// The struct to create the `VulkanContext`
 #[derive(Debug)]
 pub struct VulkanContextCreateInfo<'a> {
@@ -56,6 +60,8 @@ pub struct VulkanContextCreateInfo<'a> {
 	/// The device to use
 	pub device: VulkanDevice,
 
+	/// The surface
+	pub surface: VulkanSurfaceInfo<'a>,
 
 	/// Is VSYNC should be on
 	pub vsync: bool,
@@ -92,23 +98,24 @@ impl VulkanContext {
 	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let vkcore = &create_info.vkcore;
 		let device = &create_info.device;
+		let surface = &create_info.surface;
 
 		#[cfg(any(feature = "glfw", test))]
-		let surface = VulkanSurface::new(vkcore, device, create_info.window)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.window)?;
 		#[cfg(feature = "win32_khr")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.hwnd, create_info.hinstance)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.hwnd, surface.hinstance)?;
 		#[cfg(feature = "android_khr")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.window)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.window)?;
 		#[cfg(feature = "ios_mvk")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.view)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.view)?;
 		#[cfg(feature = "macos_mvk")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.view)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.view)?;
 		#[cfg(feature = "metal_ext")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.metal_layer)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.metal_layer)?;
 		#[cfg(feature = "wayland_khr")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.display, create_info.surface)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.display, surface.surface)?;
 		#[cfg(feature = "xcb_khr")]
-		let surface = VulkanSurface::new(vkcore, device, create_info.connection, create_info.window)?;
+		let surface = VulkanSurface::new(vkcore, device, surface.connection, surface.window)?;
 
 		let mut cmdpools = Vec::<VulkanCommandPool>::with_capacity(create_info.max_concurrent_frames);
 		for _ in 0..create_info.max_concurrent_frames {
