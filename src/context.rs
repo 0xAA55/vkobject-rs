@@ -178,6 +178,16 @@ impl VulkanContext {
 		self.device.get_vk_queue(queue_index)
 	}
 
+	/// Get an idle queue for the current device
+	pub(crate) fn get_any_vk_queue(&self, queue_index: &mut usize) -> Result<MutexGuard<'_, VkQueue>, VulkanError> {
+		self.device.get_any_vk_queue(queue_index)
+	}
+
+	/// Get an idle queue for the current device, will block if there's no idle queues
+	pub(crate) fn get_any_vk_queue_anyway(&self, queue_index: &mut usize) -> MutexGuard<'_, VkQueue> {
+		self.device.get_any_vk_queue_anyway(queue_index)
+	}
+
 	/// Get the `VkSurfaceKHR`
 	pub(crate) fn get_vk_surface(&self) -> VkSurfaceKHR {
 		self.surface.lock().unwrap().get_vk_surface()
