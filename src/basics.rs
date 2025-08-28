@@ -128,6 +128,8 @@ impl VulkanSemaphore {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
 		let vkcore = ctx.get_vkcore();
+		let vk_device = ctx.get_vk_device();
+		drop(ctx);
 		let semaphores = [self.semaphore];
 		let timelines = [self.timeline];
 		let wait_i = VkSemaphoreWaitInfo {
@@ -138,7 +140,7 @@ impl VulkanSemaphore {
 			pSemaphores: semaphores.as_ptr(),
 			pValues: timelines.as_ptr(),
 		};
-		vkcore.vkWaitSemaphores(ctx.get_vk_device(), &wait_i, timeout)?;
+		vkcore.vkWaitSemaphores(vk_device, &wait_i, timeout)?;
 		Ok(())
 	}
 
@@ -150,6 +152,8 @@ impl VulkanSemaphore {
 			let binding = semaphores[0].ctx.upgrade().unwrap();
 			let ctx = binding.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
+			let vk_device = ctx.get_vk_device();
+			drop(ctx);
 			let timelines: Vec<u64> = semaphores.iter().map(|s|s.timeline).collect();
 			let semaphores: Vec<VkSemaphore> = semaphores.iter().map(|s|s.get_vk_semaphore()).collect();
 			let wait_i = VkSemaphoreWaitInfo {
@@ -160,7 +164,7 @@ impl VulkanSemaphore {
 				pSemaphores: semaphores.as_ptr(),
 				pValues: timelines.as_ptr(),
 			};
-			vkcore.vkWaitSemaphores(ctx.get_vk_device(), &wait_i, timeout)?;
+			vkcore.vkWaitSemaphores(vk_device, &wait_i, timeout)?;
 			Ok(())
 		}
 	}
@@ -172,6 +176,8 @@ impl VulkanSemaphore {
 		} else {
 			let ctx = ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
+			let vk_device = ctx.get_vk_device();
+			drop(ctx);
 			let wait_i = VkSemaphoreWaitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
 				pNext: null(),
@@ -180,7 +186,7 @@ impl VulkanSemaphore {
 				pSemaphores: semaphores.as_ptr(),
 				pValues: timelines.as_ptr(),
 			};
-			vkcore.vkWaitSemaphores(ctx.get_vk_device(), &wait_i, timeout)?;
+			vkcore.vkWaitSemaphores(vk_device, &wait_i, timeout)?;
 			Ok(())
 		}
 	}
@@ -257,16 +263,6 @@ impl VulkanFence {
 		}
 	}
 
-	/// Wait for the fence to be signaled
-	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
-		let binding = self.ctx.upgrade().unwrap();
-		let ctx = binding.lock().unwrap();
-		let vkcore = ctx.get_vkcore();
-		let fences = [self.fence];
-		vkcore.vkWaitForFences(ctx.get_vk_device(), 1, fences.as_ptr(), 0, timeout)?;
-		Ok(())
-	}
-
 	/// Unsignal the fence
 	pub fn unsignal(&self) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
@@ -300,6 +296,18 @@ impl VulkanFence {
 		}
 	}
 
+	/// Wait for the fence to be signaled
+	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let vk_device = ctx.get_vk_device();
+		drop(ctx);
+		let fences = [self.fence];
+		vkcore.vkWaitForFences(vk_device, 1, fences.as_ptr(), 0, timeout)?;
+		Ok(())
+	}
+
 	/// Wait for multiple fences to be signaled
 	pub fn wait_multi(fences: &[Self], timeout: u64, any: bool) -> Result<(), VulkanError> {
 		if fences.is_empty() {
@@ -308,8 +316,10 @@ impl VulkanFence {
 			let binding = fences[0].ctx.upgrade().unwrap();
 			let ctx = binding.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
+			let vk_device = ctx.get_vk_device();
+			drop(ctx);
 			let fences: Vec<VkFence> = fences.iter().map(|f|f.get_vk_fence()).collect();
-			vkcore.vkWaitForFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
+			vkcore.vkWaitForFences(vk_device, fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
 			Ok(())
 		}
 	}
@@ -321,7 +331,9 @@ impl VulkanFence {
 		} else {
 			let ctx = ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
-			vkcore.vkWaitForFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
+			let vk_device = ctx.get_vk_device();
+			drop(ctx);
+			vkcore.vkWaitForFences(vk_device, fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
 			Ok(())
 		}
 	}
