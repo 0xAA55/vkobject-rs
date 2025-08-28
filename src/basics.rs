@@ -239,6 +239,56 @@ impl VulkanFence {
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.ctx = ctx;
 	}
+
+	/// Wait for the fence to be signaled
+	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let fences = [self.fence];
+		vkcore.vkWaitForFences(ctx.get_vk_device(), 1, fences.as_ptr(), 0, timeout)?;
+		Ok(())
+	}
+
+	/// Check if the fence is signaled or not
+	pub fn is_signaled(&self) -> Result<bool, VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		match vkcore.vkGetFenceStatus(ctx.get_vk_device(), self.fence) {
+			Ok(_) => Ok(true),
+			Err(e) => match e {
+				VkError::VkNotReady(_) => Ok(false),
+				others => Err(VulkanError::VkError(others)),
+			}
+		}
+	}
+
+	/// Wait for multiple fences to be signaled
+	pub fn wait_multi(fences: &[Self], timeout: u64, any: bool) -> Result<(), VulkanError> {
+		if fences.is_empty() {
+			Ok(())
+		} else {
+			let binding = fences[0].ctx.upgrade().unwrap();
+			let ctx = binding.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let fences: Vec<VkFence> = fences.iter().map(|f|f.get_vk_fence()).collect();
+			vkcore.vkWaitForFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
+			Ok(())
+		}
+	}
+
+	/// Wait for multiple fences to be signaled
+	pub fn wait_multi_vk(ctx: Arc<Mutex<VulkanContext>>, fences: &[VkFence], timeout: u64, any: bool) -> Result<(), VulkanError> {
+		if fences.is_empty() {
+			Ok(())
+		} else {
+			let ctx = ctx.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			vkcore.vkWaitForFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
+			Ok(())
+		}
+	}
 }
 
 impl Drop for VulkanFence {
