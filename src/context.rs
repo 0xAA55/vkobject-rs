@@ -214,6 +214,13 @@ impl VulkanContext {
 		Self::get_surface_size_(&self.vkcore, &self.device, self.surface.clone())
 	}
 
+	/// Recreate the swapchain when users toggles the switch of `vsync` or the framebuffer size changed\
+	pub(crate) fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
+		self.device.wait_idle()?;
+		self.swapchain = VulkanSwapchain::new(&self.vkcore, &self.device, self.surface.clone(), width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
+		Ok(())
+	}
+
 	/// When the windows was resized, call this method to recreate the swapchain to fit the new size
 	pub fn on_resize(&mut self) -> Result<bool, VulkanError> {
 		let surface_size = self.get_surface_size()?;
@@ -223,9 +230,7 @@ impl VulkanContext {
 			Ok(false)
 		} else {
 			self.device.wait_idle()?;
-			let prev_chain = self.get_vk_swapchain();
-			let new_chain = VulkanSwapchain::new(&self.vkcore, &self.device, self.surface.clone(), surface_size.width, surface_size.height, self.swapchain.get_is_vsync(), self.swapchain.get_is_vr(), Some(prev_chain))?;
-			self.swapchain = new_chain;
+			self.recreate_swapchain(surface_size.width, surface_size.height, self.swapchain.get_is_vsync(), self.swapchain.get_is_vr())?;
 			Ok(true)
 		}
 	}
