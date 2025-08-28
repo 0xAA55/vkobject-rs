@@ -240,16 +240,6 @@ impl VulkanFence {
 		self.ctx = ctx;
 	}
 
-	/// Wait for the fence to be signaled
-	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
-		let binding = self.ctx.upgrade().unwrap();
-		let ctx = binding.lock().unwrap();
-		let vkcore = ctx.get_vkcore();
-		let fences = [self.fence];
-		vkcore.vkWaitForFences(ctx.get_vk_device(), 1, fences.as_ptr(), 0, timeout)?;
-		Ok(())
-	}
-
 	/// Check if the fence is signaled or not
 	pub fn is_signaled(&self) -> Result<bool, VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
@@ -261,6 +251,49 @@ impl VulkanFence {
 				VkError::VkNotReady(_) => Ok(false),
 				others => Err(VulkanError::VkError(others)),
 			}
+		}
+	}
+
+	/// Wait for the fence to be signaled
+	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let fences = [self.fence];
+		vkcore.vkWaitForFences(ctx.get_vk_device(), 1, fences.as_ptr(), 0, timeout)?;
+		Ok(())
+	}
+
+	/// Unsignal the fence
+	pub fn unsignal(&self) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let fences = [self.fence];
+		Ok(vkcore.vkResetFences(ctx.get_vk_device(), 1, fences.as_ptr())?)
+	}
+
+	/// Unsignal the fence
+	pub fn unsignal_multi(fences: &[Self]) -> Result<(), VulkanError> {
+		if fences.is_empty() {
+			Ok(())
+		} else {
+			let binding = fences[0].ctx.upgrade().unwrap();
+			let ctx = binding.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let fences: Vec<VkFence> = fences.iter().map(|f|f.get_vk_fence()).collect();
+			Ok(vkcore.vkResetFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr())?)
+		}
+	}
+
+	/// Unsignal the fence
+	pub fn unsignal_multi_vk(ctx: Arc<Mutex<VulkanContext>>, fences: &[VkFence]) -> Result<(), VulkanError> {
+		if fences.is_empty() {
+			Ok(())
+		} else {
+			let ctx = ctx.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			Ok(vkcore.vkResetFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr())?)
 		}
 	}
 
