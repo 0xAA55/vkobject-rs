@@ -82,16 +82,16 @@ pub struct VulkanContext {
 	pub(crate) vkcore: Arc<VkCore>,
 
 	/// The device in use
-	pub(crate) device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The surface in use
-	pub(crate) surface: Arc<Mutex<VulkanSurface>>,
+	pub surface: Arc<Mutex<VulkanSurface>>,
 
 	/// The swapchain
 	pub(crate) swapchain: VulkanSwapchain,
 
 	/// The command pools
-	pub(crate) cmdpools: Vec<VulkanCommandPool>,
+	pub cmdpools: Vec<VulkanCommandPool>,
 }
 
 unsafe impl Send for VulkanContext {}
@@ -185,23 +185,28 @@ impl VulkanContext {
 	}
 
 	/// Get the current swapchain extent(the framebuffer size)
-	pub(crate) fn get_swapchain_extent(&self) -> VkExtent2D {
+	pub fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.swapchain.get_swapchain_extent()
 	}
 
 	/// Get the swapchain image by an index
-	pub(crate) fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
+	pub fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
 		self.swapchain.get_image(index)
+	}
+
+	/// Get the swapchain image by the current index
+	pub fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
+		self.swapchain.get_image(self.get_swapchain_image_index())
+	}
+
+	/// Get the swapchain
+	pub fn get_swapchain(&self) -> &VulkanSwapchain {
+		&self.swapchain
 	}
 
 	/// Get the current swapchain image index
 	pub fn get_swapchain_image_index(&self) -> usize {
 		self.swapchain.get_image_index() as usize
-	}
-
-	/// Get the swapchain image by the current index
-	pub(crate) fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
-		self.swapchain.get_image(self.get_swapchain_image_index())
 	}
 
 	/// Get the surface size, a.k.a. the frame buffer size
@@ -218,7 +223,7 @@ impl VulkanContext {
 	}
 
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
-	pub(crate) fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
+	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
 		self.swapchain = VulkanSwapchain::new(&self.vkcore, &self.device, self.surface.clone(), width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
 		Ok(())
