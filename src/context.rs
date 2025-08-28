@@ -53,7 +53,6 @@ pub struct VulkanContext {
 	pub(crate) surface: Arc<Mutex<VulkanSurface>>,
 	pub(crate) swapchain: VulkanSwapchain,
 	pub(crate) cmdpools: Vec<VulkanCommandPool>,
-	cur_swapchain_image_index: u32,
 }
 
 unsafe impl Send for VulkanContext {}
@@ -93,7 +92,6 @@ impl VulkanContext {
 			surface,
 			swapchain,
 			cmdpools,
-			cur_swapchain_image_index: 0,
 		}));
 		let weak = Arc::downgrade(&ret);
 		let mut lock = ret.lock().unwrap();
