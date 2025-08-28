@@ -11,14 +11,15 @@ pub struct VulkanCommandPool {
 	ctx: Weak<Mutex<VulkanContext>>,
 	pool: VkCommandPool,
 	cmd_buffers: Vec<VkCommandBuffer>,
-	pub last_buf_index: Mutex<u32>,
+	pub last_buf_index: u32,
 	pub(crate) fence: VulkanFence,
 }
 
 unsafe impl Send for VulkanCommandPool {}
 
 impl VulkanCommandPool {
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice, num_buffers: usize) -> Result<Self, VulkanError> {
+	/// Create a new `VulkanCommandPool`
+	pub fn new_(vkcore: &VkCore, device: &VulkanDevice, num_buffers: usize) -> Result<Self, VulkanError> {
 		let vk_device = device.get_vk_device();
 		let pool_ci = VkCommandPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -42,9 +43,19 @@ impl VulkanCommandPool {
 			ctx: Weak::new(),
 			pool,
 			cmd_buffers,
-			last_buf_index: Mutex::new(0),
+			last_buf_index: 0,
 			fence: VulkanFence::new_(vkcore, vk_device)?,
 		})
+	}
+
+	/// Create a new `VulkanCommandPool`
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>, num_buffers: usize) -> Result<Self, VulkanError> {
+		let ctx_lock = ctx.lock().unwrap();
+		let vkcore = ctx_lock.get_vkcore();
+		let device = &ctx_lock.device;
+		let mut ret = Self::new_(vkcore, device, num_buffers)?;
+		ret.set_ctx(Arc::downgrade(&ctx));
+		Ok(ret)
 	}
 
 	/// Retrieve the command pool
@@ -70,13 +81,11 @@ impl VulkanCommandPool {
 
 	/// Use a command buffer
 	pub fn use_buf<'a>(&'a mut self, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
-		let mut lock = self.last_buf_index.lock().unwrap();
-		let index = *lock as usize;
-		*lock += 1;
-		if *lock as usize > self.cmd_buffers.len() {
-			*lock = 0;
+		let index = self.last_buf_index as usize;
+		self.last_buf_index += 1;
+		if self.last_buf_index as usize > self.cmd_buffers.len() {
+			self.last_buf_index = 0;
 		}
-		drop(lock);
 		VulkanCommandPoolInUse::new(self, index, swapchain_image_index, one_time_submit)
 	}
 }

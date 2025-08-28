@@ -83,7 +83,7 @@ impl VulkanContext {
 
 		let mut cmdpools = Vec::<VulkanCommandPool>::with_capacity(create_info.max_concurrent_frames);
 		for _ in 0..create_info.max_concurrent_frames {
-			cmdpools.push(VulkanCommandPool::new(vkcore, device, 2)?);
+			cmdpools.push(VulkanCommandPool::new_(vkcore, device, 2)?);
 		}
 		let size = Self::get_surface_size_(vkcore, device, surface.clone())?;
 		let swapchain = VulkanSwapchain::new(vkcore, device, surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
