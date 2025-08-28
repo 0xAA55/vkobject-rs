@@ -3,7 +3,12 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	ptr::null,
-	sync::{Mutex, Arc, Weak},
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering},
+		Mutex,
+		Weak
+	},
 };
 
 /// The Vulkan command pool, and the associated buffers, fence. Support multiple buffers; you can use one buffer for command recording and another for submitting to a queue, interleaved.
@@ -23,6 +28,9 @@ pub struct VulkanCommandPool {
 
 	/// The fence for the command pool
 	pub(crate) fence: VulkanFence,
+
+	/// Is the command pool in use now?
+	pub(crate) is_inuse: AtomicBool,
 }
 
 unsafe impl Send for VulkanCommandPool {}
@@ -55,6 +63,7 @@ impl VulkanCommandPool {
 			cmd_buffers,
 			last_buf_index: 0,
 			fence: VulkanFence::new_(vkcore, vk_device)?,
+			is_inuse: AtomicBool::new(false),
 		})
 	}
 
@@ -91,6 +100,9 @@ impl VulkanCommandPool {
 
 	/// Use a command buffer
 	pub fn use_buf<'a>(&'a mut self, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+		if let Err(_) = self.is_inuse.compare_exchange(false, true, Ordering::Acquire, Ordering::Relaxed) {
+			return Err(VulkanError::CommandPoolIsInUse);
+		}
 		let cmdbuf_index = self.last_buf_index as usize;
 		self.last_buf_index += 1;
 		if self.last_buf_index as usize > self.cmd_buffers.len() {
@@ -164,14 +176,14 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		})
 	}
 
+	/// Get the current command buffer
+	pub(crate) fn get_vk_cmdbuf(&self) -> VkCommandBuffer {
+		self.cmdpool.get_vk_cmd_buffers()[self.cmdbuf_index]
+	}
+
 	/// Get the current command buffer index
 	pub fn get_cmdbuf_index(&self) -> usize {
 		self.cmdbuf_index
-	}
-
-	/// Get the current command buffer
-	pub fn get_vk_cmdbuf(&self) -> VkCommandBuffer {
-		self.cmdpool.get_vk_cmd_buffers()[self.cmdbuf_index]
 	}
 
 	/// Is this command buffer an one time submit command buffer
@@ -243,5 +255,6 @@ impl Drop for VulkanCommandPoolInUse<'_> {
 			let cmdbuf = self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()];
 			vkcore.vkResetCommandBuffer(cmdbuf, 0).unwrap();
 		}
+		self.cmdpool.is_inuse.store(false, Ordering::Release);
 	}
 }
