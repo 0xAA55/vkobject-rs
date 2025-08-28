@@ -94,7 +94,7 @@ pub struct VulkanContext {
 	pub(crate) swapchain: VulkanSwapchain,
 
 	/// The command pools
-	pub cmdpools: Vec<VulkanCommandPool>,
+	pub(crate) cmdpools: Vec<VulkanCommandPool>,
 }
 
 unsafe impl Send for VulkanContext {}
