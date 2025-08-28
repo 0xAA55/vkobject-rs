@@ -196,6 +196,11 @@ impl VulkanDevice {
 			queue_count)
 	}
 
+	/// Choose a GPU that is, anyway, a GPU regardless of can do graphics/compute or not.
+	pub fn choose_gpu_anyway(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore, 0, queue_count)
+	}
+
 	/// Get the current queue family index
 	pub fn get_queue_family_index(&self) -> u32 {
 		self.queue_family_index
