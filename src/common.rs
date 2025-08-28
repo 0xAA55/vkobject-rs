@@ -1,8 +1,12 @@
 
 use std::{
 	ffi::CString,
+	fmt::Debug,
 	iter::FromIterator,
+	thread::sleep,
+	time::Duration,
 };
+use rand::prelude::*;
 
 /// A structure to hold owned C-type strings for ffi usages.
 #[derive(Debug)]
@@ -60,6 +64,42 @@ impl Clone for CStringArray {
 		Self {
 			strings,
 			cstrarr,
+		}
+	}
+}
+
+/// Sleep random nanoseconds, the nanosecond value could be bigger than a second.
+pub fn random_sleep<R: Rng>(max_nanos: u64, rng: &mut R) {
+	let sleep_nanos = rng.random_range(0..max_nanos);
+	let secs = sleep_nanos / 1000000000;
+	let nanos = (sleep_nanos % 1000000000) as u32;
+	sleep(Duration::new(secs, nanos));
+}
+
+/// The error returned from the spin function
+#[derive(Debug)]
+pub enum SpinError<E: Debug> {
+	/// The spin function could not acquire the lock
+	SpinFail,
+
+	/// The spin function failed for other reasons
+	OtherError(E)
+}
+
+pub fn spin_work_with_exp_backoff<T, E: Debug, W: FnMut() -> Result<T, SpinError<E>>>(mut spin_func: W, max_sleep_nanos: u64) -> Result<T, E> {
+	let mut sleep_nanos = 1000;
+	let mut rng = SmallRng::from_os_rng();
+	loop {
+		match spin_func() {
+			Ok(r) => return Ok(r),
+			Err(e) => match e {
+				SpinError::SpinFail => {}
+				SpinError::OtherError(e) => return Err(e),
+			}
+		}
+		random_sleep(sleep_nanos, &mut rng);
+		if sleep_nanos < max_sleep_nanos {
+			sleep_nanos = (sleep_nanos * 3) >> 1;
 		}
 	}
 }
