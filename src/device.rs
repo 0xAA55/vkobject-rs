@@ -168,6 +168,8 @@ impl VulkanDevice {
 	}
 
 	/// Choose a GPU that matches the `VkQueueFlags`
+	/// * `flags`: The flags you want to match
+	/// * `queue_count`: see `VulkanDevice::new()`
 	pub fn choose_gpu(vkcore: Arc<VkCore>, flags: VkQueueFlags, queue_count: usize) -> Result<Self, VulkanError> {
 		for gpu in VulkanGpuInfo::get_gpu_info(&vkcore)?.iter() {
 			let index = gpu.get_queue_family_index_by_flags(flags);
@@ -179,16 +181,19 @@ impl VulkanDevice {
 	}
 
 	/// Choose a GPU that must support graphics
+	/// * `queue_count`: see `VulkanDevice::new()`
 	pub fn choose_gpu_with_graphics(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32, queue_count)
 	}
 
 	/// Choose a GPU that must support compute
+	/// * `queue_count`: see `VulkanDevice::new()`
 	pub fn choose_gpu_with_compute(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32, queue_count)
 	}
 
 	/// Choose a GPU that must support both graphics and compute
+	/// * `queue_count`: see `VulkanDevice::new()`
 	pub fn choose_gpu_with_graphics_and_compute(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore,
 			VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 |
@@ -197,6 +202,7 @@ impl VulkanDevice {
 	}
 
 	/// Choose a GPU that is, anyway, a GPU regardless of can do graphics/compute or not.
+	/// * `queue_count`: see `VulkanDevice::new()`
 	pub fn choose_gpu_anyway(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore, 0, queue_count)
 	}
