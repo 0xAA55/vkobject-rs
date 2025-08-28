@@ -33,13 +33,13 @@ pub mod init_from_glfw {
 	/// Create a Vulkan context
 	pub fn create_vulkan_context(window: &glfw::PWindow, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<Arc<Mutex<VulkanContext>>, VulkanError> {
 		let vkcore = Arc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 0, 0))?);
-		let device = VulkanDevice::choose_gpu_with_graphics(vkcore.clone(), max_concurrent_frames)?;
 		let surface = VulkanSurfaceInfo {
 			window,
 		};
 		let context_ci = VulkanContextCreateInfo {
 			vkcore,
-			device,
+			device_can_graphics: true,
+			device_can_compute: false,
 			surface,
 			vsync,
 			max_concurrent_frames,

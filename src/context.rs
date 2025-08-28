@@ -57,8 +57,11 @@ pub struct VulkanContextCreateInfo<'a> {
 	/// The most important thing: the Vulkan driver is here
 	pub vkcore: Arc<VkCore>,
 
-	/// The device to use
-	pub device: VulkanDevice,
+	/// The device must support graphics?
+	pub device_can_graphics: bool,
+
+	/// The device must support compute?
+	pub device_can_compute: bool,
 
 	/// The surface, the target you want to render to
 	pub surface: VulkanSurfaceInfo<'a>,
@@ -99,36 +102,42 @@ unsafe impl Send for VulkanContext {}
 impl VulkanContext {
 	/// Create a new `VulkanContext`
 	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Arc<Mutex<Self>>, VulkanError> {
+		let max_concurrent_frames = create_info.max_concurrent_frames;
 		let vkcore = &create_info.vkcore;
-		let device = &create_info.device;
+		let device = match (create_info.device_can_graphics, create_info.device_can_compute) {
+			(false, false) => VulkanDevice::choose_gpu_anyway(create_info.vkcore.clone(), max_concurrent_frames)?,
+			(true, false) => VulkanDevice::choose_gpu_with_graphics(create_info.vkcore.clone(), max_concurrent_frames)?,
+			(false, true) => VulkanDevice::choose_gpu_with_compute(create_info.vkcore.clone(), max_concurrent_frames)?,
+			(true, true) => VulkanDevice::choose_gpu_with_graphics_and_compute(create_info.vkcore.clone(), max_concurrent_frames)?,
+		};
 		let surface = &create_info.surface;
 
 		#[cfg(any(feature = "glfw", test))]
-		let surface = VulkanSurface::new(vkcore, device, surface.window)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.window)?;
 		#[cfg(feature = "win32_khr")]
-		let surface = VulkanSurface::new(vkcore, device, surface.hwnd, surface.hinstance)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.hwnd, surface.hinstance)?;
 		#[cfg(feature = "android_khr")]
-		let surface = VulkanSurface::new(vkcore, device, surface.window)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.window)?;
 		#[cfg(feature = "ios_mvk")]
-		let surface = VulkanSurface::new(vkcore, device, surface.view)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.view)?;
 		#[cfg(feature = "macos_mvk")]
-		let surface = VulkanSurface::new(vkcore, device, surface.view)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.view)?;
 		#[cfg(feature = "metal_ext")]
-		let surface = VulkanSurface::new(vkcore, device, surface.metal_layer)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.metal_layer)?;
 		#[cfg(feature = "wayland_khr")]
-		let surface = VulkanSurface::new(vkcore, device, surface.display, surface.surface)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.display, surface.surface)?;
 		#[cfg(feature = "xcb_khr")]
-		let surface = VulkanSurface::new(vkcore, device, surface.connection, surface.window)?;
+		let surface = VulkanSurface::new(vkcore, &device, surface.connection, surface.window)?;
 
-		let mut cmdpools = Vec::<VulkanCommandPool>::with_capacity(create_info.max_concurrent_frames);
-		for _ in 0..create_info.max_concurrent_frames {
-			cmdpools.push(VulkanCommandPool::new_(vkcore, device, 2)?);
+		let mut cmdpools = Vec::<VulkanCommandPool>::with_capacity(max_concurrent_frames);
+		for _ in 0..max_concurrent_frames {
+			cmdpools.push(VulkanCommandPool::new_(vkcore, &device, 2)?);
 		}
-		let size = Self::get_surface_size_(vkcore, device, surface.clone())?;
-		let swapchain = VulkanSwapchain::new(vkcore, device, surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
+		let size = Self::get_surface_size_(vkcore, &device, surface.clone())?;
+		let swapchain = VulkanSwapchain::new(vkcore, &device, surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
 		let ret = Arc::new(Mutex::new(Self {
 			vkcore: create_info.vkcore,
-			device: Arc::new(create_info.device),
+			device: Arc::new(device),
 			surface,
 			swapchain,
 			cmdpools,
