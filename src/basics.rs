@@ -127,7 +127,7 @@ impl VulkanSemaphore {
 	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
-		let vkcore = ctx.get_vkcore();
+		let vkcore = ctx.vkcore.clone();
 		let vk_device = ctx.get_vk_device();
 		drop(ctx);
 		let semaphores = [self.semaphore];
@@ -151,7 +151,7 @@ impl VulkanSemaphore {
 		} else {
 			let binding = semaphores[0].ctx.upgrade().unwrap();
 			let ctx = binding.lock().unwrap();
-			let vkcore = ctx.get_vkcore();
+			let vkcore = ctx.vkcore.clone();
 			let vk_device = ctx.get_vk_device();
 			drop(ctx);
 			let timelines: Vec<u64> = semaphores.iter().map(|s|s.timeline).collect();
@@ -175,7 +175,7 @@ impl VulkanSemaphore {
 			Ok(())
 		} else {
 			let ctx = ctx.lock().unwrap();
-			let vkcore = ctx.get_vkcore();
+			let vkcore = ctx.vkcore.clone();
 			let vk_device = ctx.get_vk_device();
 			drop(ctx);
 			let wait_i = VkSemaphoreWaitInfo {
@@ -300,7 +300,7 @@ impl VulkanFence {
 	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
-		let vkcore = ctx.get_vkcore();
+		let vkcore = ctx.vkcore.clone();
 		let vk_device = ctx.get_vk_device();
 		drop(ctx);
 		let fences = [self.fence];
@@ -315,7 +315,7 @@ impl VulkanFence {
 		} else {
 			let binding = fences[0].ctx.upgrade().unwrap();
 			let ctx = binding.lock().unwrap();
-			let vkcore = ctx.get_vkcore();
+			let vkcore = ctx.vkcore.clone();
 			let vk_device = ctx.get_vk_device();
 			drop(ctx);
 			let fences: Vec<VkFence> = fences.iter().map(|f|f.get_vk_fence()).collect();
@@ -330,7 +330,7 @@ impl VulkanFence {
 			Ok(())
 		} else {
 			let ctx = ctx.lock().unwrap();
-			let vkcore = ctx.get_vkcore();
+			let vkcore = ctx.vkcore.clone();
 			let vk_device = ctx.get_vk_device();
 			drop(ctx);
 			vkcore.vkWaitForFences(vk_device, fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
