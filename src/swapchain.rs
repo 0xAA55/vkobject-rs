@@ -9,17 +9,29 @@ use std::{
 
 #[derive(Debug)]
 pub struct VulkanSwapchainImage {
+	/// The `VulkanContext` that helps to manage the resources of the swapchain image
 	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
+
+	/// The handle to the image
 	image: VkImage,
+
+	/// The handle to the image view
 	image_view: VkImageView,
+
+	/// The semaphore to acquire the image for rendering
 	pub acquire_semaphore: VulkanSemaphore,
+
+	/// The semaphore for the image on release
 	pub release_semaphore: VulkanSemaphore,
+
+	/// The fence of submitting commands to a queue
 	pub queue_submit_fence: VulkanFence,
 }
 
 unsafe impl Send for VulkanSwapchainImage {}
 
 impl VulkanSwapchainImage {
+	/// Create the `VulkanSwapchainImage`
 	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: VkDevice) -> Result<Self, VulkanError> {
 		let vk_image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -57,14 +69,17 @@ impl VulkanSwapchainImage {
 		})
 	}
 
+	/// Get the `VkImage`
 	pub fn get_vk_image(&self) -> VkImage {
 		self.image
 	}
 
+	/// Get the `VkImageView`
 	pub fn get_vk_image_view(&self) -> VkImageView {
 		self.image_view
 	}
 
+	/// Set the `VulkanContext` if it hasn't provided previously
 	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.acquire_semaphore.set_ctx(ctx.clone());
 		self.release_semaphore.set_ctx(ctx.clone());
@@ -86,22 +101,44 @@ impl Drop for VulkanSwapchainImage {
 
 #[derive(Debug)]
 pub struct VulkanSwapchain {
+	/// The `VulkanContext` that helps to manage the resources of the swapchain
 	ctx: Weak<Mutex<VulkanContext>>,
+
+	/// The surface that helps the creation of the swapchain
 	pub surface: Arc<Mutex<VulkanSurface>>,
+
+	/// Is VSYNC on?
 	vsync: bool,
+
+	/// Is this swapchain for VR?
 	is_vr: bool,
+
+	/// The capabilities of the surface
 	surf_caps: VkSurfaceCapabilitiesKHR,
+
+	/// The handle to the swapchain
 	swapchain: VkSwapchainKHR,
+
+	/// The extent of the swapchain
 	swapchain_extent: VkExtent2D,
+
+	/// The current present mode of the swapchain
 	present_mode: VkPresentModeKHR,
+
+	/// The swapchain images
 	pub images: Vec<VulkanSwapchainImage>,
+
+	/// The semaphore for acquiring new frame image
 	pub acquire_semaphore: VulkanSemaphore,
+
+	/// The current image index in use
 	cur_image_index: u32,
 }
 
 unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
+	/// Create the `VulkanSwapchain`
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let surface = surface_.lock().unwrap();
 		let vk_device = device.get_vk_device();
@@ -225,6 +262,7 @@ impl VulkanSwapchain {
 		})
 	}
 
+	/// Set the `VulkanContext` if it hasn't provided previously
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		for image in self.images.iter_mut() {
 			image.set_ctx(ctx.clone());
@@ -233,51 +271,63 @@ impl VulkanSwapchain {
 		self.ctx = ctx;
 	}
 
+	/// Get the `VkSurfaceKHR`
 	pub fn get_vk_surface(&self) -> VkSurfaceKHR {
 		let surface = self.surface.lock().unwrap();
 		surface.get_vk_surface()
 	}
 
+	/// Get the `VkSwapchainKHR`
 	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
 		self.swapchain
 	}
 
+	/// Get the `VkSurfaceCapabilitiesKHR`
 	pub fn get_vk_surf_caps(&self) -> &VkSurfaceCapabilitiesKHR {
 		&self.surf_caps
 	}
 
+	// Get the current swapchain extent
 	pub fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.swapchain_extent
 	}
 
+	/// Get the currrent present mode
 	pub fn get_present_mode(&self) -> VkPresentModeKHR {
 		self.present_mode
 	}
 
+	/// Get the list of `VulkanSwapchainImage`s
 	pub fn get_images(&self) -> &[VulkanSwapchainImage] {
 		self.images.as_ref()
 	}
 
+	/// Get the `VulkanSwapchainImage` by an index
 	pub fn get_image(&self, index: usize) -> &VulkanSwapchainImage {
 		&self.images[index]
 	}
 
+	/// Get the current `VulkanSwapchainImage` in use
 	pub fn get_cur_image(&self) -> &VulkanSwapchainImage {
 		&self.images[self.cur_image_index as usize]
 	}
 
+	/// Get the current image index in use
 	pub fn get_image_index(&self) -> u32 {
 		self.cur_image_index
 	}
 
+	/// Get if the swapchain is VSYNC
 	pub fn get_is_vsync(&self) -> bool {
 		self.vsync
 	}
 
+	/// Get if the swapchain is for VR
 	pub fn get_is_vr(&self) -> bool {
 		self.is_vr
 	}
 
+	/// Acquire the next image, get the new image index
 	pub(crate) fn acquire_next_image(&mut self) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
@@ -287,6 +337,7 @@ impl VulkanSwapchain {
 		Ok(())
 	}
 
+	/// Enqueue a present command to the queue
 	pub(crate) fn queue_present(&self, queue_index: usize) -> Result<(), VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();

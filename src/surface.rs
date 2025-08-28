@@ -8,14 +8,20 @@ use std::{
 
 #[derive(Debug)]
 pub struct VulkanSurface {
+	/// The `VulkanContext` that helps to manage the `VkSurfaceKHR`
 	ctx: Weak<Mutex<VulkanContext>>,
+
+	/// The handle to the surface
 	surface: VkSurfaceKHR,
+
+	/// The format of the surface
 	format: VkSurfaceFormatKHR,
 }
 
 unsafe impl Send for VulkanSurface {}
 
 impl VulkanSurface {
+	/// Create a new `VulkanSurface` by the given `VkSurfaceKHR` and `VkSurfaceFormatKHR`
 	pub fn new_from(surface: VkSurfaceKHR, format: VkSurfaceFormatKHR) -> Arc<Mutex<Self>> {
 		Arc::new(Mutex::new(Self {
 			ctx: Weak::new(),
@@ -23,6 +29,7 @@ impl VulkanSurface {
 			format,
 		}))
 	}
+	/// Create a new `VulkanSurface` from the generic type `surface_ci` by calling the given function pointer of `vkCreateSurfaceXxxx()`
 	#[allow(dead_code)]
 	fn new_from_ci<T>(function_name: &'static str, vkcore: &VkCore, device: &VulkanDevice, vk_create_surface: fn(VkInstance, &T, *const VkAllocationCallbacks, *mut VkSurfaceKHR) -> VkResult, surface_ci: &T) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let gpu_info = device.get_gpu();
@@ -85,10 +92,12 @@ impl VulkanSurface {
 		}
 		Ok(Self::new_from(surface, selected_format))
 	}
+	/// Create a `VulkanSurface` by using the GLFW API
 	#[cfg(any(feature = "glfw", test))]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, window: &glfw::PWindow) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		Self::new_from_ci("vkCreateWindowSurfaceGLFW", vkcore, device, vkCreateWindowSurfaceGLFW, window)
 	}
+	/// Create a `VulkanSurface` by using the Win32 API
 	#[cfg(feature = "win32_khr")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, hwnd: HWND, hinstance: HINSTANCE) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkWin32SurfaceCreateInfoKHR {
@@ -100,6 +109,7 @@ impl VulkanSurface {
 		};
 		Self::new_from_ci("vkCreateWin32SurfaceKHR", vkcore, device, vkCreateWin32SurfaceKHR, &surface_ci)
 	}
+	/// Create a `VulkanSurface` for Android
 	#[cfg(feature = "android_khr")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, window: *const ANativeWindow) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkAndroidSurfaceCreateInfoKHR {
@@ -110,6 +120,7 @@ impl VulkanSurface {
 		};
 		Self::new_from_ci("vkCreateAndroidSurfaceKHR", vkcore, device, vkCreateAndroidSurfaceKHR, &surface_ci)
 	}
+	/// Create a `VulkanSurface` for IOS
 	#[cfg(feature = "ios_mvk")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, view: *const c_void) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkIOSSurfaceCreateInfoMVK {
@@ -120,6 +131,7 @@ impl VulkanSurface {
 		};
 		Self::new_from_ci("vkCreateIOSSurfaceMVK", vkcore, device, vkCreateIOSSurfaceMVK, &surface_ci)
 	}
+	/// Create a `VulkanSurface` for MacOS
 	#[cfg(feature = "macos_mvk")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, view: *const c_void) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkMacOSSurfaceCreateInfoMVK {
@@ -130,6 +142,7 @@ impl VulkanSurface {
 		};
 		Self::new_from_ci("vkCreateMacOSSurfaceMVK", vkcore, device, vkCreateMacOSSurfaceMVK, &surface_ci)
 	}
+	/// Create a `VulkanSurface` for Metal
 	#[cfg(feature = "metal_ext")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, metal_layer: *const CAMetalLayer) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkMetalSurfaceCreateInfoEXT {
@@ -140,6 +153,7 @@ impl VulkanSurface {
 		};
 		Self::new_from_ci("vkCreateMetalSurfaceEXT", vkcore, device, vkCreateMetalSurfaceEXT, &surface_ci)
 	}
+	/// Create a `VulkanSurface` for Wayland
 	#[cfg(feature = "wayland_khr")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, display: *const c_void, surface: *const c_void) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkWaylandSurfaceCreateInfoKHR {
@@ -151,6 +165,7 @@ impl VulkanSurface {
 		};
 		Self::new_from_ci("vkCreateWaylandSurfaceKHR", vkcore, device, vkCreateWaylandSurfaceKHR, &surface_ci)
 	}
+	/// Create a `VulkanSurface` for XCB
 	#[cfg(feature = "xcb_khr")]
 	pub fn new(vkcore: &VkCore, device: &VulkanDevice, connection: *const c_void, window: xcb_window_t) -> Result<Arc<Mutex<Self>>, VulkanError> {
 		let surface_ci = VkXcbSurfaceCreateInfoKHR {
@@ -163,6 +178,7 @@ impl VulkanSurface {
 		Self::new_from_ci("vkCreateXcbSurfaceKHR", vkcore, device, vkCreateXcbSurfaceKHR, &surface_ci)
 	}
 
+	/// Set the `VulkanContext` if it hasn't provided previously
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.ctx = ctx;
 	}

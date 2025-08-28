@@ -9,14 +9,24 @@ use std::{
 
 #[derive(Debug, Clone)]
 pub struct VulkanGpuInfo {
+	/// The physical device
 	pub(crate) gpu: VkPhysicalDevice,
+
+	/// The properties of the physical device
 	pub(crate) properties: VkPhysicalDeviceProperties,
+
+	/// The properties of the physical device memory
 	pub(crate) mem_properties: VkPhysicalDeviceMemoryProperties,
+
+	/// The queue families
 	pub(crate) queue_families: Vec<VkQueueFamilyProperties>,
+
+	/// The extension properties
 	pub(crate) extension_properties: Vec<VkExtensionProperties>,
 }
 
 impl VulkanGpuInfo {
+	/// Create a list of all the GPUs info
 	pub fn get_gpu_info(vkcore: &VkCore) -> Result<Vec<VulkanGpuInfo>, VulkanError> {
 		let mut num_gpus = 0u32;
 		vkcore.vkEnumeratePhysicalDevices(vkcore.get_instance(), &mut num_gpus, null_mut())?;
@@ -50,14 +60,17 @@ impl VulkanGpuInfo {
 		Ok(ret)
 	}
 
+	/// Get the `VkPhysicalDevice`
 	pub fn get_vk_physical_device(&self) -> VkPhysicalDevice {
 		self.gpu
 	}
 
+	/// Get the `VkQueueFamilyProperties` list
 	pub fn get_queue_families(&self) -> &[VkQueueFamilyProperties] {
 		self.queue_families.as_ref()
 	}
 
+	/// Find a queue family index that matches the flags
 	pub fn get_queue_family_index(&self, queue_flag_match: u32) -> u32 {
 		for i in 0..self.queue_families.len() {
 			if (self.queue_families[i].queueFlags & queue_flag_match) == queue_flag_match {
@@ -67,20 +80,32 @@ impl VulkanGpuInfo {
 		u32::MAX
 	}
 
+	/// Get the `VkPhysicalDeviceProperties`
 	pub fn get_properties(&self) -> &VkPhysicalDeviceProperties {
 		&self.properties
 	}
 
+	/// Get the list of the `VkExtensionProperties`
 	pub fn get_extension_properties(&self) -> &[VkExtensionProperties] {
 		self.extension_properties.as_ref()
 	}
 }
 
+/// The Vulkan device with its queues to submit the rendering commands
 pub struct VulkanDevice {
+	/// The Vulkan driver
 	pub(crate) vkcore: Arc<VkCore>,
+
+	/// The current queue family index
 	queue_family_index: u32,
+
+	/// The info of the GPU
 	gpu: VulkanGpuInfo,
+
+	/// The handle to the device
 	device: VkDevice,
+
+	/// The queues of the device. To submit commands to a queue, must use a lock.
 	pub(crate) queues: Vec<Arc<Mutex<VkQueue>>>,
 }
 

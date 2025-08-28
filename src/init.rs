@@ -10,6 +10,7 @@ pub mod init_from_glfw {
 	};
 
 	unsafe extern "C" {
+		/// Screw the glfw-rs! We just import this function from glfw-sys
 		fn glfwGetInstanceProcAddress(instance: VkInstance, procname: *const i8) -> *const c_void;
 	}
 

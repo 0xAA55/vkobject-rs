@@ -7,8 +7,13 @@ use std::{
 
 #[derive(Debug)]
 pub struct Buffer {
+	/// The `VulkanContext` that helps to manage the resources of the buffer
 	ctx: Weak<RefCell<VulkanContext>>,
+
+	/// The handle to the device memory
 	memory: VkDeviceMemory,
+
+	/// The handle to the buffer
 	buffer: VkBuffer,
 }
 

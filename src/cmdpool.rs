@@ -6,12 +6,22 @@ use std::{
 	sync::{Mutex, Arc, Weak},
 };
 
+/// The Vulkan command pool, and the associated buffers, fence. Support multiple buffers; you can use one buffer for command recording and another for submitting to a queue, interleaved.
 #[derive(Debug)]
 pub struct VulkanCommandPool {
+	/// The `VulkanContext` that helps to manage the resources of the command pool
 	ctx: Weak<Mutex<VulkanContext>>,
+
+	/// The handle to the command pool
 	pool: VkCommandPool,
+
+	/// The command buffers of the command pool
 	cmd_buffers: Vec<VkCommandBuffer>,
+
+	/// The last command buffer index
 	pub last_buf_index: u32,
+
+	/// The fence for the command pool
 	pub(crate) fence: VulkanFence,
 }
 
@@ -100,19 +110,36 @@ impl Drop for VulkanCommandPool {
 	}
 }
 
+/// The RAII wrapper for the usage of a Vulkan command pool/buffer. When created, your command could be recorded to the command buffer.
 #[derive(Debug)]
 pub struct VulkanCommandPoolInUse<'a> {
+	/// The `VulkanContext` that helps to manage the resources of the command pool
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
+
+	/// The command pool we are using here
 	pub(crate) cmdpool: &'a VulkanCommandPool,
+
+	/// The command buffer index using right now
 	cmdbuf_index: usize,
+
+	/// The queue index for the command pool to submit
 	queue_index: usize,
+
+	/// The swapchain image index for the command pool to draw to
 	swapchain_image_index: usize,
+
+	/// Is this command buffer got automatically cleaned when submitted
 	pub(crate) one_time_submit: bool,
+
+	/// Is recording commands ended
 	pub(crate) ended: bool,
+
+	/// Is the commands submitted
 	pub(crate) submitted: bool,
 }
 
 impl<'a, 'b> VulkanCommandPoolInUse<'a> {
+	/// Create a RAII binding to the `VulkanCommandPool` in use
 	fn new(cmdpool: &'a VulkanCommandPool, cmdbuf_index: usize, queue_index: usize, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
@@ -147,10 +174,12 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		self.cmdpool.get_vk_cmd_buffers()[self.cmdbuf_index]
 	}
 
+	/// Is this command buffer an one time submit command buffer
 	pub fn is_one_time_submit(&self) -> bool {
 		self.one_time_submit
 	}
 
+	/// End recording commands
 	pub fn end_cmd(&mut self) -> Result<(), VulkanError> {
 		if !self.ended {
 			let ctx = self.ctx.lock().unwrap();
@@ -163,10 +192,12 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		}
 	}
 
+	/// Check if is ended
 	pub fn is_ended(&self) -> bool {
 		self.ended
 	}
 
+	/// Submit the commands
 	pub fn submit(&mut self) -> Result<(), VulkanError> {
 		if !self.ended {
 			self.end_cmd()?;
@@ -197,6 +228,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		}
 	}
 
+	/// End recording to the command buffer and submit the commands to the queue
 	pub fn end(self) {}
 }
 

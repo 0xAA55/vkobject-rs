@@ -7,51 +7,81 @@ use std::{
 };
 
 #[derive(Debug)]
-pub struct VulkanContextCreateInfo<'a> {
-	pub vkcore: Arc<VkCore>,
-	pub device: VulkanDevice,
-
 	#[cfg(any(feature = "glfw", test))]
+	/// The window from GLFW
 	pub window: &'a glfw::PWindow,
 
 	#[cfg(feature = "win32_khr")]
+	/// The Windows window handle
 	pub hwnd: HWND,
 	#[cfg(feature = "win32_khr")]
+	/// The Windows application instance handle
 	pub hinstance: HINSTANCE,
 
 	#[cfg(feature = "android_khr")]
+	/// The Android window
 	pub window: *const ANativeWindow,
 
 	#[cfg(feature = "ios_mvk")]
+	/// The IOS view
 	pub view: *const c_void,
 
 	#[cfg(feature = "macos_mvk")]
+	/// The MacOS view
 	pub view: *const c_void,
 
 	#[cfg(feature = "metal_ext")]
+	/// The Metal layer
 	pub metal_layer: *const CAMetalLayer,
 
 	#[cfg(feature = "wayland_khr")]
+	/// The Wayland display
 	pub display: *const c_void,
 	#[cfg(feature = "wayland_khr")]
+	/// The Wayland surface
 	pub surface: *const c_void,
 
 	#[cfg(feature = "xcb_khr")]
+	/// The XCB connection
 	pub connection: *const c_void,
 	#[cfg(feature = "xcb_khr")]
+	/// The XCB window
 	pub window: xcb_window_t,
+/// The struct to create the `VulkanContext`
+#[derive(Debug)]
+pub struct VulkanContextCreateInfo<'a> {
+	/// The most important thing: the Vulkan driver is provided here
+	pub vkcore: Arc<VkCore>,
 
+	/// The device to use
+	pub device: VulkanDevice,
+
+
+	/// Is VSYNC should be on
 	pub vsync: bool,
+
+	/// How many frames could be rendered concurrently
 	pub max_concurrent_frames: usize,
+
+	/// Is this a VR project?
 	pub is_vr: bool,
 }
 
 #[derive(Debug)]
 pub struct VulkanContext {
+	/// The Vulkan driver
 	pub(crate) vkcore: Arc<VkCore>,
+
+	/// The device in use
 	pub(crate) device: Arc<VulkanDevice>,
+
+	/// The surface in use
 	pub(crate) surface: Arc<Mutex<VulkanSurface>>,
+
+	/// The swapchain
 	pub(crate) swapchain: VulkanSwapchain,
+
+	/// The command pools
 	pub(crate) cmdpools: Vec<VulkanCommandPool>,
 }
 
@@ -114,22 +144,22 @@ impl VulkanContext {
 		&self.vkcore
 	}
 
-	/// Get the current physical device
+	/// Get the `VkPhysicalDevice` in use
 	pub(crate) fn get_vk_physical_device(&self) -> VkPhysicalDevice {
 		self.device.get_vk_physical_device()
 	}
 
-	/// Get the current device
+	/// Get the `VkDevice` in use
 	pub(crate) fn get_vk_device(&self) -> VkDevice {
 		self.device.get_vk_device()
 	}
 
-	/// Get a queue for the current device
+	/// Get a queue for the current device. To submit commands to a queue concurrently, the queue must be locked.
 	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> MutexGuard<'_, VkQueue> {
 		self.device.get_vk_queue(queue_index)
 	}
 
-	/// Get the current surface
+	/// Get the `VkSurfaceKHR`
 	pub(crate) fn get_vk_surface(&self) -> VkSurfaceKHR {
 		self.surface.lock().unwrap().get_vk_surface()
 	}
@@ -139,14 +169,17 @@ impl VulkanContext {
 		*self.surface.lock().unwrap().get_vk_surface_format()
 	}
 
+	/// Get the `VkSwapchainKHR`
 	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
 		self.swapchain.get_vk_swapchain()
 	}
 
+	/// Get the current swapchain extent(the framebuffer size)
 	pub(crate) fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.swapchain.get_swapchain_extent()
 	}
 
+	/// Get the swapchain image by an index
 	pub(crate) fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
 		self.swapchain.get_image(index)
 	}
@@ -156,10 +189,12 @@ impl VulkanContext {
 		self.swapchain.get_image_index() as usize
 	}
 
+	/// Get the swapchain image by the current index
 	pub(crate) fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
 		self.swapchain.get_image(self.get_swapchain_image_index())
 	}
 
+	/// Get the surface size, a.k.a. the frame buffer size
 	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<Mutex<VulkanSurface>>) -> Result<VkExtent2D, VulkanError> {
 		let mut surface_properties: VkSurfaceCapabilitiesKHR = unsafe {MaybeUninit::zeroed().assume_init()};
 		let surface = surface.lock().unwrap();
@@ -167,10 +202,12 @@ impl VulkanContext {
 		Ok(surface_properties.currentExtent)
 	}
 
+	/// Get the surface size, a.k.a. the frame buffer size
 	pub fn get_surface_size(&self) -> Result<VkExtent2D, VulkanError> {
 		Self::get_surface_size_(&self.vkcore, &self.device, self.surface.clone())
 	}
 
+	/// When the windows was resized, call this method to recreate the swapchain to fit the new size
 	pub fn on_resize(&mut self) -> Result<bool, VulkanError> {
 		let surface_size = self.get_surface_size()?;
 		let swapchain_extent = self.get_swapchain_extent();
