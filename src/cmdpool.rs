@@ -104,7 +104,7 @@ impl Drop for VulkanCommandPool {
 pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 	pub(crate) cmdpool: &'a VulkanCommandPool,
-	cmdbuf_index: u32,
+	cmdbuf_index: usize,
 	queue_index: usize,
 	swapchain_image_index: usize,
 	pub(crate) one_time_submit: bool,
@@ -128,7 +128,7 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 		Ok(Self {
 			ctx: ctx.clone(),
 			cmdpool,
-			cmdbuf_index: cmdbuf_index as u32,
+			cmdbuf_index,
 			queue_index,
 			swapchain_image_index,
 			one_time_submit,
@@ -139,12 +139,12 @@ impl<'a, 'b> VulkanCommandPoolInUse<'a> {
 
 	/// Get the current command buffer index
 	pub fn get_cmdbuf_index(&self) -> usize {
-		self.cmdbuf_index as usize
+		self.cmdbuf_index
 	}
 
 	/// Get the current command buffer
 	pub fn get_vk_cmdbuf(&self) -> VkCommandBuffer {
-		self.cmdpool.get_vk_cmd_buffers()[self.get_cmdbuf_index()]
+		self.cmdpool.get_vk_cmd_buffers()[self.cmdbuf_index]
 	}
 
 	pub fn is_one_time_submit(&self) -> bool {
