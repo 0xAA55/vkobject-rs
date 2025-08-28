@@ -54,25 +54,28 @@ pub struct VulkanSurfaceInfo<'a> {
 /// The struct to create the `VulkanContext`
 #[derive(Debug)]
 pub struct VulkanContextCreateInfo<'a> {
-	/// The most important thing: the Vulkan driver is provided here
+	/// The most important thing: the Vulkan driver is here
 	pub vkcore: Arc<VkCore>,
 
 	/// The device to use
 	pub device: VulkanDevice,
 
-	/// The surface
+	/// The surface, the target you want to render to
 	pub surface: VulkanSurfaceInfo<'a>,
 
-	/// Is VSYNC should be on
+	/// VSYNC should be on or off?
+	/// * It's recommended to enable VSYNC for most usage since this could be the smoothest achieve and lower the power consumption, **except** for players who play PVP and want to win with the lowest latency (You are designing these sorts of games)
 	pub vsync: bool,
 
-	/// How many frames could be rendered concurrently
+	/// How many frames could be rendered concurrently?
+	/// **NOTE** You could create a multi-threaded rendering engine, submitting draw calls concurrently, and the GPU could render multiple scenes concurrently.
 	pub max_concurrent_frames: usize,
 
 	/// Is this a VR project?
 	pub is_vr: bool,
 }
 
+/// The Vulkan context has device, surface, swapchain, and command pools
 #[derive(Debug)]
 pub struct VulkanContext {
 	/// The Vulkan driver
@@ -214,7 +217,7 @@ impl VulkanContext {
 		Self::get_surface_size_(&self.vkcore, &self.device, self.surface.clone())
 	}
 
-	/// Recreate the swapchain when users toggles the switch of `vsync` or the framebuffer size changed\
+	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub(crate) fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
 		self.swapchain = VulkanSwapchain::new(&self.vkcore, &self.device, self.surface.clone(), width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
