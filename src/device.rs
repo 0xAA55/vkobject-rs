@@ -217,16 +217,6 @@ impl VulkanDevice {
 		&self.gpu
 	}
 
-	/// Get the `VkPhysicalDevice`
-	pub(crate) fn get_vk_physical_device(&self) -> VkPhysicalDevice {
-		self.gpu.get_vk_physical_device()
-	}
-
-	/// Get the `VkDevice`
-	pub(crate) fn get_vk_device(&self) -> VkDevice {
-		self.device
-	}
-
 	/// Check if the `queue_index` and the `VkSurfaceKHR` were supported by the `VkPhysicalDevice`
 	pub fn get_supported_by_surface(&self, queue_index: usize, surface: VkSurfaceKHR) -> Result<bool, VulkanError> {
 		let mut result: VkBool32 = 0;
@@ -238,6 +228,16 @@ impl VulkanDevice {
 	pub fn wait_idle(&self) -> Result<(), VulkanError> {
 		self.vkcore.vkDeviceWaitIdle(self.device)?;
 		Ok(())
+	}
+
+	/// Get the `VkPhysicalDevice`
+	pub(crate) fn get_vk_physical_device(&self) -> VkPhysicalDevice {
+		self.gpu.get_vk_physical_device()
+	}
+
+	/// Get the `VkDevice`
+	pub(crate) fn get_vk_device(&self) -> VkDevice {
+		self.device
 	}
 
 	/// Get a queue for the current device
