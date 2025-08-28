@@ -244,6 +244,17 @@ impl VulkanDevice {
 	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> MutexGuard<'_, VkQueue> {
 		self.queues[queue_index].lock().unwrap()
 	}
+
+	/// Get an idle queue for the current device
+	pub(crate) fn get_any_vk_queue(&self, &mut queue_index: usize) -> Result<MutexGuard<'_, VkQueue>, VulkanError> {
+		for (i, queue) in self.queues.iter().enumerate() {
+			if let Ok(guard) = queue.try_lock() {
+				*queue_index = i;
+				return Ok(guard);
+			}
+		}
+		Err(VulkanError::NoIdleDeviceQueues)
+	}
 }
 
 impl Debug for VulkanDevice {
