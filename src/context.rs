@@ -153,6 +153,15 @@ impl VulkanContext {
 		self.swapchain.get_image(index)
 	}
 
+	/// Get the current swapchain image index
+	pub fn get_swapchain_image_index(&self) -> usize {
+		self.swapchain.get_image_index() as usize
+	}
+
+	pub(crate) fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
+		self.swapchain.get_image(self.get_swapchain_image_index())
+	}
+
 	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<Mutex<VulkanSurface>>) -> Result<VkExtent2D, VulkanError> {
 		let mut surface_properties: VkSurfaceCapabilitiesKHR = unsafe {MaybeUninit::zeroed().assume_init()};
 		let surface = surface.lock().unwrap();
@@ -177,11 +186,6 @@ impl VulkanContext {
 			self.swapchain = new_chain;
 			Ok(true)
 		}
-	}
-
-	/// Get the current swapchain image index
-	pub fn get_swapchain_image_index(&self) -> u32 {
-		self.swapchain.get_image_index()
 	}
 }
 
