@@ -45,7 +45,7 @@ pub mod init_from_glfw {
 			max_concurrent_frames,
 			is_vr,
 		};
-		Ok(VulkanContext::new(context_ci)?)
+		VulkanContext::new(context_ci)
 	}
 }
 
