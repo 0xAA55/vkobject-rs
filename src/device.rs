@@ -92,6 +92,9 @@ impl VulkanGpuInfo {
 	}
 }
 
+unsafe impl Send for VulkanGpuInfo {}
+unsafe impl Sync for VulkanGpuInfo {}
+
 /// The Vulkan device with its queues to submit the rendering commands
 pub struct VulkanDevice {
 	/// The Vulkan driver
@@ -151,6 +154,7 @@ impl VulkanDevice {
 
 		let mut queues_ret: Vec<Arc<Mutex<VkQueue>>> = Vec::with_capacity(queue_count);
 		for queue in queues.iter() {
+			#[allow(clippy::arc_with_non_send_sync)]
 			queues_ret.push(Arc::new(Mutex::new(*queue)));
 		}
 
@@ -168,7 +172,7 @@ impl VulkanDevice {
 		for gpu in VulkanGpuInfo::get_gpu_info(&vkcore)?.iter() {
 			let index = gpu.get_queue_family_index(flags);
 			if index != u32::MAX {
-				return Ok(Self::new(vkcore, gpu.clone(), index, queue_count)?);
+				return Self::new(vkcore, gpu.clone(), index, queue_count);
 			}
 		}
 		Err(VulkanError::ChooseGpuFailed)
@@ -253,3 +257,6 @@ impl Drop for VulkanDevice {
 		self.vkcore.vkDestroyDevice(self.device, null()).unwrap();
 	}
 }
+
+unsafe impl Send for VulkanDevice {}
+unsafe impl Sync for VulkanDevice {}
