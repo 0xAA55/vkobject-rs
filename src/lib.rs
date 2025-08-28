@@ -1,5 +1,6 @@
 
 #![allow(dead_code)]
+#![allow(clippy::too_many_arguments)]
 
 /// The common helper library
 pub mod common;
