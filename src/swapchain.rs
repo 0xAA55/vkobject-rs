@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{
 	fmt::Debug,
-	mem::{MaybeUninit, transmute},
+	mem::{MaybeUninit, transmute, swap},
 	ptr::{null, null_mut},
 	sync::{Mutex, Arc, Weak},
 };
@@ -131,7 +131,7 @@ pub struct VulkanSwapchain {
 	pub images: Vec<VulkanSwapchainImage>,
 
 	/// The semaphore for acquiring new frame image
-	pub acquire_semaphore: VulkanSemaphore,
+	acquire_semaphore: VulkanSemaphore,
 
 	/// The current image index in use
 	cur_image_index: u32,
@@ -266,10 +266,10 @@ impl VulkanSwapchain {
 
 	/// Set the `VulkanContext` if it hasn't provided previously
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.acquire_semaphore.set_ctx(ctx.clone());
 		for image in self.images.iter_mut() {
 			image.set_ctx(ctx.clone());
 		}
-		self.acquire_semaphore.set_ctx(ctx.clone());
 		self.ctx = ctx;
 	}
 
@@ -330,13 +330,16 @@ impl VulkanSwapchain {
 	}
 
 	/// Acquire the next image, get the new image index
-	pub(crate) fn acquire_next_image(&mut self) -> Result<(), VulkanError> {
+	pub(crate) fn acquire_next_image(&mut self) -> Result<usize, VulkanError> {
 		let binding = self.ctx.upgrade().unwrap();
 		let ctx = binding.lock().unwrap();
 		let vkcore = ctx.get_vkcore();
 		let device = ctx.get_vk_device();
-		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, self.acquire_semaphore.get_vk_semaphore(), null(), &mut self.cur_image_index)?;
-		Ok(())
+		let mut cur_image_index = 0;
+		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, self.acquire_semaphore.get_vk_semaphore(), null(), &mut cur_image_index)?;
+		self.cur_image_index = cur_image_index;
+		swap(&mut self.acquire_semaphore, &mut self.images[cur_image_index as usize].acquire_semaphore);
+		Ok(cur_image_index as usize)
 	}
 
 	/// Enqueue a present command to the queue
