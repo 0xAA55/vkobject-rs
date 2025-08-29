@@ -265,7 +265,7 @@ impl VulkanDevice {
 		const MAX_SLEEP_NANOS: u64 = 100_000_000;
 		spin_work_with_exp_backoff(|| -> Result<MutexGuard<'_, VkQueue>, SpinError<VulkanError>> {
 			match self.get_any_vk_queue(queue_index) {
-				Ok(guard) => return Ok(guard),
+				Ok(guard) => Ok(guard),
 				Err(e) => match e {
 					VulkanError::NoIdleDeviceQueues => Err(SpinError::SpinFail),
 					others => Err(SpinError::OtherError(others)),
