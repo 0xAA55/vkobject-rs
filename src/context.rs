@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	mem::MaybeUninit,
-	sync::{Arc, MutexGuard},
+	sync::{Arc, Mutex, MutexGuard},
 };
 
 /// The struct to provide the information of the surface
@@ -91,7 +91,7 @@ pub struct VulkanContext {
 	pub surface: Arc<VulkanSurface>,
 
 	/// The swapchain
-	pub(crate) swapchain: VulkanSwapchain,
+	pub(crate) swapchain: Arc<Mutex<VulkanSwapchain>>,
 
 	/// The command pools
 	pub(crate) cmdpools: Vec<VulkanCommandPool>,
@@ -130,7 +130,7 @@ impl VulkanContext {
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = VulkanSwapchain::new(device.clone(), &surface, size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
+		let swapchain = Arc::new(Mutex::new(VulkanSwapchain::new(device.clone(), &surface, size.width, size.height, create_info.vsync, create_info.is_vr, None)?));
 		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
 		for _ in 0..max_concurrent_frames {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
@@ -151,8 +151,8 @@ impl VulkanContext {
 	}
 
 	/// get the `VkCore`
-	pub(crate) fn get_vkcore(&self) -> &VkCore {
-		&self.vkcore
+	pub(crate) fn get_vkcore(&self) -> Arc<VkCore> {
+		self.vkcore.clone()
 	}
 
 	/// Get the `VkPhysicalDevice` in use
@@ -191,8 +191,8 @@ impl VulkanContext {
 	}
 
 	/// Get the swapchain
-	pub fn get_swapchain(&self) -> &VulkanSwapchain {
-		&self.swapchain
+	pub fn get_swapchain(&self) -> MutexGuard<'_, VulkanSwapchain> {
+		self.swapchain.lock().unwrap()
 	}
 
 	/// Get the `VkSwapchainKHR`
@@ -203,21 +203,6 @@ impl VulkanContext {
 	/// Get the current swapchain extent(the framebuffer size)
 	pub fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.get_swapchain().get_swapchain_extent()
-	}
-
-	/// Get the swapchain image by an index
-	pub fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
-		self.get_swapchain().get_image(index)
-	}
-
-	/// Get the swapchain image by the current index
-	pub fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
-		self.get_swapchain().get_image(self.get_swapchain_image_index())
-	}
-
-	/// Get the current swapchain image index
-	pub fn get_swapchain_image_index(&self) -> usize {
-		self.get_swapchain().get_image_index() as usize
 	}
 
 	/// Get the surface size, a.k.a. the frame buffer size
@@ -235,7 +220,8 @@ impl VulkanContext {
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		self.swapchain = VulkanSwapchain::new(self.device.clone(), &self.surface, width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
+		let mut lock = self.swapchain.lock().unwrap();
+		*lock = VulkanSwapchain::new(self.device.clone(), &self.surface, width, height, vsync, is_vr, Some(lock.get_vk_swapchain()))?;
 		Ok(())
 	}
 
@@ -247,7 +233,11 @@ impl VulkanContext {
 			swapchain_extent.height == surface_size.height {
 			Ok(false)
 		} else {
-			self.recreate_swapchain(surface_size.width, surface_size.height, self.swapchain.get_is_vsync(), self.swapchain.get_is_vr())?;
+			let lock = self.swapchain.lock().unwrap();
+			let is_vsync = lock.get_is_vsync();
+			let is_vr = lock.get_is_vr();
+			drop(lock);
+			self.recreate_swapchain(surface_size.width, surface_size.height, is_vsync, is_vr)?;
 			Ok(true)
 		}
 	}
@@ -258,9 +248,10 @@ impl VulkanContext {
 		for (i, pool) in self.cmdpools.iter_mut().enumerate() {
 			match pool.try_use_pool(Some(i), None, one_time_submit, None) {
 				Ok(mut pool_in_use) => {
-					let swapchain_image_index = self.swapchain.acquire_next_image()?;
-					pool_in_use.swapchain_image = Some(self.swapchain.get_image(swapchain_image_index));
-					return Ok(VulkanContextFrame::new(&self.swapchain, pool_in_use))
+					let mut lock = self.swapchain.lock().unwrap();
+					let image_index = lock.acquire_next_image()?;
+					pool_in_use.swapchain_image = Some(lock.get_image(image_index));
+					return Ok(VulkanContextFrame::new(self.swapchain.clone(), pool_in_use, image_index))
 				}
 				Err(e) => match e {
 					VulkanError::CommandPoolIsInUse => {}
@@ -274,15 +265,17 @@ impl VulkanContext {
 
 #[derive(Debug)]
 pub struct VulkanContextFrame<'a> {
-	swapchain: &'a VulkanSwapchain,
+	swapchain: Arc<Mutex<VulkanSwapchain>>,
 	pool_in_use: Option<VulkanCommandPoolInUse<'a>>,
+	image_index: usize,
 }
 
 impl<'a> VulkanContextFrame<'a> {
-	fn new(swapchain: &'a VulkanSwapchain, pool_in_use: VulkanCommandPoolInUse<'a>) -> Self {
+	fn new(swapchain: Arc<Mutex<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Self {
 		Self {
 			swapchain,
 			pool_in_use: Some(pool_in_use),
+			image_index,
 		}
 	}
 }
@@ -296,7 +289,8 @@ impl<'a> Drop for VulkanContextFrame<'a> {
 				0
 			};
 			pool_in_use.submit().unwrap();
-			self.swapchain.queue_present(queue_index).unwrap();
+			let lock = self.swapchain.lock().unwrap();
+			lock.queue_present(queue_index, self.image_index).unwrap();
 		}
 		self.pool_in_use = None;
 	}
