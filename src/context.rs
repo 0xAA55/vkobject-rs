@@ -260,7 +260,7 @@ impl VulkanContext {
 				Ok(mut pool_in_use) => {
 					let swapchain_image_index = self.swapchain.acquire_next_image()?;
 					pool_in_use.swapchain_image = Some(self.swapchain.get_image(swapchain_image_index));
-					return Ok(VulkanContextFrame::new(pool_in_use))
+					return Ok(VulkanContextFrame::new(&self.swapchain, pool_in_use))
 				}
 				Err(e) => match e {
 					VulkanError::CommandPoolIsInUse => {}
@@ -274,13 +274,28 @@ impl VulkanContext {
 
 #[derive(Debug)]
 pub struct VulkanContextFrame<'a> {
-	pool_in_use: VulkanCommandPoolInUse<'a>,
+	swapchain: &'a VulkanSwapchain,
+	pool_in_use: Option<VulkanCommandPoolInUse<'a>>,
 }
 
 impl<'a> VulkanContextFrame<'a> {
-	fn new(pool_in_use: VulkanCommandPoolInUse<'a>) -> Self {
+	fn new(swapchain: &'a VulkanSwapchain, pool_in_use: VulkanCommandPoolInUse<'a>) -> Self {
 		Self {
-			pool_in_use,
+			swapchain,
+			pool_in_use: Some(pool_in_use),
 		}
+	}
+}
+
+impl<'a> Drop for VulkanContextFrame<'a> {
+	fn drop(&mut self) {
+		if let Some(pool_in_use) = &self.pool_in_use {
+			if let Some(queue_index) = pool_in_use.queue_index {
+				self.swapchain.queue_present(queue_index).unwrap();
+			} else {
+				self.swapchain.queue_present(0).unwrap();
+			}
+		}
+		self.pool_in_use = None;
 	}
 }
