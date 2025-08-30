@@ -9,7 +9,7 @@ use std::{
 /// The wrapper for `VkSurfaceKHR`
 pub struct VulkanSurface {
 	/// The Vulkan driver
-	vkcore: Arc<VkCore>,
+	pub(crate) vkcore: Arc<VkCore>,
 
 	/// The handle to the surface
 	surface: VkSurfaceKHR,

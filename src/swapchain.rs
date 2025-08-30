@@ -10,7 +10,7 @@ use std::{
 /// An image of a swapchain that's dedicated for the depth-stencil usage
 pub struct VulkanDepthStencilImage {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the image
 	image: VkImage,
@@ -123,7 +123,7 @@ unsafe impl Send for VulkanDepthStencilImage {}
 /// An image of a swapchain
 pub struct VulkanSwapchainImage {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the image
 	image: VkImage,
@@ -252,7 +252,7 @@ impl Drop for VulkanSwapchainImage {
 /// A swapchain for presenting frames to the window surface.
 pub struct VulkanSwapchain {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// Is VSYNC on?
 	vsync: bool,

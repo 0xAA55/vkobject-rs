@@ -9,7 +9,7 @@ use std::{
 /// A framebuffer
 pub struct VulkanFramebuffer {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The size of the framebuffer
 	size: VkExtent2D,

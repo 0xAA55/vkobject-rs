@@ -9,7 +9,7 @@ use std::{
 /// The Vulkan command pool, and the associated buffers, fence. Support multiple buffers; you can use one buffer for command recording and another for submitting to a queue, interleaved.
 pub struct VulkanCommandPool {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the command pool
 	pool: Mutex<VkCommandPool>,
@@ -136,7 +136,7 @@ impl Drop for VulkanCommandPool {
 /// The RAII wrapper for the usage of a Vulkan command pool/buffer. When created, your command could be recorded to the command buffer.
 pub struct VulkanCommandPoolInUse<'a> {
 	/// The `VulkanDevice` is the associated device
-	pub(crate) device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The command buffer we are using here
 	pub(crate) cmdbuf: VkCommandBuffer,
@@ -148,7 +148,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) queue_index: Option<usize>,
 
 	/// The swapchain image index for the command pool to draw to
-	pub(crate) swapchain_image: Option<&'a VulkanSwapchainImage>,
+	pub swapchain_image: Option<&'a VulkanSwapchainImage>,
 
 	/// The fence indicating if all commands were submitted
 	pub(crate) submit_fence: VkFence,

@@ -41,7 +41,7 @@ impl VulkanRenderPassAttachment {
 /// The wrapper for `VkRenderPass`
 pub struct VulkanRenderPass {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the renderpass object
 	renderpass: VkRenderPass,

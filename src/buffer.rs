@@ -11,7 +11,7 @@ use std::{
 /// The buffer object that temporarily stores the `VkBuffer`
 struct Buffer {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the buffer
 	buffer: VkBuffer,
@@ -70,7 +70,7 @@ impl Drop for Buffer {
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
 pub struct VulkanBuffer {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The device memory
 	memory: VulkanMemory,

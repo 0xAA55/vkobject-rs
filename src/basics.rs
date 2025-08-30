@@ -31,7 +31,7 @@ impl From<VkError> for VulkanError {
 /// The wrapper for the `VkSemaphore`
 pub struct VulkanSemaphore {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The semaphore handle
 	semaphore: VkSemaphore,
@@ -179,7 +179,7 @@ impl Drop for VulkanSemaphore {
 /// The wrapper for the `VkFence`
 pub struct VulkanFence {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The fence handle
 	fence: VkFence,
@@ -324,7 +324,7 @@ impl Drop for VulkanFence {
 /// The memory object that temporarily stores the `VkDeviceMemory`
 pub struct VulkanMemory {
 	/// The `VulkanDevice` is the associated device
-	device: Arc<VulkanDevice>,
+	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the memory
 	memory: VkDeviceMemory,
