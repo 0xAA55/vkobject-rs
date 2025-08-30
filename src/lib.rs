@@ -23,7 +23,7 @@ pub mod swapchain;
 /// The Vulkan command pool
 pub mod cmdpool;
 
-/// The Vulkan command pool
+/// The Vulkan context
 pub mod context;
 
 /// The buffer object
