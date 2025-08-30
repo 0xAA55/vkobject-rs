@@ -9,9 +9,6 @@ use std::{
 
 /// An image of a swapchain that's dedicated for the depth-stencil usage
 pub struct VulkanDepthStencilImage {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -26,7 +23,8 @@ pub struct VulkanDepthStencilImage {
 }
 
 impl VulkanDepthStencilImage {
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, extent: &VkExtent2D, format: VkFormat) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, format: VkFormat) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let image_ci = VkImageCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
@@ -54,7 +52,7 @@ impl VulkanDepthStencilImage {
 		let image = ResourceGuard::new(image, |&i|vkcore.vkDestroyImage(vkdevice, i, null()).unwrap());
 		let mut mem_reqs: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
 		vkcore.vkGetImageMemoryRequirements(vkdevice, *image, &mut mem_reqs)?;
-		let memory = VulkanMemory::new(vkcore.clone(), device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
+		let memory = VulkanMemory::new(device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		let memory = ResourceGuard::new(memory, |m|vkcore.vkFreeMemory(vkdevice, m.get_vk_memory(), null()).unwrap());
 		vkcore.vkBindImageMemory(vkdevice, *image, memory.get_vk_memory(), 0)?;
 		let image_view_ci = VkImageViewCreateInfo {
@@ -83,7 +81,6 @@ impl VulkanDepthStencilImage {
 		let image = image.release();
 		let memory = memory.release();
 		Ok(Self {
-			vkcore,
 			device,
 			image,
 			image_view,
@@ -114,9 +111,10 @@ impl Debug for VulkanDepthStencilImage {
 
 impl Drop for VulkanDepthStencilImage {
 	fn drop(&mut self) {
+		let vkcore = self.device.vkcore.clone();
 		let vkdevice = self.device.get_vk_device();
-		self.vkcore.vkDestroyImageView(vkdevice, self.image_view, null()).unwrap();
-		self.vkcore.vkDestroyImage(vkdevice, self.image, null()).unwrap();
+		vkcore.vkDestroyImageView(vkdevice, self.image_view, null()).unwrap();
+		vkcore.vkDestroyImage(vkdevice, self.image, null()).unwrap();
 	}
 }
 
@@ -124,9 +122,6 @@ unsafe impl Send for VulkanDepthStencilImage {}
 
 /// An image of a swapchain
 pub struct VulkanSwapchainImage {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -162,7 +157,8 @@ unsafe impl Send for VulkanSwapchainImage {}
 
 impl VulkanSwapchainImage {
 	/// Create the `VulkanSwapchainImage`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let vk_device = device.get_vk_device();
 		let vk_image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -188,20 +184,19 @@ impl VulkanSwapchainImage {
 		let mut image_view: VkImageView = null();
 		vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
 		let image_view = ResourceGuard::new(image_view, |&i|vkcore.clone().vkDestroyImageView(vk_device, i, null()).unwrap());
-		let acquire_semaphore = VulkanSemaphore::new(vkcore.clone(), device.clone())?;
-		let release_semaphore = VulkanSemaphore::new(vkcore.clone(), device.clone())?;
-		let queue_submit_fence = VulkanFence::new(vkcore.clone(), device.clone())?;
-		let depth_stencil = VulkanDepthStencilImage::new(vkcore.clone(), device.clone(), extent, depth_stencil_format)?;
+		let acquire_semaphore = VulkanSemaphore::new(device.clone())?;
+		let release_semaphore = VulkanSemaphore::new(device.clone())?;
+		let queue_submit_fence = VulkanFence::new(device.clone())?;
+		let depth_stencil = VulkanDepthStencilImage::new(device.clone(), extent, depth_stencil_format)?;
 		let renderpass_attachments = [
 			VulkanRenderPassAttachment::new(surface_format.format, false),
 			VulkanRenderPassAttachment::new(depth_stencil_format, true),
 		];
-		let renderpass = VulkanRenderPass::new(vkcore.clone(), device.clone(), &renderpass_attachments)?;
+		let renderpass = VulkanRenderPass::new(device.clone(), &renderpass_attachments)?;
 		let attachments = [*image_view, depth_stencil.image_view];
-		let framebuffer = VulkanFramebuffer::new(vkcore.clone(), device.clone(), extent, renderpass.get_vk_renderpass(), &attachments)?;
+		let framebuffer = VulkanFramebuffer::new(device.clone(), extent, renderpass.get_vk_renderpass(), &attachments)?;
 		let image_view = image_view.release();
 		Ok(Self{
-			vkcore,
 			device,
 			image,
 			image_view,
@@ -249,15 +244,13 @@ impl Debug for VulkanSwapchainImage {
 
 impl Drop for VulkanSwapchainImage {
 	fn drop(&mut self) {
-		self.vkcore.vkDestroyImageView(self.device.get_vk_device(), self.image_view, null()).unwrap();
+		let vkcore = self.device.vkcore.clone();
+		vkcore.vkDestroyImageView(self.device.get_vk_device(), self.image_view, null()).unwrap();
 	}
 }
 
 /// A swapchain for presenting frames to the window surface.
 pub struct VulkanSwapchain {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -296,7 +289,8 @@ unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, surface: &VulkanSurface, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, surface: &VulkanSurface, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let surface_format = *surface.get_vk_surface_format();
 		let vk_device = device.get_vk_device();
 		let vk_phy_dev = device.get_vk_physical_device();
@@ -402,13 +396,12 @@ impl VulkanSwapchain {
 		let mut images = Vec::<VulkanSwapchainImage>::with_capacity(vk_images.len());
 		let depth_stencil_format = Self::get_depth_stencil_format(&vkcore, vk_phy_dev)?;
 		for vk_image in vk_images.iter() {
-			images.push(VulkanSwapchainImage::new(vkcore.clone(), device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?);
+			images.push(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?);
 		}
-		let acquire_semaphore = VulkanSemaphore::new(vkcore.clone(), device.clone())?;
+		let acquire_semaphore = VulkanSemaphore::new(device.clone())?;
 		let swapchain = swapchain.release();
 
 		Ok(Self {
-			vkcore,
 			device,
 			vsync,
 			is_vr,
@@ -499,7 +492,7 @@ impl VulkanSwapchain {
 
 	/// Acquire the next image, get the new image index
 	pub(crate) fn acquire_next_image(&mut self) -> Result<usize, VulkanError> {
-		let vkcore = &self.vkcore;
+		let vkcore = self.device.vkcore.clone();
 		let device = self.device.get_vk_device();
 		let mut cur_image_index = 0;
 		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, self.acquire_semaphore.get_vk_semaphore(), null(), &mut cur_image_index)?;
@@ -510,7 +503,7 @@ impl VulkanSwapchain {
 
 	/// Enqueue a present command to the queue
 	pub(crate) fn queue_present(&self, queue_index: usize) -> Result<(), VulkanError> {
-		let vkcore = &self.vkcore;
+		let vkcore = self.device.vkcore.clone();
 		let swapchains = [self.swapchain];
 		let image_indices = [self.cur_image_index];
 		let wait_semaphores = [self.get_cur_image().release_semaphore.get_vk_semaphore()];
@@ -549,7 +542,8 @@ impl Debug for VulkanSwapchain {
 
 impl Drop for VulkanSwapchain {
 	fn drop(&mut self) {
+		let vkcore = self.device.vkcore.clone();
 		self.images.clear();
-		self.vkcore.vkDestroySwapchainKHR(self.device.get_vk_device(), self.swapchain, null()).unwrap();
+		vkcore.vkDestroySwapchainKHR(self.device.get_vk_device(), self.swapchain, null()).unwrap();
 	}
 }

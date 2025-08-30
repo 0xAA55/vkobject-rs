@@ -40,9 +40,6 @@ impl VulkanRenderPassAttachment {
 
 /// The wrapper for `VkRenderPass`
 pub struct VulkanRenderPass {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -52,7 +49,8 @@ pub struct VulkanRenderPass {
 
 impl VulkanRenderPass {
 	/// Create the `VulkanRenderPass`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.to_attachment_desc()).collect();
 		let attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().map(|(i, a)| VkAttachmentReference {
 			attachment: i as u32,
@@ -128,7 +126,6 @@ impl VulkanRenderPass {
 		let mut renderpass: VkRenderPass = null();
 		vkcore.vkCreateRenderPass(device.get_vk_device(), &renderpass_ci, null(), &mut renderpass)?;
 		Ok(Self {
-			vkcore,
 			device,
 			renderpass,
 		})
@@ -150,6 +147,7 @@ impl Debug for VulkanRenderPass {
 
 impl Drop for VulkanRenderPass {
 	fn drop(&mut self) {
-		self.vkcore.vkDestroyRenderPass(self.device.get_vk_device(), self.renderpass, null()).unwrap();
+		let vkcore = self.device.vkcore.clone();
+		vkcore.vkDestroyRenderPass(self.device.get_vk_device(), self.renderpass, null()).unwrap();
 	}
 }

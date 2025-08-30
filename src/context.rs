@@ -130,10 +130,10 @@ impl VulkanContext {
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = VulkanSwapchain::new(vkcore.clone(), device.clone(), &surface, size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
+		let swapchain = VulkanSwapchain::new(device.clone(), &surface, size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
 		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
 		for _ in 0..max_concurrent_frames {
-			cmdpools.push(VulkanCommandPool::new(vkcore.clone(), device.clone(), 2)?);
+			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
 		}
 		let ret = Self {
 			vkcore,
@@ -235,7 +235,7 @@ impl VulkanContext {
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		self.swapchain = VulkanSwapchain::new(self.vkcore.clone(), self.device.clone(), &self.surface, width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
+		self.swapchain = VulkanSwapchain::new(self.device.clone(), &self.surface, width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
 		Ok(())
 	}
 

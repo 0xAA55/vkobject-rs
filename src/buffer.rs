@@ -10,9 +10,6 @@ use std::{
 
 /// The buffer object that temporarily stores the `VkBuffer`
 struct Buffer {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -22,7 +19,8 @@ struct Buffer {
 
 impl Buffer {
 	/// Create the `Buffer`
-	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, size: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+	fn new(device: Arc<VulkanDevice>, size: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let buffer_ci = VkBufferCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
@@ -37,15 +35,15 @@ impl Buffer {
 		let mut buffer: VkBuffer = null();
 		vkcore.vkCreateBuffer(vkdevice, &buffer_ci, null(), &mut buffer)?;
 		Ok(Self {
-			vkcore,
 			device,
 			buffer,
 		})
 	}
 
 	fn get_memory_requirements(&self) -> Result<VkMemoryRequirements, VulkanError> {
+		let vkcore = self.device.vkcore.clone();
 		let mut ret: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
-		self.vkcore.vkGetBufferMemoryRequirements(self.device.get_vk_device(), self.buffer, &mut ret)?;
+		vkcore.vkGetBufferMemoryRequirements(self.device.get_vk_device(), self.buffer, &mut ret)?;
 		Ok(ret)
 	}
 
@@ -64,15 +62,13 @@ impl Debug for Buffer {
 
 impl Drop for Buffer {
 	fn drop(&mut self) {
-		self.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
+		let vkcore = self.device.vkcore.clone();
+		vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
 	}
 }
 
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
 pub struct VulkanBuffer {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -84,19 +80,20 @@ pub struct VulkanBuffer {
 }
 
 impl VulkanBuffer {
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, size: usize, data: *const c_void, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
-		let staging_buffer = Buffer::new(vkcore.clone(), device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
-		let staging_memory = VulkanMemory::new(vkcore.clone(), device.clone(), &staging_buffer.get_memory_requirements()?,
+	pub fn new(device: Arc<VulkanDevice>, size: usize, data: *const c_void, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
+		let staging_buffer = Buffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
+		let staging_memory = VulkanMemory::new(device.clone(), &staging_buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
 		staging_memory.bind_buffer(staging_buffer.get_vk_buffer())?;
 		staging_memory.set_data(data)?;
-		let buffer = Buffer::new(vkcore.clone(), device.clone(), size, usage | VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT as u32)?;
-		let memory = VulkanMemory::new(vkcore.clone(), device.clone(), &buffer.get_memory_requirements()?,
+		let buffer = Buffer::new(device.clone(), size, usage | VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT as u32)?;
+		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		memory.bind_buffer(buffer.get_vk_buffer())?;
-		let mut command_pool = VulkanCommandPool::new(vkcore.clone(), device.clone(), 1)?;
-		let submit_fence = VulkanFence::new(vkcore.clone(), device.clone())?;
+		let mut command_pool = VulkanCommandPool::new(device.clone(), 1)?;
+		let submit_fence = VulkanFence::new(device.clone())?;
 		let pool_in_use = command_pool.use_pool(None, None, true, Some(&submit_fence))?;
 		let copy_region = VkBufferCopy {
 			srcOffset: 0,
@@ -107,7 +104,6 @@ impl VulkanBuffer {
 		drop(pool_in_use);
 		submit_fence.wait(u64::MAX)?;
 		Ok(Self {
-			vkcore,
 			device,
 			memory,
 			buffer,

@@ -8,9 +8,6 @@ use std::{
 
 /// The Vulkan command pool, and the associated buffers, fence. Support multiple buffers; you can use one buffer for command recording and another for submitting to a queue, interleaved.
 pub struct VulkanCommandPool {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -31,7 +28,8 @@ unsafe impl Send for VulkanCommandPool {}
 
 impl VulkanCommandPool {
 	/// Create a new `VulkanCommandPool`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, num_buffers: usize) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, num_buffers: usize) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let vk_device = device.get_vk_device();
 		let pool_ci = VkCommandPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO,
@@ -51,9 +49,8 @@ impl VulkanCommandPool {
 		let mut cmd_buffers: Vec<VkCommandBuffer> = Vec::with_capacity(num_buffers);
 		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, cmd_buffers.as_mut_ptr())?;
 		unsafe {cmd_buffers.set_len(num_buffers)};
-		let fence = VulkanFence::new(vkcore.clone(), device.clone())?;
+		let fence = VulkanFence::new(device.clone())?;
 		Ok(Self{
-			vkcore,
 			device,
 			pool: Mutex::new(pool),
 			cmd_buffers,
@@ -131,15 +128,13 @@ impl Debug for VulkanCommandPool {
 
 impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
-		self.vkcore.vkDestroyCommandPool(self.device.get_vk_device(), *self.pool.lock().unwrap(), null()).unwrap();
+		let vkcore = self.device.vkcore.clone();
+		vkcore.vkDestroyCommandPool(self.device.get_vk_device(), *self.pool.lock().unwrap(), null()).unwrap();
 	}
 }
 
 /// The RAII wrapper for the usage of a Vulkan command pool/buffer. When created, your command could be recorded to the command buffer.
 pub struct VulkanCommandPoolInUse<'a> {
-	/// The `VkCore` is the Vulkan driver
-	pub(crate) vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	pub(crate) device: Arc<VulkanDevice>,
 
@@ -171,7 +166,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
 	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image: Option<&'a VulkanSwapchainImage>, one_time_submit: bool, submit_fence: VkFence) -> Result<Self, VulkanError> {
-		let vkcore = cmdpool.vkcore.clone();
+		let vkcore = cmdpool.device.vkcore.clone();
 		let device = cmdpool.device.clone();
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -181,7 +176,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		};
 		vkcore.vkBeginCommandBuffer(cmdbuf, &begin_info)?;
 		Ok(Self {
-			vkcore,
 			device,
 			cmdbuf,
 			pool_lock,
@@ -206,8 +200,9 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 
 	/// End recording commands
 	pub fn end_cmd(&mut self) -> Result<(), VulkanError> {
+		let vkcore = self.device.vkcore.clone();
 		if !self.ended {
-			self.vkcore.vkEndCommandBuffer(self.get_vk_cmdbuf())?;
+			vkcore.vkEndCommandBuffer(self.get_vk_cmdbuf())?;
 			self.ended = true;
 			Ok(())
 		} else {
@@ -222,6 +217,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 
 	/// Submit the commands
 	pub fn submit(&mut self) -> Result<(), VulkanError> {
+		let vkcore = self.device.vkcore.clone();
 		if !self.ended {
 			self.end_cmd()?;
 		}
@@ -260,7 +256,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 				let mut queue_index = 0;
 				self.device.get_any_vk_queue_anyway(&mut queue_index)
 			};
-			self.vkcore.vkQueueSubmit(*queue, 1, &submit_info, self.submit_fence)?;
+			vkcore.vkQueueSubmit(*queue, 1, &submit_info, self.submit_fence)?;
 			self.submitted = true;
 			Ok(())
 		} else {
@@ -289,11 +285,12 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 
 impl Drop for VulkanCommandPoolInUse<'_> {
 	fn drop(&mut self) {
+		let vkcore = self.device.vkcore.clone();
 		if !self.submitted {
 			self.submit().unwrap();
 		}
 		if !self.one_time_submit {
-			self.vkcore.vkResetCommandBuffer(self.cmdbuf, 0).unwrap();
+			vkcore.vkResetCommandBuffer(self.cmdbuf, 0).unwrap();
 		}
 	}
 }

@@ -8,9 +8,6 @@ use std::{
 
 /// A framebuffer
 pub struct VulkanFramebuffer {
-	/// The `VkCore` is the Vulkan driver
-	vkcore: Arc<VkCore>,
-
 	/// The `VulkanDevice` is the associated device
 	device: Arc<VulkanDevice>,
 
@@ -23,7 +20,8 @@ pub struct VulkanFramebuffer {
 
 impl VulkanFramebuffer {
 	/// Create the `VulkanFramebuffer`
-	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, extent: &VkExtent2D, render_pass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, render_pass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
 		let framebuffer_ci = VkFramebufferCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			pNext: null(),
@@ -38,7 +36,6 @@ impl VulkanFramebuffer {
 		let mut framebuffer: VkFramebuffer = null();
 		vkcore.vkCreateFramebuffer(device.get_vk_device(), &framebuffer_ci, null(), &mut framebuffer)?;
 		Ok(Self {
-			vkcore,
 			device,
 			size: *extent,
 			framebuffer,
@@ -57,6 +54,7 @@ impl Debug for VulkanFramebuffer {
 
 impl Drop for VulkanFramebuffer {
 	fn drop(&mut self) {
-		self.vkcore.vkDestroyFramebuffer(self.device.get_vk_device(), self.framebuffer, null()).unwrap();
+		let vkcore = self.device.vkcore.clone();
+		vkcore.vkDestroyFramebuffer(self.device.get_vk_device(), self.framebuffer, null()).unwrap();
 	}
 }
