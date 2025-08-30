@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	mem::MaybeUninit,
-	sync::{Mutex, Arc, MutexGuard},
+	sync::{Arc, Mutex, MutexGuard},
 };
 
 /// The struct to provide the information of the surface
@@ -261,5 +261,41 @@ impl VulkanContext {
 			Ok(true)
 		}
 	}
+
+	/// Acquire a command buffer and a queue, start recording the commands
+	/// * You could call this function in different threads, in order to achieve concurrent frame rendering
+	pub fn begin_frame<'a>(&'a mut self, one_time_submit: bool) -> Result<VulkanContextFrame<'a>, VulkanError> {
+		for (i, pool) in self.cmdpools.iter_mut().enumerate() {
+			match pool.try_use_pool(Some(i), None, one_time_submit, None) {
+				Ok(mut pool_in_use) => {
+					let swapchain_image_index = self.swapchain.acquire_next_image()?;
+					pool_in_use.swapchain_image_index = Some(swapchain_image_index);
+					return Ok(VulkanContextFrame::new(pool_in_use, swapchain_image_index))
+				}
+				Err(e) => match e {
+					VulkanError::CommandPoolIsInUse => {}
+					others => return Err(others)
+				}
+			}
+		}
+		Err(VulkanError::NoIdleCommandPools)
+	}
 }
 
+#[derive(Debug)]
+pub struct VulkanContextFrame<'a> {
+	ctx: Arc<Mutex<VulkanContext>>,
+	pool_in_use: VulkanCommandPoolInUse<'a>,
+	swapchain_image_index: usize,
+}
+
+impl<'a> VulkanContextFrame<'a> {
+	fn new(pool_in_use: VulkanCommandPoolInUse<'a>, swapchain_image_index: usize) -> Self {
+		let ctx = pool_in_use.ctx.clone();
+		Self {
+			ctx,
+			pool_in_use,
+			swapchain_image_index,
+		}
+	}
+}
