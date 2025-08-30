@@ -108,15 +108,25 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer of the command pool to record draw commands
-	pub fn use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub fn use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image_index: Option<usize>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
 		let buf = self.get_next_vk_cmd_buffer();
-		VulkanCommandPoolInUse::new(self, self.get_vk_cmdpool(), buf, queue_index, swapchain_image_index, one_time_submit)
+		let submit_fence = if let Some(submit_fence) = submit_fence {
+			submit_fence.get_vk_fence()
+		} else {
+			self.fence.get_vk_fence()
+		};
+		VulkanCommandPoolInUse::new(self, self.get_vk_cmdpool(), buf, queue_index, swapchain_image_index, one_time_submit, submit_fence)
 	}
 
 	/// Try to acquire the command pool to record draw commands
-	pub fn try_use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub fn try_use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image_index: Option<usize>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
 		let buf = self.get_next_vk_cmd_buffer();
-		VulkanCommandPoolInUse::new(self, self.try_get_vk_cmdpool()?, buf, queue_index, swapchain_image_index, one_time_submit)
+		let submit_fence = if let Some(submit_fence) = submit_fence {
+			submit_fence.get_vk_fence()
+		} else {
+			self.fence.get_vk_fence()
+		};
+		VulkanCommandPoolInUse::new(self, self.try_get_vk_cmdpool()?, buf, queue_index, swapchain_image_index, one_time_submit, submit_fence)
 	}
 }
 
@@ -140,16 +150,19 @@ pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) vkcore: Arc<VkCore>,
 
 	/// The command buffer we are using here
-	cmdbuf: VkCommandBuffer,
+	pub(crate) cmdbuf: VkCommandBuffer,
 
 	/// The locked state of the `VkCommandPool`
 	pool_lock: MutexGuard<'a, VkCommandPool>,
 
 	/// The queue index for the command pool to submit
-	queue_index: Option<usize>,
+	pub(crate) queue_index: Option<usize>,
 
 	/// The swapchain image index for the command pool to draw to
-	pub(crate) swapchain_image_index: usize,
+	pub(crate) swapchain_image_index: Option<usize>,
+
+	/// The fence indicating if all commands were submitted
+	pub(crate) submit_fence: VkFence,
 
 	/// Is this command buffer got automatically cleaned when submitted
 	pub(crate) one_time_submit: bool,
@@ -163,7 +176,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image_index: Option<usize>, one_time_submit: bool, submit_fence: VkFence) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
 		let vkcore = ctx_g.vkcore.clone();
@@ -181,6 +194,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			pool_lock,
 			queue_index,
 			swapchain_image_index,
+			submit_fence,
 			one_time_submit,
 			ended: false,
 			submitted: false,
@@ -224,19 +238,34 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			let ctx = self.ctx.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
 
-			let swapchain_image = ctx.get_swapchain_image(self.swapchain_image_index);
 			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
 			let cmd_buffers = [self.cmdbuf];
+			let num_acquire_semaphores;
+			let num_release_semaphores;
+			let acquire_semaphores_ptr: *const VkSemaphore;
+			let release_semaphores_ptr: *const VkSemaphore;
+			if let Some(swapchain_image_index) = self.swapchain_image_index {
+				let swapchain_image = ctx.get_swapchain_image(swapchain_image_index);
+				num_acquire_semaphores = 1;
+				num_release_semaphores = 1;
+				acquire_semaphores_ptr = &swapchain_image.acquire_semaphore.get_vk_semaphore();
+				release_semaphores_ptr = &swapchain_image.release_semaphore.get_vk_semaphore();
+			} else {
+				num_acquire_semaphores = 0;
+				num_release_semaphores = 0;
+				acquire_semaphores_ptr = null();
+				release_semaphores_ptr = null();
+			}
 			let submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				pNext: null(),
-				waitSemaphoreCount: 1,
-				pWaitSemaphores: &swapchain_image.acquire_semaphore.get_vk_semaphore(),
+				waitSemaphoreCount: num_acquire_semaphores,
+				pWaitSemaphores: acquire_semaphores_ptr,
 				pWaitDstStageMask: wait_stage.as_ptr(),
 				commandBufferCount: 1,
 				pCommandBuffers: cmd_buffers.as_ptr(),
-				signalSemaphoreCount: 1,
-				pSignalSemaphores: &swapchain_image.release_semaphore.get_vk_semaphore(),
+				signalSemaphoreCount: num_release_semaphores,
+				pSignalSemaphores: release_semaphores_ptr,
 			};
 			let queue = if let Some(queue_index) = self.queue_index {
 				ctx.get_vk_queue(queue_index)
@@ -244,7 +273,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 				let mut queue_index = 0;
 				ctx.get_any_vk_queue_anyway(&mut queue_index)
 			};
-			vkcore.vkQueueSubmit(*queue, 1, &submit_info, swapchain_image.queue_submit_fence.get_vk_fence())?;
+			vkcore.vkQueueSubmit(*queue, 1, &submit_info, self.submit_fence)?;
 			self.submitted = true;
 			Ok(())
 		} else {
