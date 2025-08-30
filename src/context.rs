@@ -289,12 +289,14 @@ impl<'a> VulkanContextFrame<'a> {
 
 impl<'a> Drop for VulkanContextFrame<'a> {
 	fn drop(&mut self) {
-		if let Some(pool_in_use) = &self.pool_in_use {
-			if let Some(queue_index) = pool_in_use.queue_index {
-				self.swapchain.queue_present(queue_index).unwrap();
+		if let Some(ref mut pool_in_use) = self.pool_in_use {
+			let queue_index = if let Some(queue_index) = pool_in_use.queue_index {
+				queue_index
 			} else {
-				self.swapchain.queue_present(0).unwrap();
-			}
+				0
+			};
+			pool_in_use.submit().unwrap();
+			self.swapchain.queue_present(queue_index).unwrap();
 		}
 		self.pool_in_use = None;
 	}
