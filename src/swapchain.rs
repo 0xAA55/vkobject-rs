@@ -19,6 +19,9 @@ pub struct VulkanSwapchainImage {
 	/// The handle to the image view
 	image_view: VkImageView,
 
+	/// The extent of the image
+	extent: VkExtent2D,
+
 	/// The semaphore to acquire the image for rendering
 	pub acquire_semaphore: VulkanSemaphore,
 
@@ -33,7 +36,7 @@ unsafe impl Send for VulkanSwapchainImage {}
 
 impl VulkanSwapchainImage {
 	/// Create the `VulkanSwapchainImage`
-	pub fn new(vkcore: &VkCore, image: VkImage, surface: &VulkanSurface, device: VkDevice) -> Result<Self, VulkanError> {
+	pub fn new_(vkcore: &VkCore, device: VkDevice, surface: &VulkanSurface, image: VkImage, extent: &VkExtent2D) -> Result<Self, VulkanError> {
 		let vk_image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			pNext: null(),
@@ -64,10 +67,24 @@ impl VulkanSwapchainImage {
 			ctx: Weak::new(),
 			image,
 			image_view,
+			extent: *extent,
 			acquire_semaphore,
 			release_semaphore,
 			queue_submit_fence,
 		})
+	}
+
+	/// Create the `VulkanSwapchainImage`
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>, image: VkImage, extent: &VkExtent2D) -> Result<Self, VulkanError> {
+		let ctx_lock = ctx.lock().unwrap();
+		let vkcore = ctx_lock.vkcore.clone();
+		let surface = ctx_lock.surface.lock().unwrap();
+		let vkdevice = ctx_lock.get_vk_device();
+		let mut ret = Self::new_(&vkcore, vkdevice, &*surface, image, extent)?;
+		drop(surface);
+		drop(ctx_lock);
+		ret.set_ctx(Arc::downgrade(&ctx));
+		Ok(ret)
 	}
 
 	/// Get the `VkImage`
@@ -81,11 +98,16 @@ impl VulkanSwapchainImage {
 	}
 
 	/// Set the `VulkanContext` if it hasn't provided previously
-	fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
 		self.acquire_semaphore.set_ctx(ctx.clone());
 		self.release_semaphore.set_ctx(ctx.clone());
 		self.queue_submit_fence.set_ctx(ctx.clone());
 		self.ctx = ctx;
+	}
+
+	/// Get the extent of the image
+	pub fn get_extent(&self) -> &VkExtent2D {
+		&self.extent
 	}
 }
 
@@ -245,7 +267,7 @@ impl VulkanSwapchain {
 		unsafe {vk_images.set_len(num_images as usize)};
 		let mut images = Vec::<VulkanSwapchainImage>::with_capacity(vk_images.len());
 		for vk_image in vk_images.iter() {
-			images.push(VulkanSwapchainImage::new(vkcore, *vk_image, &surface, vk_device)?);
+			images.push(VulkanSwapchainImage::new_(vkcore, vk_device, &surface, *vk_image, &swapchain_extent)?);
 		}
 
 		drop(surface);
