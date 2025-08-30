@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::{self, Debug, Formatter},
 	ptr::null,
-	sync::{Arc, Mutex},
+	sync::Arc,
 };
 
 /// The renderpass attachment
@@ -52,7 +52,7 @@ pub struct VulkanRenderPass {
 
 impl VulkanRenderPass {
 	/// Create the `VulkanRenderPass`
-	pub fn new_(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
+	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
 		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.to_attachment_desc()).collect();
 		let attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().map(|(i, a)| VkAttachmentReference {
 			attachment: i as u32,
@@ -132,12 +132,6 @@ impl VulkanRenderPass {
 			device,
 			renderpass,
 		})
-	}
-
-	/// Create the `VulkanRenderPass`
-	pub fn new(ctx: Arc<Mutex<VulkanContext>>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
-		let lock = ctx.lock().unwrap();
-		Ok(Self::new_(lock.vkcore.clone(), lock.device.clone(), attachments)?)
 	}
 
 	/// Get the `VkRenderPass`

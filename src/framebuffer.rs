@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::{self, Debug, Formatter},
 	ptr::null,
-	sync::{Arc, Mutex},
+	sync::Arc,
 };
 
 /// A framebuffer
@@ -23,7 +23,7 @@ pub struct VulkanFramebuffer {
 
 impl VulkanFramebuffer {
 	/// Create the `VulkanFramebuffer`
-	pub fn new_(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, extent: &VkExtent2D, render_pass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
+	pub fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, extent: &VkExtent2D, render_pass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
 		let framebuffer_ci = VkFramebufferCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			pNext: null(),
@@ -43,12 +43,6 @@ impl VulkanFramebuffer {
 			size: *extent,
 			framebuffer,
 		})
-	}
-
-	/// Create the `VulkanFramebuffer`
-	pub fn new(ctx: Arc<Mutex<VulkanContext>>, extent: &VkExtent2D, render_pass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
-		let lock = ctx.lock().unwrap();
-		Ok(Self::new_(lock.vkcore.clone(), lock.device.clone(), extent, render_pass, attachments)?)
 	}
 }
 

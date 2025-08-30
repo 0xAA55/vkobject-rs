@@ -196,9 +196,9 @@ impl VulkanSwapchainImage {
 			VulkanRenderPassAttachment::new(surface_format.format, false),
 			VulkanRenderPassAttachment::new(depth_stencil_format, true),
 		];
-		let renderpass = VulkanRenderPass::new_(vkcore.clone(), device.clone(), &renderpass_attachments)?;
+		let renderpass = VulkanRenderPass::new(vkcore.clone(), device.clone(), &renderpass_attachments)?;
 		let attachments = [*image_view, depth_stencil.image_view];
-		let framebuffer = VulkanFramebuffer::new_(vkcore.clone(), device.clone(), extent, renderpass.get_vk_renderpass(), &attachments)?;
+		let framebuffer = VulkanFramebuffer::new(vkcore.clone(), device.clone(), extent, renderpass.get_vk_renderpass(), &attachments)?;
 		let image_view = image_view.release();
 		Ok(Self{
 			vkcore,
