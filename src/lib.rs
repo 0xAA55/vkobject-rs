@@ -67,13 +67,16 @@ mod tests {
 
 		window.set_key_polling(true);
 
-		let ctx = create_vulkan_context(&window, true, 3, false).unwrap();
-		dbg!(ctx);
+		let mut ctx = create_vulkan_context(&window, true, 3, false).unwrap();
 
 		let start_time = glfw.get_time();
 		while !window.should_close() {
 			let cur_frame_time = glfw.get_time();
 			let run_time = cur_frame_time - start_time;
+			ctx.on_resize().unwrap();
+			let frame = ctx.begin_frame(true).unwrap();
+
+			drop(frame);
 
 			glfw.poll_events();
 			for (_, event) in glfw::flush_messages(&events) {
