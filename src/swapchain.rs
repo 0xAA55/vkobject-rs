@@ -116,6 +116,9 @@ pub struct VulkanSwapchainImage {
 	/// The handle to the image view
 	image_view: VkImageView,
 
+	/// The depth stencil image
+	depth_stencil: VulkanDepthStencilImage,
+
 	/// The extent of the image
 	extent: VkExtent2D,
 
@@ -133,14 +136,15 @@ unsafe impl Send for VulkanSwapchainImage {}
 
 impl VulkanSwapchainImage {
 	/// Create the `VulkanSwapchainImage`
-	pub fn new_(vkcore: &VkCore, device: VkDevice, surface: &VulkanSurface, image: VkImage, extent: &VkExtent2D) -> Result<Self, VulkanError> {
+	pub fn new_(vkcore: &VkCore, device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
+		let vk_device = device.get_vk_device();
 		let vk_image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 			image,
 			viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
-			format: surface.get_vk_surface_format().format,
+			format: surface_format.format,
 			components: VkComponentMapping {
 				r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_R,
 				g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_G,
@@ -156,14 +160,15 @@ impl VulkanSwapchainImage {
 			},
 		};
 		let mut image_view: VkImageView = null();
-		let acquire_semaphore = VulkanSemaphore::new_(vkcore, device)?;
-		let release_semaphore = VulkanSemaphore::new_(vkcore, device)?;
-		let queue_submit_fence = VulkanFence::new_(vkcore, device)?;
-		vkcore.vkCreateImageView(device, &vk_image_view_ci, null(), &mut image_view)?;
+		let acquire_semaphore = VulkanSemaphore::new_(vkcore, vk_device)?;
+		let release_semaphore = VulkanSemaphore::new_(vkcore, vk_device)?;
+		let queue_submit_fence = VulkanFence::new_(vkcore, vk_device)?;
+		vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
 		Ok(Self{
 			ctx: Weak::new(),
 			image,
 			image_view,
+			depth_stencil: VulkanDepthStencilImage::new(vkcore, device, extent, depth_stencil_format)?,
 			extent: *extent,
 			acquire_semaphore,
 			release_semaphore,
@@ -172,14 +177,15 @@ impl VulkanSwapchainImage {
 	}
 
 	/// Create the `VulkanSwapchainImage`
-	pub fn new(ctx: Arc<Mutex<VulkanContext>>, image: VkImage, extent: &VkExtent2D) -> Result<Self, VulkanError> {
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
 		let ctx_lock = ctx.lock().unwrap();
 		let vkcore = ctx_lock.vkcore.clone();
 		let surface = ctx_lock.surface.lock().unwrap();
-		let vkdevice = ctx_lock.get_vk_device();
-		let mut ret = Self::new_(&vkcore, vkdevice, &*surface, image, extent)?;
+		let surface_format = *surface.get_vk_surface_format();
+		let device = ctx_lock.device.clone();
 		drop(surface);
 		drop(ctx_lock);
+		let mut ret = Self::new_(&vkcore, device, &surface_format, image, extent, depth_stencil_format)?;
 		ret.set_ctx(Arc::downgrade(&ctx));
 		Ok(ret)
 	}
@@ -196,6 +202,7 @@ impl VulkanSwapchainImage {
 
 	/// Set the `VulkanContext` if it hasn't provided previously
 	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.depth_stencil.set_ctx(ctx.clone());
 		self.acquire_semaphore.set_ctx(ctx.clone());
 		self.release_semaphore.set_ctx(ctx.clone());
 		self.queue_submit_fence.set_ctx(ctx.clone());
@@ -246,6 +253,9 @@ pub struct VulkanSwapchain {
 	/// The current present mode of the swapchain
 	present_mode: VkPresentModeKHR,
 
+	/// The depth stencil format
+	depth_stencil_format: VkFormat,
+
 	/// The swapchain images
 	pub images: Vec<VulkanSwapchainImage>,
 
@@ -260,7 +270,7 @@ unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
-	pub fn new(vkcore: &VkCore, device: &VulkanDevice, surface_: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+	pub fn new(vkcore: &VkCore, device: Arc<VulkanDevice>, surface_: Arc<Mutex<VulkanSurface>>, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let surface = surface_.lock().unwrap();
 		let vk_device = device.get_vk_device();
 		let vk_phy_dev = device.get_vk_physical_device();
@@ -363,8 +373,9 @@ impl VulkanSwapchain {
 		vkcore.vkGetSwapchainImagesKHR(vk_device, swapchain, &mut num_images, vk_images.as_mut_ptr())?;
 		unsafe {vk_images.set_len(num_images as usize)};
 		let mut images = Vec::<VulkanSwapchainImage>::with_capacity(vk_images.len());
+		let depth_stencil_format = Self::get_depth_stencil_format(vkcore, &device)?;
 		for vk_image in vk_images.iter() {
-			images.push(VulkanSwapchainImage::new_(vkcore, vk_device, &surface, *vk_image, &swapchain_extent)?);
+			images.push(VulkanSwapchainImage::new_(vkcore, device.clone(), surface.get_vk_surface_format(), *vk_image, &swapchain_extent, depth_stencil_format)?);
 		}
 
 		drop(surface);
@@ -377,6 +388,7 @@ impl VulkanSwapchain {
 			swapchain,
 			swapchain_extent,
 			present_mode,
+			depth_stencil_format,
 			images,
 			acquire_semaphore: VulkanSemaphore::new_(vkcore, vk_device)?,
 			cur_image_index: 0,
