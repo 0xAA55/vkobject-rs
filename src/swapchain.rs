@@ -8,6 +8,103 @@ use std::{
 };
 
 /// An image of a swap chain
+/// An image of a swapchain that's dedicated for the depth-stencil usage
+#[derive(Debug)]
+pub struct VulkanDepthStencilImage {
+	/// The `VulkanContext` that helps to manage the resources of the swapchain image
+	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
+
+	/// The handle to the image
+	image: VkImage,
+
+	/// The handle to the image view
+	image_view: VkImageView,
+
+	/// The video memory of the image
+	memory: Option<VulkanMemory>,
+}
+
+impl VulkanDepthStencilImage {
+	pub fn new(vkcore: &VkCore, device: Arc<VulkanDevice>, extent: &VkExtent2D, format: VkFormat) -> Result<Self, VulkanError> {
+		let mut ret = Self {
+			ctx: Weak::new(),
+			image: null(),
+			image_view: null(),
+			memory: None,
+		};
+		let vkdevice = device.get_vk_device();
+		let image_ci = VkImageCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			imageType: VkImageType::VK_IMAGE_TYPE_2D,
+			format,
+			extent: VkExtent3D {
+				width: extent.width,
+				height: extent.height,
+				depth: 1,
+			},
+			mipLevels: 1,
+			arrayLayers: 1,
+			samples: VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
+			tiling: VkImageTiling::VK_IMAGE_TILING_OPTIMAL,
+			usage: VkImageUsageFlagBits::VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT as u32,
+			sharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
+			queueFamilyIndexCount: 0,
+			pQueueFamilyIndices: null(),
+			initialLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+		};
+		vkcore.vkCreateImage(vkdevice, &image_ci, null(), &mut ret.image)?;
+		let mut mem_reqs: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
+		vkcore.vkGetImageMemoryRequirements(vkdevice, ret.image, &mut mem_reqs)?;
+		let memory = VulkanMemory::new_(&vkcore, device, &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
+		vkcore.vkBindImageMemory(vkdevice, ret.image, memory.get_vk_memory(), 0)?;
+		ret.memory = Some(memory);
+		let image_view_ci = VkImageViewCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			image: ret.image,
+			viewType: VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
+			format,
+			components: VkComponentMapping {
+				r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+				g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+				b: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+				a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+			},
+			subresourceRange: VkImageSubresourceRange {
+				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as u32 | VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as u32,
+				baseMipLevel: 0,
+				levelCount: 1,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+		};
+		vkcore.vkCreateImageView(vkdevice, &image_view_ci, null(), &mut ret.image_view)?;
+		Ok(ret)
+	}
+
+	/// Set the `VulkanContext` if it hasn't provided previously
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.ctx = ctx;
+	}
+}
+
+impl Drop for VulkanDepthStencilImage {
+	fn drop(&mut self) {
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let device = ctx.get_vk_device();
+			vkcore.vkDestroyImageView(device, self.image_view, null()).unwrap();
+			vkcore.vkDestroyImage(device, self.image, null()).unwrap();
+		}
+	}
+}
+
+unsafe impl Send for VulkanDepthStencilImage {}
+
 #[derive(Debug)]
 pub struct VulkanSwapchainImage {
 	/// The `VulkanContext` that helps to manage the resources of the swapchain image
