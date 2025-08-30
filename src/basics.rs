@@ -221,6 +221,18 @@ impl VulkanFence {
 		}
 	}
 
+	/// Check if the fence is signaled or not
+	pub fn is_signaled_vk(device: &VulkanDevice, fence: VkFence) -> Result<bool, VulkanError> {
+		let vkcore = device.vkcore.clone();
+		match vkcore.vkGetFenceStatus(device.get_vk_device(), fence) {
+			Ok(_) => Ok(true),
+			Err(e) => match e {
+				VkError::VkNotReady(_) => Ok(false),
+				others => Err(VulkanError::VkError(others)),
+			}
+		}
+	}
+
 	/// Unsignal the fence
 	pub fn unsignal(&self) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
@@ -255,6 +267,15 @@ impl VulkanFence {
 		let vk_device = self.device.get_vk_device();
 		let fences = [self.fence];
 		let vkcore = self.device.vkcore.clone();
+		vkcore.vkWaitForFences(vk_device, 1, fences.as_ptr(), 0, timeout)?;
+		Ok(())
+	}
+
+	/// Wait for the fence to be signaled
+	pub fn wait_vk(device: &VulkanDevice, fence: VkFence, timeout: u64) -> Result<(), VulkanError> {
+		let vk_device = device.get_vk_device();
+		let fences = [fence];
+		let vkcore = device.vkcore.clone();
 		vkcore.vkWaitForFences(vk_device, 1, fences.as_ptr(), 0, timeout)?;
 		Ok(())
 	}
