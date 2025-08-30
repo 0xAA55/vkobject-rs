@@ -23,6 +23,9 @@ pub mod swapchain;
 /// The Vulkan framebuffer
 pub mod framebuffer;
 
+/// The Vulkan renderpass
+pub mod renderpass;
+
 /// The Vulkan command pool
 pub mod cmdpool;
 
@@ -42,6 +45,7 @@ pub mod prelude {
 	pub use crate::surface::*;
 	pub use crate::swapchain::*;
 	pub use crate::framebuffer::*;
+	pub use crate::renderpass::*;
 	pub use crate::cmdpool::*;
 	pub use crate::context::*;
 	pub use crate::buffer::*;
