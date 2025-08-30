@@ -78,13 +78,13 @@ mod tests {
 			let run_time = cur_frame_time - start_time;
 			ctx.on_resize().unwrap();
 			let frame = ctx.begin_frame(true).unwrap();
-			dbg!(&frame);
+
 			drop(frame);
 			num_frames += 1;
 			let new_time_in_sec = run_time.floor() as u64;
 			if new_time_in_sec > time_in_sec {
 				let fps = num_frames - num_frames_prev;
-				println!("FPS: {fps}\tat {new_time_in_sec}s\r");
+				println!("FPS: {fps}\tat {new_time_in_sec}s");
 				time_in_sec = new_time_in_sec;
 				num_frames_prev = num_frames;
 			}
