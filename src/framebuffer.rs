@@ -1,12 +1,12 @@
 
 use crate::prelude::*;
 use std::{
+	fmt::{self, Debug, Formatter},
 	ptr::null,
 	sync::{Arc, Mutex},
 };
 
 /// A framebuffer
-#[derive(Debug)]
 pub struct VulkanFramebuffer {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,

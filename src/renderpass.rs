@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	fmt::{self, Debug, Formatter},
 	ptr::null,
 	sync::{Arc, Mutex},
 };
@@ -38,7 +39,6 @@ impl VulkanRenderPassAttachment {
 }
 
 /// The wrapper for `VkRenderPass`
-#[derive(Debug)]
 pub struct VulkanRenderPass {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -146,6 +146,13 @@ impl VulkanRenderPass {
 	}
 }
 
+impl Debug for VulkanRenderPass {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanRenderPass")
+		.field("renderpass", &self.renderpass)
+		.finish()
+	}
+}
 
 impl Drop for VulkanRenderPass {
 	fn drop(&mut self) {

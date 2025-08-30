@@ -1,13 +1,12 @@
 
 use crate::prelude::*;
 use std::{
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	ptr::{null, null_mut},
 	sync::Arc,
 };
 
 /// The wrapper for `VkSurfaceKHR`
-#[derive(Debug)]
 pub struct VulkanSurface {
 	/// The Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -189,6 +188,15 @@ impl VulkanSurface {
 	/// Get the `VkSurfaceFormatKHR`
 	pub(crate) fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
 		&self.format
+	}
+}
+
+impl Debug for VulkanSurface {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanSurface")
+		.field("surface", &self.surface)
+		.field("format", &self.format)
+		.finish()
 	}
 }
 

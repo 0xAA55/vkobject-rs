@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use std::{
 	ffi::c_void,
+	fmt::{self, Debug, Formatter},
 	ptr::null,
 	mem::MaybeUninit,
 	sync::Arc,
@@ -53,6 +54,14 @@ impl Buffer {
 	}
 }
 
+impl Debug for Buffer {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("Buffer")
+		.field("buffer", &self.buffer)
+		.finish()
+	}
+}
+
 impl Drop for Buffer {
 	fn drop(&mut self) {
 		self.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
@@ -60,7 +69,6 @@ impl Drop for Buffer {
 }
 
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
-#[derive(Debug)]
 pub struct VulkanBuffer {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -114,5 +122,14 @@ impl VulkanBuffer {
 	/// Get the buffer
 	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.buffer
+	}
+}
+
+impl Debug for VulkanBuffer {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanBuffer")
+		.field("memory", &self.memory)
+		.field("buffer", &self.buffer)
+		.finish()
 	}
 }

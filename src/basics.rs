@@ -4,7 +4,7 @@
 use crate::prelude::*;
 use std::{
 	ffi::c_void,
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	ptr::{null, null_mut, copy},
 	sync::{Arc, Mutex},
 };
@@ -29,7 +29,6 @@ impl From<VkError> for VulkanError {
 }
 
 /// The wrapper for the `VkSemaphore`
-#[derive(Debug)]
 pub struct VulkanSemaphore {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -166,6 +165,15 @@ impl VulkanSemaphore {
 	}
 }
 
+impl Debug for VulkanSemaphore {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanSemaphore")
+		.field("semaphore", &self.semaphore)
+		.field("timeline", &self.timeline)
+		.finish()
+	}
+}
+
 impl Drop for VulkanSemaphore {
 	fn drop(&mut self) {
 		self.vkcore.vkDestroySemaphore(self.device.get_vk_device(), self.semaphore, null()).unwrap();
@@ -173,7 +181,6 @@ impl Drop for VulkanSemaphore {
 }
 
 /// The wrapper for the `VkFence`
-#[derive(Debug)]
 pub struct VulkanFence {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -285,6 +292,14 @@ impl VulkanFence {
 	}
 }
 
+impl Debug for VulkanFence {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanFence")
+		.field("fence", &self.fence)
+		.finish()
+	}
+}
+
 impl Drop for VulkanFence {
 	fn drop(&mut self) {
 		self.vkcore.vkDestroyFence(self.device.get_vk_device(), self.fence, null()).unwrap();
@@ -292,7 +307,6 @@ impl Drop for VulkanFence {
 }
 
 /// The memory object that temporarily stores the `VkDeviceMemory`
-#[derive(Debug)]
 pub struct VulkanMemory {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -372,6 +386,15 @@ impl VulkanMemory {
 	pub fn bind_image(&self, image: VkImage) -> Result<(), VulkanError> {
 		self.vkcore.vkBindImageMemory(self.device.get_vk_device(), image, self.memory, 0)?;
 		Ok(())
+	}
+}
+
+impl Debug for VulkanMemory {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanMemory")
+		.field("memory", &self.memory)
+		.field("size", &self.size)
+		.finish()
 	}
 }
 

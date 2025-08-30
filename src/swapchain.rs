@@ -1,14 +1,13 @@
 
 use crate::prelude::*;
 use std::{
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	mem::{MaybeUninit, transmute, swap},
 	ptr::{null, null_mut},
 	sync::Arc,
 };
 
 /// An image of a swapchain that's dedicated for the depth-stencil usage
-#[derive(Debug)]
 pub struct VulkanDepthStencilImage {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -103,6 +102,13 @@ impl VulkanDepthStencilImage {
 	}
 }
 
+impl Debug for VulkanDepthStencilImage {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanDepthStencilImage")
+		.field("image", &self.image)
+		.field("image_view", &self.image_view)
+		.field("memory", &self.memory)
+		.finish()
 	}
 }
 
@@ -117,7 +123,6 @@ impl Drop for VulkanDepthStencilImage {
 unsafe impl Send for VulkanDepthStencilImage {}
 
 /// An image of a swapchain
-#[derive(Debug)]
 pub struct VulkanSwapchainImage {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -226,6 +231,22 @@ impl VulkanSwapchainImage {
 	}
 }
 
+impl Debug for VulkanSwapchainImage {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanSwapchainImage")
+		.field("image", &self.image)
+		.field("image_view", &self.image_view)
+		.field("depth_stencil", &self.depth_stencil)
+		.field("framebuffer", &self.framebuffer)
+		.field("renderpass", &self.renderpass)
+		.field("extent", &self.extent)
+		.field("acquire_semaphore", &self.acquire_semaphore)
+		.field("release_semaphore", &self.release_semaphore)
+		.field("queue_submit_fence", &self.queue_submit_fence)
+		.finish()
+	}
+}
+
 impl Drop for VulkanSwapchainImage {
 	fn drop(&mut self) {
 		self.vkcore.vkDestroyImageView(self.device.get_vk_device(), self.image_view, null()).unwrap();
@@ -233,7 +254,6 @@ impl Drop for VulkanSwapchainImage {
 }
 
 /// A swapchain for presenting frames to the window surface.
-#[derive(Debug)]
 pub struct VulkanSwapchain {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -507,6 +527,23 @@ impl VulkanSwapchain {
 
 		vkcore.vkQueuePresentKHR(*self.device.get_vk_queue(queue_index), &present_info)?;
 		Ok(())
+	}
+}
+
+impl Debug for VulkanSwapchain {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanSwapchain")
+		.field("vsync", &self.vsync)
+		.field("is_vr", &self.is_vr)
+		.field("surf_caps", &self.surf_caps)
+		.field("swapchain", &self.swapchain)
+		.field("swapchain_extent", &self.swapchain_extent)
+		.field("present_mode", &self.present_mode)
+		.field("depth_stencil_format", &self.depth_stencil_format)
+		.field("images", &self.images)
+		.field("acquire_semaphore", &self.acquire_semaphore)
+		.field("cur_image_index", &self.cur_image_index)
+		.finish()
 	}
 }
 

@@ -1,13 +1,12 @@
 
 use crate::prelude::*;
 use std::{
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	ptr::null,
 	sync::{Arc, Mutex, MutexGuard},
 };
 
 /// The Vulkan command pool, and the associated buffers, fence. Support multiple buffers; you can use one buffer for command recording and another for submitting to a queue, interleaved.
-#[derive(Debug)]
 pub struct VulkanCommandPool {
 	/// The `VkCore` is the Vulkan driver
 	vkcore: Arc<VkCore>,
@@ -119,6 +118,14 @@ impl VulkanCommandPool {
 	}
 }
 
+impl Debug for VulkanCommandPool {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanCommandPool")
+		.field("pool", &self.pool)
+		.field("cmd_buffers", &self.cmd_buffers)
+		.field("last_buf_index", &self.last_buf_index)
+		.field("fence", &self.fence)
+		.finish()
 	}
 }
 
@@ -129,7 +136,6 @@ impl Drop for VulkanCommandPool {
 }
 
 /// The RAII wrapper for the usage of a Vulkan command pool/buffer. When created, your command could be recorded to the command buffer.
-#[derive(Debug)]
 pub struct VulkanCommandPoolInUse<'a> {
 	/// The `VkCore` is the Vulkan driver
 	pub(crate) vkcore: Arc<VkCore>,
@@ -264,6 +270,21 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 
 	/// End recording to the command buffer and submit the commands to the queue
 	pub fn end(self) {}
+}
+
+impl Debug for VulkanCommandPoolInUse<'_> {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanCommandPoolInUse")
+		.field("cmdbuf", &self.cmdbuf)
+		.field("pool_lock", &self.pool_lock)
+		.field("queue_index", &self.queue_index)
+		.field("swapchain_image", &self.swapchain_image)
+		.field("submit_fence", &self.submit_fence)
+		.field("one_time_submit", &self.one_time_submit)
+		.field("ended", &self.ended)
+		.field("submitted", &self.submitted)
+		.finish()
+	}
 }
 
 impl Drop for VulkanCommandPoolInUse<'_> {
