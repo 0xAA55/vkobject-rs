@@ -70,6 +70,8 @@ mod tests {
 		let mut ctx = create_vulkan_context(&window, true, 3, false).unwrap();
 
 		let start_time = glfw.get_time();
+		let mut num_frames: u64 = 0;
+		let mut time_in_sec: u64 = 0;
 		while !window.should_close() {
 			let cur_frame_time = glfw.get_time();
 			let run_time = cur_frame_time - start_time;
@@ -77,6 +79,13 @@ mod tests {
 			let frame = ctx.begin_frame(true).unwrap();
 
 			drop(frame);
+			num_frames += 1;
+			let new_time_in_sec = run_time.floor() as u64;
+			if new_time_in_sec > time_in_sec {
+				let fps = num_frames as f64 / run_time;
+				println!("Avr FPS: {fps}\tat {new_time_in_sec}\r");
+				time_in_sec = new_time_in_sec;
+			}
 
 			glfw.poll_events();
 			for (_, event) in glfw::flush_messages(&events) {
