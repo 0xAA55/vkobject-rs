@@ -18,6 +18,7 @@ pub enum VulkanError {
 	CommandPoolIsInUse,
 	NoIdleCommandPools,
 	NoIdleDeviceQueues,
+	NoSuitableMemoryType,
 }
 
 impl From<VkError> for VulkanError {

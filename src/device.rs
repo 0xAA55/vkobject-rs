@@ -91,6 +91,19 @@ impl VulkanGpuInfo {
 	pub fn get_extension_properties(&self) -> &[VkExtensionProperties] {
 		self.extension_properties.as_ref()
 	}
+
+	/// Get memory type index by the memory properties flags
+	pub fn get_memory_type_index(&self, mut type_bits: u32, properties: VkMemoryPropertyFlags) -> Result<u32, VulkanError> {
+		for i in 0..self.mem_properties.memoryTypeCount {
+			if (type_bits & 1) == 1 {
+				if (self.mem_properties.memoryTypes[i as usize].propertyFlags & properties) == properties {
+					return Ok(i)
+				}
+			}
+			type_bits >>= 1;
+		}
+		Err(VulkanError::NoSuitableMemoryType)
+	}
 }
 
 unsafe impl Send for VulkanGpuInfo {}
