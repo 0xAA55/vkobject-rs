@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{
 	ptr::null,
-	sync::{Mutex, Arc, Weak},
+	sync::{Arc, Mutex},
 };
 
 /// The renderpass attachment
@@ -40,8 +40,11 @@ impl VulkanRenderPassAttachment {
 /// The wrapper for `VkRenderPass`
 #[derive(Debug)]
 pub struct VulkanRenderPass {
-	/// The `VulkanContext` that helps to manage the resources of the swapchain image
-	pub(crate) ctx: Weak<Mutex<VulkanContext>>,
+	/// The `VkCore` is the Vulkan driver
+	vkcore: Arc<VkCore>,
+
+	/// The `VulkanDevice` is the associated device
+	device: Arc<VulkanDevice>,
 
 	/// The handle to the renderpass object
 	renderpass: VkRenderPass,
@@ -49,7 +52,7 @@ pub struct VulkanRenderPass {
 
 impl VulkanRenderPass {
 	/// Create the `VulkanRenderPass`
-	pub fn new_(vkcore: &VkCore, device: VkDevice, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
+	pub fn new_(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
 		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.to_attachment_desc()).collect();
 		let attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().map(|(i, a)| VkAttachmentReference {
 			attachment: i as u32,
@@ -123,26 +126,29 @@ impl VulkanRenderPass {
 			pDependencies: dependencies.as_ptr(),
 		};
 		let mut renderpass: VkRenderPass = null();
-		vkcore.vkCreateRenderPass(device, &renderpass_ci, null(), &mut renderpass)?;
+		vkcore.vkCreateRenderPass(device.get_vk_device(), &renderpass_ci, null(), &mut renderpass)?;
 		Ok(Self {
-			ctx: Weak::new(),
-			renderpass
+			vkcore,
+			device,
+			renderpass,
 		})
 	}
 
 	/// Create the `VulkanRenderPass`
 	pub fn new(ctx: Arc<Mutex<VulkanContext>>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
 		let lock = ctx.lock().unwrap();
-		let vkcore = lock.vkcore.clone();
-		let vkdevice = lock.get_vk_device();
-		drop(lock);
-		let mut ret = Self::new_(&vkcore, vkdevice, attachments)?;
-		ret.set_ctx(Arc::downgrade(&ctx));
-		Ok(ret)
+		Ok(Self::new_(lock.vkcore.clone(), lock.device.clone(), attachments)?)
 	}
 
-	/// Set the `VulkanContext` if it hasn't provided previously
-	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
-		self.ctx = ctx;
+	/// Get the `VkRenderPass`
+	pub(crate) fn get_vk_renderpass(&self) -> VkRenderPass {
+		self.renderpass
+	}
+}
+
+
+impl Drop for VulkanRenderPass {
+	fn drop(&mut self) {
+		self.vkcore.vkDestroyRenderPass(self.device.get_vk_device(), self.renderpass, null()).unwrap();
 	}
 }

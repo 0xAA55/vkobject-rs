@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	mem::MaybeUninit,
-	sync::{Arc, Mutex, MutexGuard},
+	sync::{Arc, MutexGuard},
 };
 
 /// The struct to provide the information of the surface
@@ -88,7 +88,7 @@ pub struct VulkanContext {
 	pub device: Arc<VulkanDevice>,
 
 	/// The surface in use
-	pub surface: VulkanSurface,
+	pub surface: Arc<VulkanSurface>,
 
 	/// The swapchain
 	pub(crate) swapchain: VulkanSwapchain,
@@ -101,7 +101,7 @@ unsafe impl Send for VulkanContext {}
 
 impl VulkanContext {
 	/// Create a new `VulkanContext`
-	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Arc<Mutex<Self>>, VulkanError> {
+	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Self, VulkanError> {
 		let max_concurrent_frames = create_info.max_concurrent_frames;
 		let vkcore = create_info.vkcore.clone();
 		let device = Arc::new(match (create_info.device_can_graphics, create_info.device_can_compute) {
@@ -113,39 +113,35 @@ impl VulkanContext {
 		let surface = &create_info.surface;
 
 		#[cfg(any(feature = "glfw", test))]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.window)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.window)?);
 		#[cfg(feature = "win32_khr")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.hwnd, surface.hinstance)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.hwnd, surface.hinstance)?);
 		#[cfg(feature = "android_khr")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.window)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.window)?);
 		#[cfg(feature = "ios_mvk")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.view)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.view)?);
 		#[cfg(feature = "macos_mvk")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.view)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.view)?);
 		#[cfg(feature = "metal_ext")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.metal_layer)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.metal_layer)?);
 		#[cfg(feature = "wayland_khr")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.display, surface.surface)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.display, surface.surface)?);
 		#[cfg(feature = "xcb_khr")]
-		let surface = VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?;
+		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let ret = Arc::new(Mutex::new(Self {
+		let swapchain = VulkanSwapchain::new(vkcore.clone(), device.clone(), &surface, size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
+		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
+		for _ in 0..max_concurrent_frames {
+			cmdpools.push(VulkanCommandPool::new(vkcore.clone(), device.clone(), 2)?);
+		}
+		let ret = Self {
 			vkcore,
 			device,
 			surface,
-			swapchain: None,
-			cmdpools: Vec::with_capacity(max_concurrent_frames),
-		}));
-		let swapchain = VulkanSwapchain::new(ret.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, None)?;
-		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
-		for _ in 0..max_concurrent_frames {
-			cmdpools.push(VulkanCommandPool::new(ret.clone(), 2)?);
-		}
-		let mut lock = ret.lock().unwrap();
-		lock.swapchain = Some(swapchain);
-		lock.cmdpools = cmdpools;
-		drop(lock);
+			swapchain,
+			cmdpools,
+		};
 		Ok(ret)
 	}
 
@@ -186,32 +182,12 @@ impl VulkanContext {
 
 	/// Get the `VkSurfaceKHR`
 	pub(crate) fn get_vk_surface(&self) -> VkSurfaceKHR {
-		self.surface.lock().unwrap().get_vk_surface()
+		self.surface.get_vk_surface()
 	}
 
 	/// Get the current surface format
-	pub(crate) fn get_vk_surface_format(&self) -> VkSurfaceFormatKHR {
-		*self.surface.lock().unwrap().get_vk_surface_format()
-	}
-
-	/// Get the `VkSwapchainKHR`
-	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
-		self.swapchain.get_vk_swapchain()
-	}
-
-	/// Get the current swapchain extent(the framebuffer size)
-	pub fn get_swapchain_extent(&self) -> VkExtent2D {
-		self.swapchain.get_swapchain_extent()
-	}
-
-	/// Get the swapchain image by an index
-	pub fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
-		self.swapchain.get_image(index)
-	}
-
-	/// Get the swapchain image by the current index
-	pub fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
-		self.swapchain.get_image(self.get_swapchain_image_index())
+	pub(crate) fn get_vk_surface_format(&self) -> &VkSurfaceFormatKHR {
+		self.surface.get_vk_surface_format()
 	}
 
 	/// Get the swapchain
@@ -219,28 +195,47 @@ impl VulkanContext {
 		&self.swapchain
 	}
 
+	/// Get the `VkSwapchainKHR`
+	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
+		self.get_swapchain().get_vk_swapchain()
+	}
+
+	/// Get the current swapchain extent(the framebuffer size)
+	pub fn get_swapchain_extent(&self) -> VkExtent2D {
+		self.get_swapchain().get_swapchain_extent()
+	}
+
+	/// Get the swapchain image by an index
+	pub fn get_swapchain_image(&self, index: usize) -> &VulkanSwapchainImage {
+		self.get_swapchain().get_image(index)
+	}
+
+	/// Get the swapchain image by the current index
+	pub fn get_cur_swapchain_image(&self) -> &VulkanSwapchainImage {
+		self.get_swapchain().get_image(self.get_swapchain_image_index())
+	}
+
 	/// Get the current swapchain image index
 	pub fn get_swapchain_image_index(&self) -> usize {
-		self.swapchain.get_image_index() as usize
+		self.get_swapchain().get_image_index() as usize
 	}
 
 	/// Get the surface size, a.k.a. the frame buffer size
-	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: Arc<Mutex<VulkanSurface>>) -> Result<VkExtent2D, VulkanError> {
+	pub fn get_surface_size_(vkcore: &VkCore, device: &VulkanDevice, surface: &VulkanSurface) -> Result<VkExtent2D, VulkanError> {
 		let mut surface_properties: VkSurfaceCapabilitiesKHR = unsafe {MaybeUninit::zeroed().assume_init()};
-		let surface = surface.lock().unwrap();
 		vkcore.vkGetPhysicalDeviceSurfaceCapabilitiesKHR(device.get_vk_physical_device(), surface.get_vk_surface(), &mut surface_properties)?;
 		Ok(surface_properties.currentExtent)
 	}
 
 	/// Get the surface size, a.k.a. the frame buffer size
 	pub fn get_surface_size(&self) -> Result<VkExtent2D, VulkanError> {
-		Self::get_surface_size_(&self.vkcore, &self.device, self.surface.clone())
+		Self::get_surface_size_(&self.vkcore, &self.device, &self.surface)
 	}
 
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		self.swapchain = VulkanSwapchain::new(&self.vkcore, self.device.clone(), self.surface.clone(), width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
+		self.swapchain = VulkanSwapchain::new(self.vkcore.clone(), self.device.clone(), &self.surface, width, height, vsync, is_vr, Some(self.get_vk_swapchain()))?;
 		Ok(())
 	}
 
@@ -252,7 +247,6 @@ impl VulkanContext {
 			swapchain_extent.height == surface_size.height {
 			Ok(false)
 		} else {
-			self.device.wait_idle()?;
 			self.recreate_swapchain(surface_size.width, surface_size.height, self.swapchain.get_is_vsync(), self.swapchain.get_is_vr())?;
 			Ok(true)
 		}
@@ -265,8 +259,8 @@ impl VulkanContext {
 			match pool.try_use_pool(Some(i), None, one_time_submit, None) {
 				Ok(mut pool_in_use) => {
 					let swapchain_image_index = self.swapchain.acquire_next_image()?;
-					pool_in_use.swapchain_image_index = Some(swapchain_image_index);
-					return Ok(VulkanContextFrame::new(pool_in_use, swapchain_image_index))
+					pool_in_use.swapchain_image = Some(self.swapchain.get_image(swapchain_image_index));
+					return Ok(VulkanContextFrame::new(pool_in_use))
 				}
 				Err(e) => match e {
 					VulkanError::CommandPoolIsInUse => {}
@@ -280,18 +274,13 @@ impl VulkanContext {
 
 #[derive(Debug)]
 pub struct VulkanContextFrame<'a> {
-	ctx: Arc<Mutex<VulkanContext>>,
 	pool_in_use: VulkanCommandPoolInUse<'a>,
-	swapchain_image_index: usize,
 }
 
 impl<'a> VulkanContextFrame<'a> {
-	fn new(pool_in_use: VulkanCommandPoolInUse<'a>, swapchain_image_index: usize) -> Self {
-		let ctx = pool_in_use.ctx.clone();
+	fn new(pool_in_use: VulkanCommandPoolInUse<'a>) -> Self {
 		Self {
-			ctx,
 			pool_in_use,
-			swapchain_image_index,
 		}
 	}
 }

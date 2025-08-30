@@ -161,9 +161,10 @@ impl VulkanDevice {
 
 		let mut device: VkDevice = null();
 		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_ci, null(), &mut device)?;
+		let device = ResourceGuard::new(device, |&d|vkcore.vkDestroyDevice(d, null()).unwrap());
 
 		let mut queues: Vec<VkQueue> = Vec::with_capacity(queue_count);
-		vkcore.vkGetDeviceQueue(device, queue_family_index, 0, queues.as_mut_ptr())?;
+		vkcore.vkGetDeviceQueue(*device, queue_family_index, 0, queues.as_mut_ptr())?;
 		unsafe {queues.set_len(queue_count)};
 
 		let mut queues_ret: Vec<Arc<Mutex<VkQueue>>> = Vec::with_capacity(queue_count);
@@ -173,10 +174,10 @@ impl VulkanDevice {
 		}
 
 		Ok(Self {
-			vkcore,
+			vkcore: vkcore.clone(),
 			queue_family_index,
 			gpu,
-			device,
+			device: device.release(),
 			queues: queues_ret,
 		})
 	}

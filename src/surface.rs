@@ -6,6 +6,7 @@ use std::{
 	sync::Arc,
 };
 
+/// The wrapper for `VkSurfaceKHR`
 #[derive(Debug)]
 pub struct VulkanSurface {
 	/// The Vulkan driver
