@@ -61,8 +61,10 @@ impl VulkanSemaphore {
 	/// Create a new binary semaphore
 	pub fn new(ctx: Arc<Mutex<VulkanContext>>) -> Result<Self, VulkanError> {
 		let ctx_lock = ctx.lock().unwrap();
-		let mut ret = Self::new_(ctx_lock.get_vkcore(), ctx_lock.get_vk_device())?;
+		let vkcore = ctx_lock.vkcore.clone();
+		let vkdevice = ctx_lock.get_vk_device();
 		drop(ctx_lock);
+		let mut ret = Self::new_(&vkcore, vkdevice)?;
 		ret.set_ctx(Arc::downgrade(&ctx));
 		Ok(ret)
 	}
@@ -233,8 +235,10 @@ impl VulkanFence {
 	/// Create a new fence
 	pub fn new(ctx: Arc<Mutex<VulkanContext>>) -> Result<Self, VulkanError> {
 		let ctx_lock = ctx.lock().unwrap();
-		let mut ret = Self::new_(ctx_lock.get_vkcore(), ctx_lock.get_vk_device())?;
+		let vkcore = ctx_lock.vkcore.clone();
+		let vkdevice = ctx_lock.get_vk_device();
 		drop(ctx_lock);
+		let mut ret = Self::new_(&vkcore, vkdevice)?;
 		ret.set_ctx(Arc::downgrade(&ctx));
 		Ok(ret)
 	}
