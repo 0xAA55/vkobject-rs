@@ -3,6 +3,7 @@ use std::{
 	ffi::CString,
 	fmt::Debug,
 	iter::FromIterator,
+	ops::{Deref, DerefMut},
 	thread::sleep,
 	time::Duration,
 };
@@ -100,6 +101,46 @@ pub fn spin_work_with_exp_backoff<T, E: Debug, W: FnMut() -> Result<T, SpinError
 		random_sleep(sleep_nanos, &mut rng);
 		if sleep_nanos < max_sleep_nanos {
 			sleep_nanos = (sleep_nanos * 3) >> 1;
+		}
+	}
+}
+
+#[derive(Debug)]
+pub struct ResourceGuard<R, D: Fn(&R)> {
+	resource: Option<R>,
+	destroyer: D,
+}
+
+impl<R, D: Fn(&R)> ResourceGuard<R, D> {
+	pub fn new(resource: R, destroyer: D) -> Self {
+		Self {
+			resource: Some(resource),
+			destroyer,
+		}
+	}
+
+	pub fn release(mut self) -> R {
+		self.resource.take().unwrap()
+	}
+}
+
+impl<R, D: Fn(&R)> Deref for ResourceGuard<R, D> {
+	type Target = R;
+	fn deref(&self) -> &R {
+		self.resource.as_ref().unwrap()
+	}
+}
+
+impl<R, D: Fn(&R)> DerefMut for ResourceGuard<R, D> {
+	fn deref_mut(&mut self) -> &mut R {
+		self.resource.as_mut().unwrap()
+	}
+}
+
+impl<R, D: Fn(&R)> Drop for ResourceGuard<R, D> {
+	fn drop(&mut self) {
+		if let Some(resource) = &self.resource {
+			(self.destroyer)(&resource);
 		}
 	}
 }
