@@ -311,6 +311,31 @@ impl VulkanSwapchain {
 		&self.surf_caps
 	}
 
+	pub fn is_supported_depth_stencil_format(vkcore: &VkCore, vkgpu: VkPhysicalDevice, format: VkFormat) -> Result<bool, VulkanError> {
+		let mut format_props: VkFormatProperties = unsafe {MaybeUninit::zeroed().assume_init()};
+		vkcore.vkGetPhysicalDeviceFormatProperties(vkgpu, format, &mut format_props)?;
+		if (format_props.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT as u32) == VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT as u32 {
+			Ok(true)
+		} else {
+			Ok(false)
+		}
+	}
+
+	pub fn get_depth_stencil_format(vkcore: &VkCore, device: &VulkanDevice) -> Result<VkFormat, VulkanError> {
+		let vkgpu = device.get_vk_physical_device();
+		const FORMATS: [VkFormat; 3] = [
+			VkFormat::VK_FORMAT_D32_SFLOAT_S8_UINT,
+			VkFormat::VK_FORMAT_D24_UNORM_S8_UINT,
+			VkFormat::VK_FORMAT_D16_UNORM_S8_UINT,
+		];
+		for fmt in FORMATS.iter() {
+			if Self::is_supported_depth_stencil_format(vkcore, vkgpu, *fmt)? {
+				return Ok(*fmt);
+			}
+		}
+		Err(VulkanError::NoGoodDepthStencilFormat)
+	}
+
 	/// Get the current swapchain extent
 	pub fn get_swapchain_extent(&self) -> VkExtent2D {
 		self.swapchain_extent

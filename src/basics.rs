@@ -15,6 +15,7 @@ pub enum VulkanError {
 	VkError(VkError),
 	ChooseGpuFailed,
 	NoGoodQueueForSurface(&'static str),
+	NoGoodDepthStencilFormat,
 	CommandPoolIsInUse,
 	NoIdleCommandPools,
 	NoIdleDeviceQueues,
