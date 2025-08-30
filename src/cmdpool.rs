@@ -136,6 +136,9 @@ pub struct VulkanCommandPoolInUse<'a> {
 	/// The `VulkanContext` that helps to manage the resources of the command pool
 	pub(crate) ctx: Arc<Mutex<VulkanContext>>,
 
+	/// The `VkCore` here for the convenience of calling Vulkan functions
+	pub(crate) vkcore: Arc<VkCore>,
+
 	/// The command buffer we are using here
 	cmdbuf: VkCommandBuffer,
 
@@ -163,7 +166,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image_index: usize, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let ctx = cmdpool.ctx.upgrade().unwrap();
 		let ctx_g = ctx.lock().unwrap();
-		let vkcore = ctx_g.get_vkcore();
+		let vkcore = ctx_g.vkcore.clone();
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
 			pNext: null(),
@@ -173,6 +176,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		vkcore.vkBeginCommandBuffer(cmdbuf, &begin_info)?;
 		Ok(Self {
 			ctx: ctx.clone(),
+			vkcore,
 			cmdbuf,
 			pool_lock,
 			queue_index,
