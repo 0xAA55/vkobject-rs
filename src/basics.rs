@@ -5,7 +5,7 @@ use crate::prelude::*;
 use std::{
 	ffi::c_void,
 	fmt::Debug,
-	ptr::null,
+	ptr::{null, null_mut, copy},
 	sync::{Arc, Mutex, Weak},
 };
 
@@ -351,6 +351,124 @@ impl Drop for VulkanFence {
 			let ctx = binding.lock().unwrap();
 			let vkcore = ctx.get_vkcore();
 			vkcore.vkDestroyFence(ctx.get_vk_device(), self.fence, null()).unwrap();
+		}
+	}
+}
+
+/// The memory object that temporarily stores the `VkDeviceMemory`
+#[derive(Debug)]
+pub struct VulkanMemory {
+	/// The `VulkanContext` that helps to manage the resources of the buffer
+	ctx: Weak<Mutex<VulkanContext>>,
+
+	/// The handle to the memory
+	memory: VkDeviceMemory,
+
+	/// The allocated size of the memory
+	size: VkDeviceSize,
+}
+
+/// The direction of manipulating data
+#[derive(Debug)]
+pub enum DataDirection {
+	SetData,
+	GetData
+}
+
+impl VulkanMemory {
+	/// Create the `VulkanMemory`
+	pub fn new_(vkcore: &VkCore, device: Arc<VulkanDevice>, mem_reqs: &VkMemoryRequirements, flags: VkMemoryPropertyFlags) -> Result<Self, VulkanError> {
+		let alloc_i = VkMemoryAllocateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_MEMORY_ALLOCATE_INFO,
+			pNext: null(),
+			allocationSize: mem_reqs.size,
+			memoryTypeIndex: device.get_gpu().get_memory_type_index(mem_reqs.memoryTypeBits, flags)?,
+		};
+		let mut memory: VkDeviceMemory = null();
+		vkcore.vkAllocateMemory(device.get_vk_device(), &alloc_i, null(), &mut memory)?;
+		let ret = Self {
+			ctx: Weak::new(),
+			memory,
+			size: mem_reqs.size,
+		};
+		Ok(ret)
+	}
+
+	/// Create the `VulkanMemory`
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>, mem_reqs: &VkMemoryRequirements, flags: VkMemoryPropertyFlags) -> Result<Self, VulkanError> {
+		let lock = ctx.lock().unwrap();
+		let vkcore = lock.vkcore.clone();
+		let device = lock.device.clone();
+		drop(lock);
+		let mut ret = Self::new_(&vkcore, device, mem_reqs, flags)?;
+		ret.set_ctx(Arc::downgrade(&ctx));
+		Ok(ret)
+	}
+
+	/// Set the `VulkanContext` if it hasn't provided previously
+	pub(crate) fn set_ctx(&mut self, ctx: Weak<Mutex<VulkanContext>>) {
+		self.ctx = ctx;
+	}
+
+	/// Get the `VkDeviceMemory`
+	pub(crate) fn get_vk_memory(&self) -> VkDeviceMemory {
+		self.memory
+	}
+
+	/// Provide data for the memory, or retrieve data from the memory
+	pub fn manipulate_data(&self, data: *mut c_void, direction: DataDirection) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let vkdevice = ctx.get_vk_device();
+		let mut map_pointer: *mut c_void = null_mut();
+		vkcore.vkMapMemory(vkdevice, self.memory, 0, self.size, 0, &mut map_pointer)?;
+		match direction {
+			DataDirection::SetData => unsafe {copy(data as *const u8, map_pointer as *mut u8, self.size as usize)},
+			DataDirection::GetData => unsafe {copy(map_pointer as *const u8, data as *mut u8, self.size as usize)},
+		}
+		vkcore.vkUnmapMemory(vkdevice, self.memory)?;
+		Ok(())
+	}
+
+	/// Provide data for the memory
+	pub fn set_data(&self, data: *const c_void) -> Result<(), VulkanError> {
+		self.manipulate_data(data as *mut c_void, DataDirection::SetData)
+	}
+
+	/// Retrieve data from the memory
+	pub fn get_data(&self, data: *mut c_void) -> Result<(), VulkanError> {
+		self.manipulate_data(data, DataDirection::GetData)
+	}
+
+	/// Bind to a buffer
+	pub fn bind_buffer(&self, buffer: VkBuffer) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let vkdevice = ctx.get_vk_device();
+		vkcore.vkBindBufferMemory(vkdevice, buffer, self.memory, 0)?;
+		Ok(())
+	}
+
+	/// Bind to a image
+	pub fn bind_image(&self, image: VkImage) -> Result<(), VulkanError> {
+		let binding = self.ctx.upgrade().unwrap();
+		let ctx = binding.lock().unwrap();
+		let vkcore = ctx.get_vkcore();
+		let vkdevice = ctx.get_vk_device();
+		vkcore.vkBindImageMemory(vkdevice, image, self.memory, 0)?;
+		Ok(())
+	}
+}
+
+impl Drop for VulkanMemory {
+	fn drop(&mut self) {
+		if let Some(binding) = self.ctx.upgrade() {
+			let ctx = binding.lock().unwrap();
+			let vkcore = ctx.get_vkcore();
+			let vkdevice = ctx.get_vk_device();
+			vkcore.vkFreeMemory(vkdevice, self.memory, null()).unwrap();
 		}
 	}
 }
