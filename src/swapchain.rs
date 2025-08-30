@@ -4,7 +4,7 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	mem::{MaybeUninit, transmute, swap},
 	ptr::{null, null_mut},
-	sync::Arc,
+	sync::{Arc, Mutex},
 };
 
 /// An image of a swapchain that's dedicated for the depth-stencil usage
@@ -276,13 +276,13 @@ pub struct VulkanSwapchain {
 	depth_stencil_format: VkFormat,
 
 	/// The swapchain images
-	pub images: Vec<VulkanSwapchainImage>,
+	pub images: Vec<Arc<Mutex<VulkanSwapchainImage>>>,
 
 	/// The semaphore for acquiring new frame image
 	acquire_semaphore: VulkanSemaphore,
 
 	/// The current image index in use
-	cur_image_index: u32,
+	cur_image_index: Mutex<u32>,
 }
 
 unsafe impl Send for VulkanSwapchain {}
@@ -393,10 +393,10 @@ impl VulkanSwapchain {
 		let mut vk_images = Vec::<VkImage>::with_capacity(num_images as usize);
 		vkcore.vkGetSwapchainImagesKHR(vk_device, *swapchain, &mut num_images, vk_images.as_mut_ptr())?;
 		unsafe {vk_images.set_len(num_images as usize)};
-		let mut images = Vec::<VulkanSwapchainImage>::with_capacity(vk_images.len());
+		let mut images = Vec::<Arc<Mutex<VulkanSwapchainImage>>>::with_capacity(vk_images.len());
 		let depth_stencil_format = Self::get_depth_stencil_format(&vkcore, vk_phy_dev)?;
 		for vk_image in vk_images.iter() {
-			images.push(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?);
+			images.push(Arc::new(Mutex::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?)));
 		}
 		let acquire_semaphore = VulkanSemaphore::new(device.clone())?;
 		let swapchain = swapchain.release();
@@ -412,7 +412,7 @@ impl VulkanSwapchain {
 			depth_stencil_format,
 			images,
 			acquire_semaphore,
-			cur_image_index: 0,
+			cur_image_index: Mutex::new(0),
 		})
 	}
 
@@ -461,23 +461,18 @@ impl VulkanSwapchain {
 	}
 
 	/// Get the list of `VulkanSwapchainImage`s
-	pub fn get_images(&self) -> &[VulkanSwapchainImage] {
+	pub fn get_images(&self) -> &[Arc<Mutex<VulkanSwapchainImage>>] {
 		self.images.as_ref()
 	}
 
 	/// Get the `VulkanSwapchainImage` by an index
-	pub fn get_image(&self, index: usize) -> &VulkanSwapchainImage {
-		&self.images[index]
-	}
-
-	/// Get the current `VulkanSwapchainImage` in use
-	pub fn get_cur_image(&self) -> &VulkanSwapchainImage {
-		&self.images[self.cur_image_index as usize]
+	pub fn get_image(&self, index: usize) -> Arc<Mutex<VulkanSwapchainImage>> {
+		self.images[index].clone()
 	}
 
 	/// Get the current image index in use
-	pub fn get_image_index(&self) -> u32 {
-		self.cur_image_index
+	pub fn get_image_index(&self) -> usize {
+		*self.cur_image_index.lock().unwrap() as usize
 	}
 
 	/// Get if the swapchain is VSYNC
@@ -494,19 +489,25 @@ impl VulkanSwapchain {
 	pub(crate) fn acquire_next_image(&mut self) -> Result<usize, VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let device = self.device.get_vk_device();
-		let mut cur_image_index = 0;
-		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, self.acquire_semaphore.get_vk_semaphore(), null(), &mut cur_image_index)?;
-		self.cur_image_index = cur_image_index;
-		swap(&mut self.acquire_semaphore, &mut self.images[cur_image_index as usize].acquire_semaphore);
-		Ok(cur_image_index as usize)
+		let mut lock = self.cur_image_index.lock().unwrap();
+		vkcore.vkAcquireNextImageKHR(device, self.swapchain, u64::MAX, self.acquire_semaphore.get_vk_semaphore(), null(), &mut *lock)?;
+		let cur_image_index = *lock as usize;
+		drop(lock);
+		let binding = self.get_image(cur_image_index);
+		let mut image_lock = binding.lock().unwrap();
+		swap(&mut self.acquire_semaphore, &mut image_lock.acquire_semaphore);
+		Ok(cur_image_index)
 	}
 
 	/// Enqueue a present command to the queue
-	pub(crate) fn queue_present(&self, queue_index: usize) -> Result<(), VulkanError> {
+	pub(crate) fn queue_present(&self, queue_index: usize, image_index: usize) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let swapchains = [self.swapchain];
-		let image_indices = [self.cur_image_index];
-		let wait_semaphores = [self.get_cur_image().release_semaphore.get_vk_semaphore()];
+		let image_indices = [image_index as u32];
+		let binding = self.get_image(image_index);
+		let image_lock = binding.lock().unwrap();
+		let wait_semaphores = [image_lock.release_semaphore.get_vk_semaphore()];
+		drop(image_lock);
 		let present_info = VkPresentInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			pNext: null(),
