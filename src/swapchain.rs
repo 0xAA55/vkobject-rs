@@ -7,7 +7,6 @@ use std::{
 	sync::{Mutex, Arc, Weak},
 };
 
-/// An image of a swap chain
 /// An image of a swapchain that's dedicated for the depth-stencil usage
 #[derive(Debug)]
 pub struct VulkanDepthStencilImage {
@@ -105,6 +104,7 @@ impl Drop for VulkanDepthStencilImage {
 
 unsafe impl Send for VulkanDepthStencilImage {}
 
+/// An image of a swapchain
 #[derive(Debug)]
 pub struct VulkanSwapchainImage {
 	/// The `VulkanContext` that helps to manage the resources of the swapchain image
