@@ -86,7 +86,7 @@ impl VulkanCommandPool {
 	fn get_next_vk_cmd_buffer(&mut self) -> VkCommandBuffer {
 		let cmdbuf_index = self.last_buf_index as usize;
 		self.last_buf_index += 1;
-		if self.last_buf_index as usize > self.cmd_buffers.len() {
+		if self.last_buf_index as usize >= self.cmd_buffers.len() {
 			self.last_buf_index = 0;
 		}
 		self.cmd_buffers[cmdbuf_index]
