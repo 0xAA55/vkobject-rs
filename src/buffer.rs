@@ -150,13 +150,54 @@ impl Drop for Memory {
 	}
 }
 
+/// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
+#[derive(Debug)]
+pub struct VulkanBuffer {
+	/// The `VulkanContext` that helps to manage the resources of the buffer
+	ctx: Arc<Mutex<VulkanContext>>,
+
+	/// The device memory
+	memory: Memory,
+
+	/// The buffer
+	buffer: Buffer,
+}
+
+impl VulkanBuffer {
+	pub fn new(ctx: Arc<Mutex<VulkanContext>>, size: usize, data: *const c_void, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		let staging_buffer = Buffer::new(ctx.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
+		let staging_memory = Memory::new(ctx.clone(), &staging_buffer,
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
+		staging_memory.set_data(data)?;
+		let buffer = Buffer::new(ctx.clone(), size, usage | VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT as u32)?;
+		let memory = Memory::new(ctx.clone(), &buffer,
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
+		let mut command_pool = VulkanCommandPool::new(ctx.clone(), 1)?;
+		let submit_fence = VulkanFence::new(ctx.clone())?;
+		let pool_in_use = command_pool.use_pool(None, None, true, Some(&submit_fence))?;
+		let copy_region = VkBufferCopy {
+			srcOffset: 0,
+			dstOffset: 0,
+			size: size as VkDeviceSize,
+		};
+		pool_in_use.vkcore.vkCmdCopyBuffer(pool_in_use.cmdbuf, staging_buffer.buffer, buffer.buffer, 1, &copy_region)?;
+		drop(pool_in_use);
+		submit_fence.wait(u64::MAX);
+		Ok(Self {
+			ctx,
+			memory,
+			buffer,
+		})
+	}
+
 	/// Get the buffer memory
-	pub fn get_memory(&self) -> VkDeviceMemory {
-		self.memory
+	pub(crate) fn get_vk_memory(&self) -> VkDeviceMemory {
+		self.memory.memory
 	}
 
 	/// Get the buffer
-	pub fn get_buffer(&self) -> VkBuffer {
-		self.buffer
+	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
+		self.buffer.buffer
 	}
 }
