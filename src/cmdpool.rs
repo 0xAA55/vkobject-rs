@@ -224,39 +224,35 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		if !self.submitted {
 			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
 			let cmd_buffers = [self.cmdbuf];
-			let num_acquire_semaphores;
-			let num_release_semaphores;
-			let acquire_semaphores_ptr: *const VkSemaphore;
-			let release_semaphores_ptr: *const VkSemaphore;
-			if let Some(swapchain_image) = self.swapchain_image {
-				num_acquire_semaphores = 1;
-				num_release_semaphores = 1;
-				acquire_semaphores_ptr = &swapchain_image.acquire_semaphore.get_vk_semaphore();
-				release_semaphores_ptr = &swapchain_image.release_semaphore.get_vk_semaphore();
-			} else {
-				num_acquire_semaphores = 0;
-				num_release_semaphores = 0;
-				acquire_semaphores_ptr = null();
-				release_semaphores_ptr = null();
-			}
-			let submit_info = VkSubmitInfo {
+			let mut submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				pNext: null(),
-				waitSemaphoreCount: num_acquire_semaphores,
-				pWaitSemaphores: acquire_semaphores_ptr,
+				waitSemaphoreCount: 0,
+				pWaitSemaphores: null(),
 				pWaitDstStageMask: wait_stage.as_ptr(),
 				commandBufferCount: 1,
 				pCommandBuffers: cmd_buffers.as_ptr(),
-				signalSemaphoreCount: num_release_semaphores,
-				pSignalSemaphores: release_semaphores_ptr,
+				signalSemaphoreCount: 0,
+				pSignalSemaphores: null(),
 			};
+			let mut acquire_semaphores: Vec<VkSemaphore> = Vec::new();
+			let mut release_semaphores: Vec<VkSemaphore> = Vec::new();
+			if let Some(swapchain_image) = self.swapchain_image {
+				acquire_semaphores.push(swapchain_image.acquire_semaphore.get_vk_semaphore());
+				release_semaphores.push(swapchain_image.release_semaphore.get_vk_semaphore());
+				submit_info.waitSemaphoreCount = acquire_semaphores.len() as u32;
+				submit_info.signalSemaphoreCount = release_semaphores.len() as u32;
+				submit_info.pWaitSemaphores = acquire_semaphores.as_ptr();
+				submit_info.pSignalSemaphores = release_semaphores.as_ptr();
+			}
 			let queue = if let Some(queue_index) = self.queue_index {
 				self.device.get_vk_queue(queue_index)
 			} else {
 				let mut queue_index = 0;
 				self.device.get_any_vk_queue_anyway(&mut queue_index)
 			};
-			vkcore.vkQueueSubmit(*queue, 1, &submit_info, self.submit_fence)?;
+			let submits = [submit_info];
+			vkcore.vkQueueSubmit(*queue, submits.len() as u32, submits.as_ptr(), self.submit_fence)?;
 			self.submitted = true;
 			Ok(())
 		} else {
