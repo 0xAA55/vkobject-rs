@@ -78,7 +78,7 @@ mod tests {
 			let run_time = cur_frame_time - start_time;
 			ctx.on_resize().unwrap();
 			let frame = ctx.begin_frame(true).unwrap();
-
+			dbg!(&frame);
 			drop(frame);
 			num_frames += 1;
 			let new_time_in_sec = run_time.floor() as u64;
