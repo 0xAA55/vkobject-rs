@@ -73,6 +73,7 @@ mod tests {
 		let start_time = glfw.get_time();
 		while !window.should_close() {
 			let cur_frame_time = glfw.get_time();
+			let run_time = cur_frame_time - start_time;
 
 			glfw.poll_events();
 			for (_, event) in glfw::flush_messages(&events) {
@@ -84,7 +85,7 @@ mod tests {
 				}
 			}
 			if let Some(test_time) = test_time {
-				if cur_frame_time - start_time >= test_time {
+				if run_time >= test_time {
 					window.set_should_close(true)
 				}
 			}
