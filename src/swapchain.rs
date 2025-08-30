@@ -71,12 +71,12 @@ impl VulkanSwapchainImage {
 	}
 
 	/// Get the `VkImage`
-	pub fn get_vk_image(&self) -> VkImage {
+	pub(crate) fn get_vk_image(&self) -> VkImage {
 		self.image
 	}
 
 	/// Get the `VkImageView`
-	pub fn get_vk_image_view(&self) -> VkImageView {
+	pub(crate) fn get_vk_image_view(&self) -> VkImageView {
 		self.image_view
 	}
 

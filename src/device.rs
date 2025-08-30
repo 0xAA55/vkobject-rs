@@ -63,7 +63,7 @@ impl VulkanGpuInfo {
 	}
 
 	/// Get the `VkPhysicalDevice`
-	pub fn get_vk_physical_device(&self) -> VkPhysicalDevice {
+	pub(crate) fn get_vk_physical_device(&self) -> VkPhysicalDevice {
 		self.gpu
 	}
 
