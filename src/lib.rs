@@ -67,7 +67,7 @@ mod tests {
 
 		window.set_key_polling(true);
 
-		let mut ctx = create_vulkan_context(&window, true, 3, false).unwrap();
+		let mut ctx = create_vulkan_context(&window, true, 2, false).unwrap();
 
 		let start_time = glfw.get_time();
 		let mut num_frames: u64 = 0;
