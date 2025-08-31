@@ -246,8 +246,8 @@ impl VulkanCommandPoolInUse {
 				release_semaphores.push(lock.release_semaphore.get_vk_semaphore());
 				drop(lock);
 				submit_info.waitSemaphoreCount = acquire_semaphores.len() as u32;
-				submit_info.signalSemaphoreCount = release_semaphores.len() as u32;
 				submit_info.pWaitSemaphores = acquire_semaphores.as_ptr();
+				submit_info.signalSemaphoreCount = release_semaphores.len() as u32;
 				submit_info.pSignalSemaphores = release_semaphores.as_ptr();
 			}
 			let submits = [submit_info];
