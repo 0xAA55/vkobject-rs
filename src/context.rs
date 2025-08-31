@@ -239,7 +239,7 @@ impl VulkanContext {
 			match pool.try_use_pool(i, None, one_time_submit, None) {
 				Ok(mut pool_in_use) => {
 					let mut lock = self.swapchain.lock().unwrap();
-					let image_index = lock.acquire_next_image()?;
+					let image_index = lock.acquire_next_image(true)?;
 					pool_in_use.swapchain_image = Some(lock.get_image(image_index));
 					return Ok(VulkanContextFrame::new(self.swapchain.clone(), pool_in_use, image_index))
 				}
