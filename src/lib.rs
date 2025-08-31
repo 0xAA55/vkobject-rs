@@ -69,11 +69,11 @@ mod tests {
 
 	#[derive(Debug)]
 	pub struct TestInstance {
-		pub glfw: Glfw,
+		pub ctx: VulkanContext,
 		pub window: Mutex<PWindow>,
 		pub events: GlfwReceiver<(f64, WindowEvent)>,
+		pub glfw: Glfw,
 		pub num_frames: AtomicU64,
-		pub ctx: VulkanContext,
 	}
 
 	impl TestInstance {
