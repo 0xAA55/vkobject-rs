@@ -55,54 +55,122 @@ pub mod prelude {
 mod tests {
 	use glfw::*;
 	use crate::prelude::*;
+	use std::{
+		sync::{
+			Mutex,
+			atomic::{AtomicU64, Ordering},
+		},
+		thread::{sleep, spawn},
+		time::Duration,
+	};
 
 	const TEST_TIME: f64 = 10.0;
+	const MAX_CONCURRENT_FRAMES: usize = 1;
+
+	#[derive(Debug)]
+	pub struct TestInstance {
+		pub glfw: Glfw,
+		pub window: Mutex<PWindow>,
+		pub events: GlfwReceiver<(f64, WindowEvent)>,
+		pub num_frames: AtomicU64,
+		pub ctx: VulkanContext,
+	}
+
+	impl TestInstance {
+		pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode) -> Result<Self, VulkanError> {
+			let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
+			glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
+			let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
+			window.set_key_polling(true);
+			let ctx = create_vulkan_context(&window, true, MAX_CONCURRENT_FRAMES, false)?;
+			Ok(Self {
+				glfw,
+				window: Mutex::new(window),
+				events,
+				num_frames: AtomicU64::new(0),
+				ctx,
+			})
+		}
+
+		fn render(&mut self) {
+			loop {
+				let lock = self.window.lock().unwrap();
+				if lock.should_close() {
+					break;
+				}
+				drop(lock);
+				self.ctx.on_resize().unwrap();
+				let frame = self.ctx.begin_frame(true).unwrap();
+
+				drop(frame);
+				self.num_frames.fetch_add(1, Ordering::Relaxed);
+			}
+		}
+
+		pub fn run(&mut self, test_time: Option<f64>) {
+			let mut renderers = Vec::with_capacity(MAX_CONCURRENT_FRAMES);
+			for _ in 0..MAX_CONCURRENT_FRAMES {
+				let ptr = self as *mut Self as usize;
+				renderers.push(spawn(move || {
+					let this = unsafe {&mut *(ptr as *mut Self)};
+					this.render();
+				}));
+			}
+
+			let start_time = self.glfw.get_time();
+			let mut time_in_sec: u64 = 0;
+			let mut num_frames_prev: u64 = 0;
+			loop {
+				let cur_frame_time = self.glfw.get_time();
+				let run_time = cur_frame_time - start_time;
+				let lock = self.window.lock().unwrap();
+				if lock.should_close() {
+					break;
+				}
+				drop(lock);
+
+				let new_time_in_sec = run_time.floor() as u64;
+				if new_time_in_sec > time_in_sec {
+					let frames = self.num_frames.fetch_add(0, Ordering::Relaxed);
+					let fps = frames - num_frames_prev;
+					println!("FPS: {fps}\tat {new_time_in_sec}s");
+					time_in_sec = new_time_in_sec;
+					num_frames_prev = frames;
+				}
+
+				self.glfw.poll_events();
+				for (_, event) in glfw::flush_messages(&self.events) {
+					match event {
+						glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
+							let mut lock = self.window.lock().unwrap();
+							lock.set_should_close(true);
+						}
+						_ => {}
+					}
+				}
+				if let Some(test_time) = test_time {
+					if run_time >= test_time {
+						let mut lock = self.window.lock().unwrap();
+						lock.set_should_close(true);
+					}
+				}
+			}
+			loop {
+				if let Some(h) = renderers.pop() {
+					h.join().unwrap();
+				} else {
+					break;
+				}
+			}
+			sleep(Duration::from_millis(100));
+		}
+	}
+
+	unsafe impl Send for TestInstance {}
 
 	#[test]
 	fn test() {
-		let test_time: Option<f64> = Some(TEST_TIME);
-		let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
-		glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
-		let (mut window, events) = glfw.create_window(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).expect("Failed to create VKFW window.");
-
-		window.set_key_polling(true);
-
-		let mut ctx = create_vulkan_context(&window, true, 2, false).unwrap();
-
-		let start_time = glfw.get_time();
-		let mut num_frames: u64 = 0;
-		let mut time_in_sec: u64 = 0;
-		let mut num_frames_prev: u64 = 0;
-		while !window.should_close() {
-			let cur_frame_time = glfw.get_time();
-			let run_time = cur_frame_time - start_time;
-			ctx.on_resize().unwrap();
-			let frame = ctx.begin_frame(true).unwrap();
-
-			drop(frame);
-			num_frames += 1;
-			let new_time_in_sec = run_time.floor() as u64;
-			if new_time_in_sec > time_in_sec {
-				let fps = num_frames - num_frames_prev;
-				println!("FPS: {fps}\tat {new_time_in_sec}s");
-				time_in_sec = new_time_in_sec;
-				num_frames_prev = num_frames;
-			}
-
-			glfw.poll_events();
-			for (_, event) in glfw::flush_messages(&events) {
-				match event {
-					glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-						window.set_should_close(true)
-					}
-					_ => {}
-				}
-			}
-			if let Some(test_time) = test_time {
-				if run_time >= test_time {
-					window.set_should_close(true)
-				}
-			}
-		}
+		let mut inst = Box::new(TestInstance::new(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).unwrap());
+		inst.run(Some(TEST_TIME));
 	}
 }
