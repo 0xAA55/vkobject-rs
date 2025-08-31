@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	cmp::max,
 	fmt::{self, Debug, Formatter},
 	mem::{MaybeUninit, transmute, swap},
 	ptr::{null, null_mut},
@@ -278,6 +279,9 @@ pub struct VulkanSwapchain {
 	/// The depth stencil format
 	depth_stencil_format: VkFormat,
 
+	/// The desired image count
+	desired_num_of_swapchain_images: u32,
+
 	/// The swapchain images
 	pub images: Vec<Arc<Mutex<VulkanSwapchainImage>>>,
 
@@ -292,7 +296,7 @@ unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
-	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool, is_vr: bool, num_images: u32, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let surface_format = *surface.get_vk_surface_format();
 		let vk_device = device.get_vk_device();
@@ -332,7 +336,7 @@ impl VulkanSwapchain {
 		}
 
 		// Determine the number of images
-		let mut desired_num_of_swapchain_images = surf_caps.minImageCount + 1;
+		let mut desired_num_of_swapchain_images = max(num_images, surf_caps.minImageCount + 1);
 		if surf_caps.maxImageCount > 0 && desired_num_of_swapchain_images > surf_caps.maxImageCount {
 			desired_num_of_swapchain_images = surf_caps.maxImageCount;
 		}
@@ -414,6 +418,7 @@ impl VulkanSwapchain {
 			swapchain_extent,
 			present_mode,
 			depth_stencil_format,
+			desired_num_of_swapchain_images,
 			images,
 			acquire_semaphore,
 			cur_image_index: 0,
@@ -477,6 +482,11 @@ impl VulkanSwapchain {
 	/// Get the current image index in use
 	pub fn get_image_index(&self) -> usize {
 		self.cur_image_index as usize
+	}
+
+	/// Get the current image index in use
+	pub fn get_desired_num_of_swapchain_images(&self) -> usize {
+		self.desired_num_of_swapchain_images as usize
 	}
 
 	/// Get if the swapchain is VSYNC
