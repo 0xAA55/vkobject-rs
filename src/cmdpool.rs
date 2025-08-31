@@ -93,25 +93,25 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer of the command pool to record draw commands
-	pub fn use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub(crate) fn use_pool(&mut self, queue_index: Option<usize>, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse, VulkanError> {
 		let buf = self.get_next_vk_cmd_buffer();
 		let submit_fence = if let Some(submit_fence) = submit_fence {
 			submit_fence.get_vk_fence()
 		} else {
 			self.fence.get_vk_fence()
 		};
-		VulkanCommandPoolInUse::new(self, self.get_vk_cmdpool(), buf, queue_index, swapchain_image, one_time_submit, submit_fence)
+		VulkanCommandPoolInUse::new(self, *self.get_vk_cmdpool(), buf, queue_index, swapchain_image, one_time_submit, submit_fence)
 	}
 
 	/// Try to acquire the command pool to record draw commands
-	pub fn try_use_pool<'a>(&'a mut self, queue_index: Option<usize>, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub(crate) fn try_use_pool(&mut self, queue_index: Option<usize>, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse, VulkanError> {
 		let buf = self.get_next_vk_cmd_buffer();
 		let submit_fence = if let Some(submit_fence) = submit_fence {
 			submit_fence.get_vk_fence()
 		} else {
 			self.fence.get_vk_fence()
 		};
-		VulkanCommandPoolInUse::new(self, self.try_get_vk_cmdpool()?, buf, queue_index, swapchain_image, one_time_submit, submit_fence)
+		VulkanCommandPoolInUse::new(self, *self.try_get_vk_cmdpool()?, buf, queue_index, swapchain_image, one_time_submit, submit_fence)
 	}
 }
 
@@ -134,15 +134,15 @@ impl Drop for VulkanCommandPool {
 }
 
 /// The RAII wrapper for the usage of a Vulkan command pool/buffer. When created, your command could be recorded to the command buffer.
-pub struct VulkanCommandPoolInUse<'a> {
+pub struct VulkanCommandPoolInUse {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
 	/// The command buffer we are using here
 	pub(crate) cmdbuf: VkCommandBuffer,
 
-	/// The locked state of the `VkCommandPool`
-	pool_lock: MutexGuard<'a, VkCommandPool>,
+	/// The command pool to submit commands
+	pub(crate) pool: VkCommandPool,
 
 	/// The queue index for the command pool to submit
 	pub(crate) queue_index: Option<usize>,
@@ -163,9 +163,9 @@ pub struct VulkanCommandPoolInUse<'a> {
 	pub(crate) submitted: bool,
 }
 
-impl<'a> VulkanCommandPoolInUse<'a> {
+impl VulkanCommandPoolInUse {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: VkFence) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool: VkCommandPool, cmdbuf: VkCommandBuffer, queue_index: Option<usize>, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: VkFence) -> Result<Self, VulkanError> {
 		let vkcore = cmdpool.device.vkcore.clone();
 		let device = cmdpool.device.clone();
 		let begin_info = VkCommandBufferBeginInfo {
@@ -178,7 +178,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		Ok(Self {
 			device,
 			cmdbuf,
-			pool_lock,
+			pool,
 			queue_index,
 			swapchain_image,
 			submit_fence,
@@ -266,11 +266,11 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 	pub fn end(self) {}
 }
 
-impl Debug for VulkanCommandPoolInUse<'_> {
+impl Debug for VulkanCommandPoolInUse {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanCommandPoolInUse")
 		.field("cmdbuf", &self.cmdbuf)
-		.field("pool_lock", &self.pool_lock)
+		.field("pool", &self.pool)
 		.field("queue_index", &self.queue_index)
 		.field("swapchain_image", &self.swapchain_image)
 		.field("submit_fence", &self.submit_fence)
@@ -281,7 +281,7 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 	}
 }
 
-impl Drop for VulkanCommandPoolInUse<'_> {
+impl Drop for VulkanCommandPoolInUse {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
 		if !self.submitted {
