@@ -523,7 +523,7 @@ impl VulkanSwapchain {
 			pResults: null_mut(),
 		};
 
-		vkcore.vkQueuePresentKHR(*self.device.get_vk_queue(queue_index), &present_info)?;
+		vkcore.vkQueuePresentKHR(self.device.get_vk_queue(queue_index), &present_info)?;
 		Ok(())
 	}
 }

@@ -166,18 +166,8 @@ impl VulkanContext {
 	}
 
 	/// Get a queue for the current device. To submit commands to a queue concurrently, the queue must be locked.
-	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> MutexGuard<'_, VkQueue> {
+	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> VkQueue {
 		self.device.get_vk_queue(queue_index)
-	}
-
-	/// Get an idle queue for the current device
-	pub(crate) fn get_any_vk_queue(&self, queue_index: &mut usize) -> Result<MutexGuard<'_, VkQueue>, VulkanError> {
-		self.device.get_any_vk_queue(queue_index)
-	}
-
-	/// Get an idle queue for the current device, will block if there's no idle queues
-	pub(crate) fn get_any_vk_queue_anyway(&self, queue_index: &mut usize) -> MutexGuard<'_, VkQueue> {
-		self.device.get_any_vk_queue_anyway(queue_index)
 	}
 
 	/// Get the `VkSurfaceKHR`
@@ -283,7 +273,7 @@ impl VulkanContextFrame {
 impl Drop for VulkanContextFrame {
 	fn drop(&mut self) {
 		if let Some(ref mut pool_in_use) = self.pool_in_use {
-			let queue_index = pool_in_use.queue_index.unwrap();
+			let queue_index = pool_in_use.queue_index;
 			pool_in_use.submit().unwrap();
 			let lock = self.swapchain.lock().unwrap();
 			loop {

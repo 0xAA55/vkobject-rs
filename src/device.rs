@@ -1,11 +1,10 @@
 
 use crate::prelude::*;
-use rand::prelude::*;
 use std::{
 	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
 	ptr::{null, null_mut},
-	sync::{Arc, Mutex, MutexGuard},
+	sync::Arc,
 };
 
 /// The physical device info
@@ -123,8 +122,8 @@ pub struct VulkanDevice {
 	/// The handle to the device
 	device: VkDevice,
 
-	/// The queues of the device. To submit commands to a queue, must use a lock.
-	pub(crate) queues: Vec<Arc<Mutex<VkQueue>>>,
+	/// The queues of the device. Submit commands to the queue to control GPU.
+	pub(crate) queues: Vec<VkQueue>,
 }
 
 impl VulkanDevice {
@@ -256,36 +255,8 @@ impl VulkanDevice {
 	}
 
 	/// Get a queue for the current device
-	pub(crate) fn get_vk_queue<'a>(&'a self, queue_index: usize) -> MutexGuard<'a, VkQueue> {
-		self.queues[queue_index].lock().unwrap()
-	}
-
-	/// Get an idle queue for the current device
-	pub(crate) fn get_any_vk_queue<'a>(&'a self, queue_index: &mut usize) -> Result<MutexGuard<'a, VkQueue>, VulkanError> {
-		let mut indices: Vec<usize> = (0..self.queues.len()).collect();
-		let mut rng = SmallRng::from_os_rng();
-		indices.shuffle(&mut rng);
-		for &i in indices.iter() {
-			if let Ok(guard) = self.queues[i].try_lock() {
-				*queue_index = i;
-				return Ok(guard);
-			}
-		}
-		Err(VulkanError::NoIdleDeviceQueues)
-	}
-
-	/// Get an idle queue for the current device, will block if there's no idle queues
-	pub(crate) fn get_any_vk_queue_anyway<'a>(&'a self, queue_index: &mut usize) -> MutexGuard<'a, VkQueue> {
-		const MAX_SLEEP_NANOS: u64 = 100_000_000;
-		spin_work_with_exp_backoff(|| -> Result<MutexGuard<'a, VkQueue>, SpinError<VulkanError>> {
-			match self.get_any_vk_queue(queue_index) {
-				Ok(guard) => Ok(guard),
-				Err(e) => match e {
-					VulkanError::NoIdleDeviceQueues => Err(SpinError::SpinFail),
-					others => Err(SpinError::OtherError(others)),
-				}
-			}
-		}, MAX_SLEEP_NANOS).unwrap()
+	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> VkQueue {
+		self.queues[queue_index]
 	}
 }
 
