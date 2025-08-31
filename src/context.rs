@@ -283,11 +283,7 @@ impl VulkanContextFrame {
 impl Drop for VulkanContextFrame {
 	fn drop(&mut self) {
 		if let Some(ref mut pool_in_use) = self.pool_in_use {
-			let queue_index = if let Some(queue_index) = pool_in_use.queue_index {
-				queue_index
-			} else {
-				0
-			};
+			let queue_index = pool_in_use.queue_index.unwrap();
 			pool_in_use.submit().unwrap();
 			let lock = self.swapchain.lock().unwrap();
 			lock.queue_present(queue_index, self.image_index).unwrap();
