@@ -248,9 +248,7 @@ impl VulkanCommandPoolInUse {
 				submit_info.pSignalSemaphores = release_semaphores.as_ptr();
 			}
 			let submits = [submit_info];
-			let (qi, queue) = (self.queue_index, self.device.get_vk_queue(self.queue_index));
-			println!("{qi} -> {:?}\t\t{:?}", queue, self.device.queues);
-			vkcore.vkQueueSubmit(queue, submits.len() as u32, submits.as_ptr(), self.submit_fence)?;
+			vkcore.vkQueueSubmit(self.device.get_vk_queue(self.queue_index), submits.len() as u32, submits.as_ptr(), self.submit_fence)?;
 			self.submitted = true;
 			Ok(())
 		} else {
