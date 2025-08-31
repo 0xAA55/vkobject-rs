@@ -18,7 +18,7 @@ pub struct VulkanCommandPool {
 	cmd_buffers: Vec<VkCommandBuffer>,
 
 	/// The last command buffer index
-	pub last_buf_index: u32,
+	pub last_buf_index: Mutex<u32>,
 
 	/// The fence for the command pool
 	pub(crate) fence: VulkanFence,
@@ -54,7 +54,7 @@ impl VulkanCommandPool {
 			device,
 			pool: Mutex::new(pool),
 			cmd_buffers,
-			last_buf_index: 0,
+			last_buf_index: Mutex::new(0),
 			fence,
 		})
 	}
@@ -84,10 +84,11 @@ impl VulkanCommandPool {
 
 	/// Update the buffer index
 	fn get_next_vk_cmd_buffer(&mut self) -> VkCommandBuffer {
-		let cmdbuf_index = self.last_buf_index as usize;
-		self.last_buf_index += 1;
-		if self.last_buf_index as usize >= self.cmd_buffers.len() {
-			self.last_buf_index = 0;
+		let mut lock = self.last_buf_index.lock().unwrap();
+		let cmdbuf_index = *lock as usize;
+		*lock += 1;
+		if *lock as usize >= self.cmd_buffers.len() {
+			*lock = 0;
 		}
 		self.cmd_buffers[cmdbuf_index]
 	}
