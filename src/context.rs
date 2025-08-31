@@ -81,20 +81,20 @@ pub struct VulkanContextCreateInfo<'a> {
 /// The Vulkan context has device, surface, swapchain, and command pools
 #[derive(Debug)]
 pub struct VulkanContext {
-	/// The Vulkan driver
-	pub(crate) vkcore: Arc<VkCore>,
-
-	/// The device in use
-	pub device: Arc<VulkanDevice>,
-
-	/// The surface in use
-	pub surface: Arc<VulkanSurface>,
-
 	/// The swapchain
 	pub(crate) swapchain: Arc<Mutex<VulkanSwapchain>>,
 
 	/// The command pools
 	pub(crate) cmdpools: Vec<VulkanCommandPool>,
+
+	/// The surface in use
+	pub surface: Arc<VulkanSurface>,
+
+	/// The device in use
+	pub device: Arc<VulkanDevice>,
+
+	/// The Vulkan driver
+	pub(crate) vkcore: Arc<VkCore>,
 }
 
 unsafe impl Send for VulkanContext {}
