@@ -181,7 +181,7 @@ impl VulkanContext {
 	}
 
 	/// Get the swapchain
-	pub fn get_swapchain(&self) -> MutexGuard<'_, VulkanSwapchain> {
+	pub fn get_swapchain<'a>(&'a self) -> MutexGuard<'a, VulkanSwapchain> {
 		self.swapchain.lock().unwrap()
 	}
 
