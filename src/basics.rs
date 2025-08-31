@@ -158,12 +158,12 @@ impl VulkanSemaphore {
 	}
 
 	/// Wait for multiple semaphores
-	pub fn wait_multi_vk(ctx: &VulkanContext, semaphores: &[VkSemaphore], timelines: &[u64], timeout: u64, any: bool) -> Result<(), VulkanError> {
+	pub fn wait_multi_vk(device: &VulkanDevice, semaphores: &[VkSemaphore], timelines: &[u64], timeout: u64, any: bool) -> Result<(), VulkanError> {
 		if semaphores.is_empty() {
 			Ok(())
 		} else {
-			let vkcore = ctx.vkcore.clone();
-			let vk_device = ctx.get_vk_device();
+			let vkcore = device.vkcore.clone();
+			let vk_device = device.get_vk_device();
 			let wait_i = VkSemaphoreWaitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
 				pNext: null(),
@@ -271,12 +271,12 @@ impl VulkanFence {
 	}
 
 	/// Unsignal the fence
-	pub fn unsignal_multi_vk(ctx: &VulkanContext, fences: &[VkFence]) -> Result<(), VulkanError> {
+	pub fn unsignal_multi_vk(device: &VulkanDevice, fences: &[VkFence]) -> Result<(), VulkanError> {
 		if fences.is_empty() {
 			Ok(())
 		} else {
-			let vkcore = ctx.get_vkcore();
-			Ok(vkcore.vkResetFences(ctx.get_vk_device(), fences.len() as u32, fences.as_ptr())?)
+			let vkcore = device.vkcore.clone();
+			Ok(vkcore.vkResetFences(device.get_vk_device(), fences.len() as u32, fences.as_ptr())?)
 		}
 	}
 
@@ -312,12 +312,12 @@ impl VulkanFence {
 	}
 
 	/// Wait for multiple fences to be signaled
-	pub fn wait_multi_vk(ctx: &VulkanContext, fences: &[VkFence], timeout: u64, any: bool) -> Result<(), VulkanError> {
+	pub fn wait_multi_vk(device: &VulkanDevice, fences: &[VkFence], timeout: u64, any: bool) -> Result<(), VulkanError> {
 		if fences.is_empty() {
 			Ok(())
 		} else {
-			let vkcore = ctx.vkcore.clone();
-			let vk_device = ctx.get_vk_device();
+			let vkcore = device.vkcore.clone();
+			let vk_device = device.get_vk_device();
 			vkcore.vkWaitForFences(vk_device, fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
 			Ok(())
 		}
