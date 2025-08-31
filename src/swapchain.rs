@@ -511,6 +511,7 @@ impl VulkanSwapchain {
 				break;
 			}
 		}
+		println!("vkAcquireNextImageKHR {cur_image_index}");
 		self.cur_image_index = cur_image_index;
 		let image_lock = self.get_image(cur_image_index as usize);
 		swap(&mut self.acquire_semaphore, &mut image_lock.lock().unwrap().acquire_semaphore);
