@@ -285,7 +285,7 @@ pub struct VulkanSwapchain {
 	acquire_semaphore: VulkanSemaphore,
 
 	/// The current image index in use
-	cur_image_index: Mutex<u32>,
+	cur_image_index: u32,
 }
 
 unsafe impl Send for VulkanSwapchain {}
@@ -416,7 +416,7 @@ impl VulkanSwapchain {
 			depth_stencil_format,
 			images,
 			acquire_semaphore,
-			cur_image_index: Mutex::new(0),
+			cur_image_index: 0,
 		})
 	}
 
@@ -476,7 +476,7 @@ impl VulkanSwapchain {
 
 	/// Get the current image index in use
 	pub fn get_image_index(&self) -> usize {
-		*self.cur_image_index.lock().unwrap() as usize
+		self.cur_image_index as usize
 	}
 
 	/// Get if the swapchain is VSYNC
