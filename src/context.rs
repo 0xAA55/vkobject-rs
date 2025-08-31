@@ -276,16 +276,13 @@ impl Drop for VulkanContextFrame {
 			let queue_index = pool_in_use.queue_index;
 			pool_in_use.submit().unwrap();
 			let lock = self.swapchain.lock().unwrap();
-			loop {
-				match lock.queue_present(queue_index, self.image_index) {
-					Ok(_) => break,
-					Err(e) => match e {
-						VulkanError::VkError(e) => match e {
-							VkError::VkErrorOutOfDateKhr(_) => break,
-							other => Err(other).unwrap(),
-						}
+			if let Err(e) = lock.queue_present(queue_index, self.image_index) {
+				match e {
+					VulkanError::VkError(e) => match e {
+						VkError::VkErrorOutOfDateKhr(_) => {},
 						other => Err(other).unwrap(),
 					}
+					other => Err(other).unwrap(),
 				}
 			}
 		}
