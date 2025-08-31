@@ -236,7 +236,7 @@ impl VulkanContext {
 	/// * You could call this function in different threads, in order to achieve concurrent frame rendering
 	pub fn begin_frame(&mut self, one_time_submit: bool) -> Result<VulkanContextFrame, VulkanError> {
 		for (i, pool) in self.cmdpools.iter_mut().enumerate() {
-			match pool.try_use_pool(Some(i), None, one_time_submit, None) {
+			match pool.try_use_pool(i, None, one_time_submit, None) {
 				Ok(mut pool_in_use) => {
 					let mut lock = self.swapchain.lock().unwrap();
 					let image_index = lock.acquire_next_image()?;
