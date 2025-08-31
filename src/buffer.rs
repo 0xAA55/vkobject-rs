@@ -80,7 +80,7 @@ pub struct VulkanBuffer {
 }
 
 impl VulkanBuffer {
-	pub fn new(device: Arc<VulkanDevice>, size: usize, data: *const c_void, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, size: usize, data: *const c_void, usage: VkBufferUsageFlags, queue_index: usize) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let staging_buffer = Buffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
 		let staging_memory = VulkanMemory::new(device.clone(), &staging_buffer.get_memory_requirements()?,
@@ -94,7 +94,7 @@ impl VulkanBuffer {
 		memory.bind_buffer(buffer.get_vk_buffer())?;
 		let mut command_pool = VulkanCommandPool::new(device.clone(), 1)?;
 		let submit_fence = VulkanFence::new(device.clone())?;
-		let pool_in_use = command_pool.use_pool(None, None, true, Some(&submit_fence))?;
+		let pool_in_use = command_pool.use_pool(queue_index, None, true, Some(&submit_fence))?;
 		let copy_region = VkBufferCopy {
 			srcOffset: 0,
 			dstOffset: 0,
