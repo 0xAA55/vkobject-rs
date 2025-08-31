@@ -144,13 +144,13 @@ pub struct VulkanSwapchainImage {
 	extent: VkExtent2D,
 
 	/// The semaphore to acquire the image for rendering
-	pub acquire_semaphore: VulkanSemaphore,
+	pub acquire_semaphore: Arc<VulkanSemaphore>,
 
 	/// The semaphore for the image on release
-	pub release_semaphore: VulkanSemaphore,
+	pub release_semaphore: Arc<VulkanSemaphore>,
 
 	/// The fence of submitting commands to a queue
-	pub queue_submit_fence: VulkanFence,
+	pub queue_submit_fence: Arc<VulkanFence>,
 }
 
 unsafe impl Send for VulkanSwapchainImage {}
@@ -184,9 +184,9 @@ impl VulkanSwapchainImage {
 		let mut image_view: VkImageView = null();
 		vkcore.vkCreateImageView(vk_device, &vk_image_view_ci, null(), &mut image_view)?;
 		let image_view = ResourceGuard::new(image_view, |&i|vkcore.clone().vkDestroyImageView(vk_device, i, null()).unwrap());
-		let acquire_semaphore = VulkanSemaphore::new(device.clone())?;
-		let release_semaphore = VulkanSemaphore::new(device.clone())?;
-		let queue_submit_fence = VulkanFence::new(device.clone())?;
+		let acquire_semaphore = Arc::new(VulkanSemaphore::new(device.clone())?);
+		let release_semaphore = Arc::new(VulkanSemaphore::new(device.clone())?);
+		let queue_submit_fence = Arc::new(VulkanFence::new(device.clone())?);
 		let depth_stencil = VulkanDepthStencilImage::new(device.clone(), extent, depth_stencil_format)?;
 		let renderpass_attachments = [
 			VulkanRenderPassAttachment::new(surface_format.format, false),
@@ -282,7 +282,7 @@ pub struct VulkanSwapchain {
 	pub images: Vec<Arc<Mutex<VulkanSwapchainImage>>>,
 
 	/// The semaphore for acquiring new frame image
-	acquire_semaphore: VulkanSemaphore,
+	acquire_semaphore: Arc<VulkanSemaphore>,
 
 	/// The current image index in use
 	cur_image_index: u32,
@@ -401,7 +401,7 @@ impl VulkanSwapchain {
 		for vk_image in vk_images.iter() {
 			images.push(Arc::new(Mutex::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?)));
 		}
-		let acquire_semaphore = VulkanSemaphore::new(device.clone())?;
+		let acquire_semaphore = Arc::new(VulkanSemaphore::new(device.clone())?);
 		let swapchain = swapchain.release();
 
 		Ok(Self {
