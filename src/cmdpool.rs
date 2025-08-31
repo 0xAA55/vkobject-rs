@@ -95,24 +95,26 @@ impl VulkanCommandPool {
 
 	/// Use a command buffer of the command pool to record draw commands
 	pub(crate) fn use_pool(&mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse, VulkanError> {
+		let pool = *self.get_vk_cmdpool();
 		let buf = self.get_next_vk_cmd_buffer();
 		let submit_fence = if let Some(submit_fence) = submit_fence {
 			submit_fence.get_vk_fence()
 		} else {
 			self.fence.get_vk_fence()
 		};
-		VulkanCommandPoolInUse::new(self, *self.get_vk_cmdpool(), buf, queue_index, swapchain_image, one_time_submit, submit_fence)
+		VulkanCommandPoolInUse::new(self, pool, buf, queue_index, swapchain_image, one_time_submit, submit_fence)
 	}
 
 	/// Try to acquire the command pool to record draw commands
 	pub(crate) fn try_use_pool(&mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool, submit_fence: Option<&VulkanFence>) -> Result<VulkanCommandPoolInUse, VulkanError> {
+		let pool = *self.try_get_vk_cmdpool()?;
 		let buf = self.get_next_vk_cmd_buffer();
 		let submit_fence = if let Some(submit_fence) = submit_fence {
 			submit_fence.get_vk_fence()
 		} else {
 			self.fence.get_vk_fence()
 		};
-		VulkanCommandPoolInUse::new(self, *self.try_get_vk_cmdpool()?, buf, queue_index, swapchain_image, one_time_submit, submit_fence)
+		VulkanCommandPoolInUse::new(self, pool, buf, queue_index, swapchain_image, one_time_submit, submit_fence)
 	}
 }
 
