@@ -65,7 +65,7 @@ mod tests {
 	};
 
 	const TEST_TIME: f64 = 10.0;
-	const MAX_CONCURRENT_FRAMES: usize = 1;
+	const MAX_CONCURRENT_FRAMES: usize = 3;
 
 	#[derive(Debug)]
 	pub struct TestInstance {
