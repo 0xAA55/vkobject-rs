@@ -244,7 +244,7 @@ impl VulkanContext {
 
 	/// Acquire a command buffer and a queue, start recording the commands
 	/// * You could call this function in different threads, in order to achieve concurrent frame rendering
-	pub fn begin_frame<'a>(&'a mut self, one_time_submit: bool) -> Result<VulkanContextFrame<'a>, VulkanError> {
+	pub fn begin_frame(&mut self, one_time_submit: bool) -> Result<VulkanContextFrame, VulkanError> {
 		for (i, pool) in self.cmdpools.iter_mut().enumerate() {
 			match pool.try_use_pool(Some(i), None, one_time_submit, None) {
 				Ok(mut pool_in_use) => {
@@ -264,14 +264,14 @@ impl VulkanContext {
 }
 
 #[derive(Debug)]
-pub struct VulkanContextFrame<'a> {
+pub struct VulkanContextFrame {
 	swapchain: Arc<Mutex<VulkanSwapchain>>,
-	pool_in_use: Option<VulkanCommandPoolInUse<'a>>,
+	pool_in_use: Option<VulkanCommandPoolInUse>,
 	image_index: usize,
 }
 
-impl<'a> VulkanContextFrame<'a> {
-	fn new(swapchain: Arc<Mutex<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Self {
+impl VulkanContextFrame {
+	fn new(swapchain: Arc<Mutex<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse, image_index: usize) -> Self {
 		Self {
 			swapchain,
 			pool_in_use: Some(pool_in_use),
@@ -280,7 +280,7 @@ impl<'a> VulkanContextFrame<'a> {
 	}
 }
 
-impl<'a> Drop for VulkanContextFrame<'a> {
+impl Drop for VulkanContextFrame {
 	fn drop(&mut self) {
 		if let Some(ref mut pool_in_use) = self.pool_in_use {
 			let queue_index = if let Some(queue_index) = pool_in_use.queue_index {
