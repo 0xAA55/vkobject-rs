@@ -254,7 +254,7 @@ impl VulkanCommandPoolInUse {
 				self.device.get_any_vk_queue_anyway(&mut queue_index)
 			};
 			let submits = [submit_info];
-			vkcore.vkQueueWaitIdle(*queue)?;
+			// vkcore.vkQueueWaitIdle(*queue)?;
 			vkcore.vkQueueSubmit(*queue, submits.len() as u32, submits.as_ptr(), self.submit_fence)?;
 			self.submitted = true;
 			Ok(())
