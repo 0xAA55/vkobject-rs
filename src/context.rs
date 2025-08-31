@@ -288,6 +288,5 @@ impl Drop for VulkanContextFrame {
 			let lock = self.swapchain.lock().unwrap();
 			lock.queue_present(queue_index, self.image_index).unwrap();
 		}
-		self.pool_in_use = None;
 	}
 }
