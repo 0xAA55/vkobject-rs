@@ -165,7 +165,7 @@ impl VulkanDevice {
 		let mut queues: Vec<VkQueue> = Vec::with_capacity(queue_count);
 		for i in 0..queue_count {
 			let mut queue: VkQueue = null();
-			vkcore.vkGetDeviceQueue(*device, queue_family_index, i, &mut queue)?;
+			vkcore.vkGetDeviceQueue(*device, queue_family_index, i as u32, &mut queue)?;
 			queues.push(queue);
 		}
 
