@@ -130,7 +130,7 @@ impl VulkanContext {
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = Arc::new(Mutex::new(VulkanSwapchain::new(device.clone(), &surface, size.width, size.height, create_info.vsync, create_info.is_vr, None)?));
+		let swapchain = Arc::new(Mutex::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, None)?));
 		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
 		for _ in 0..max_concurrent_frames {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
@@ -221,7 +221,7 @@ impl VulkanContext {
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
 		let mut lock = self.swapchain.lock().unwrap();
-		*lock = VulkanSwapchain::new(self.device.clone(), &self.surface, width, height, vsync, is_vr, Some(lock.get_vk_swapchain()))?;
+		*lock = VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, vsync, is_vr, Some(lock.get_vk_swapchain()))?;
 		Ok(())
 	}
 

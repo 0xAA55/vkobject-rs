@@ -254,6 +254,9 @@ pub struct VulkanSwapchain {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
+	/// The `VulkanSurface` that is needed by the swapchain
+	surface: Arc<VulkanSurface>,
+
 	/// Is VSYNC on?
 	vsync: bool,
 
@@ -289,7 +292,7 @@ unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
-	pub fn new(device: Arc<VulkanDevice>, surface: &VulkanSurface, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let surface_format = *surface.get_vk_surface_format();
 		let vk_device = device.get_vk_device();
@@ -403,6 +406,7 @@ impl VulkanSwapchain {
 
 		Ok(Self {
 			device,
+			surface,
 			vsync,
 			is_vr,
 			surf_caps,
@@ -527,6 +531,7 @@ impl VulkanSwapchain {
 impl Debug for VulkanSwapchain {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanSwapchain")
+		.field("surface", &self.surface)
 		.field("vsync", &self.vsync)
 		.field("is_vr", &self.is_vr)
 		.field("surf_caps", &self.surf_caps)
