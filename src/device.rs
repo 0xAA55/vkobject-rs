@@ -163,13 +163,10 @@ impl VulkanDevice {
 		let device = ResourceGuard::new(device, |&d|vkcore.vkDestroyDevice(d, null()).unwrap());
 
 		let mut queues: Vec<VkQueue> = Vec::with_capacity(queue_count);
-		vkcore.vkGetDeviceQueue(*device, queue_family_index, 0, queues.as_mut_ptr())?;
-		unsafe {queues.set_len(queue_count)};
-
-		let mut queues_ret: Vec<Arc<Mutex<VkQueue>>> = Vec::with_capacity(queue_count);
-		for queue in queues.iter() {
-			#[allow(clippy::arc_with_non_send_sync)]
-			queues_ret.push(Arc::new(Mutex::new(*queue)));
+		for i in 0..queue_count {
+			let mut queue: VkQueue = null();
+			vkcore.vkGetDeviceQueue(*device, queue_family_index, i, &mut queue)?;
+			queues.push(queue);
 		}
 
 		Ok(Self {
@@ -177,7 +174,7 @@ impl VulkanDevice {
 			queue_family_index,
 			gpu,
 			device: device.release(),
-			queues: queues_ret,
+			queues,
 		})
 	}
 
