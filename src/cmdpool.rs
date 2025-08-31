@@ -225,7 +225,7 @@ impl VulkanCommandPoolInUse {
 			self.end_cmd()?;
 		}
 		if !self.submitted {
-			let wait_stage = [VK_PIPELINE_STAGE_2_TOP_OF_PIPE_BIT as VkPipelineStageFlags];
+			let wait_stage = [VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT as VkPipelineStageFlags];
 			let cmd_buffers = [self.cmdbuf];
 			let mut submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
