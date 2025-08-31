@@ -508,10 +508,7 @@ impl VulkanSwapchain {
 		let vkcore = self.device.vkcore.clone();
 		let swapchains = [self.swapchain];
 		let image_indices = [image_index as u32];
-		let binding = self.get_image(image_index);
-		let image_lock = binding.lock().unwrap();
-		let wait_semaphores = [image_lock.release_semaphore.get_vk_semaphore()];
-		drop(image_lock);
+		let wait_semaphores = [self.get_image(image_index).lock().unwrap().release_semaphore.get_vk_semaphore()];
 		let present_info = VkPresentInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			pNext: null(),
