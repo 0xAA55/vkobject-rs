@@ -285,12 +285,6 @@ impl Drop for VulkanContextFrame {
 					other => Err(other).unwrap(),
 				}
 			}
-			if let Some(swapchain_image) = &pool_in_use.swapchain_image {
-				let lock = swapchain_image.lock().unwrap();
-				let acquire_semaphore = lock.acquire_semaphore.clone();
-				drop(lock);
-				acquire_semaphore.wait(u64::MAX).unwrap();
-			}
 		}
 	}
 }
