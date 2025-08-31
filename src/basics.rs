@@ -117,6 +117,24 @@ impl VulkanSemaphore {
 		Ok(())
 	}
 
+	/// Wait for the semaphore
+	pub fn wait_vk(device: &VulkanDevice, semaphore: VkSemaphore, timeline: u64, timeout: u64) -> Result<(), VulkanError> {
+		let vkcore = device.vkcore.clone();
+		let vk_device = device.get_vk_device();
+		let semaphores = [semaphore];
+		let timelines = [timeline];
+		let wait_i = VkSemaphoreWaitInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
+			pNext: null(),
+			flags: 0,
+			semaphoreCount: 1,
+			pSemaphores: semaphores.as_ptr(),
+			pValues: timelines.as_ptr(),
+		};
+		vkcore.vkWaitSemaphores(vk_device, &wait_i, timeout)?;
+		Ok(())
+	}
+
 	/// Wait for multiple semaphores
 	pub fn wait_multi(semaphores: &[Self], timeout: u64, any: bool) -> Result<(), VulkanError> {
 		if semaphores.is_empty() {
