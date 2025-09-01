@@ -12,10 +12,10 @@ pub struct VulkanCommandPool {
 	pub device: Arc<VulkanDevice>,
 
 	/// The handle to the command pool
-	pool: Mutex<VkCommandPool>,
+	pub(crate) pool: Mutex<VkCommandPool>,
 
 	/// The command buffers of the command pool
-	cmd_buffers: Vec<VkCommandBuffer>,
+	pub(crate) cmd_buffers: Vec<VkCommandBuffer>,
 
 	/// The last command buffer index
 	pub last_buf_index: Mutex<u32>,
@@ -63,47 +63,7 @@ impl VulkanCommandPool {
 		})
 	}
 
-	/// Retrieve the command pool
-	pub(crate) fn get_vk_cmdpool<'a>(&'a self) -> MutexGuard<'a, VkCommandPool> {
-		self.pool.lock().unwrap()
-	}
-
-	/// Retrieve the command pool
-	pub(crate) fn try_get_vk_cmdpool<'a>(&'a self) -> Result<MutexGuard<'a, VkCommandPool>, VulkanError> {
-		match self.pool.try_lock() {
-			Ok(guard) => Ok(guard),
-			_ => Err(VulkanError::CommandPoolIsInUse),
-		}
-	}
-
-	/// Get the command buffers
-	pub(crate) fn get_vk_cmd_buffers(&self) -> &[VkCommandBuffer] {
-		&self.cmd_buffers
-	}
-
-	/// Update the buffer index
-	fn get_next_vk_cmd_buffer(&mut self) -> VkCommandBuffer {
-		let mut lock = self.last_buf_index.lock().unwrap();
-		let cmdbuf_index = *lock as usize;
-		*lock += 1;
-		if *lock as usize >= self.cmd_buffers.len() {
-			*lock = 0;
-		}
-		self.cmd_buffers[cmdbuf_index]
-	}
-
 	/// Use a command buffer of the command pool to record draw commands
-	pub(crate) fn use_pool(&mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<VulkanCommandPoolInUse, VulkanError> {
-		let pool = *self.get_vk_cmdpool();
-		let buf = self.get_next_vk_cmd_buffer();
-		VulkanCommandPoolInUse::new(self, pool, buf, queue_index, swapchain_image, one_time_submit)
-	}
-
-	/// Try to acquire the command pool to record draw commands
-	pub(crate) fn try_use_pool(&mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<VulkanCommandPoolInUse, VulkanError> {
-		let pool = *self.try_get_vk_cmdpool()?;
-		let buf = self.get_next_vk_cmd_buffer();
-		VulkanCommandPoolInUse::new(self, pool, buf, queue_index, swapchain_image, one_time_submit)
 	}
 }
 
