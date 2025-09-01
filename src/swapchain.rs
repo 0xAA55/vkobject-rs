@@ -54,7 +54,6 @@ impl VulkanDepthStencilImage {
 		let mut mem_reqs: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
 		vkcore.vkGetImageMemoryRequirements(vkdevice, *image, &mut mem_reqs)?;
 		let memory = VulkanMemory::new(device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
-		let memory = ResourceGuard::new(memory, |m|vkcore.vkFreeMemory(vkdevice, m.get_vk_memory(), null()).unwrap());
 		vkcore.vkBindImageMemory(vkdevice, *image, memory.get_vk_memory(), 0)?;
 		let image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
@@ -82,7 +81,6 @@ impl VulkanDepthStencilImage {
 		let mut image_view: VkImageView = null();
 		vkcore.vkCreateImageView(vkdevice, &image_view_ci, null(), &mut image_view)?;
 		let image = image.release();
-		let memory = memory.release();
 		Ok(Self {
 			device,
 			image,
