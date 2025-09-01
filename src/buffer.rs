@@ -42,7 +42,7 @@ impl Buffer {
 			dstOffset: 0,
 			size: size as VkDeviceSize,
 		};
-		vkcore.vkCmdCopyBuffer(pool_in_use.cmdbuf, staging_buffer.buffer, buffer.buffer, 1, &copy_region)?;
+		vkcore.vkCmdCopyBuffer(pool_in_use.cmdbuf, staging_buffer.get_vk_buffer(), buffer.get_vk_buffer(), 1, &copy_region)?;
 		let submit_fence = pool_in_use.submit_fence.clone();
 		drop(pool_in_use);
 		submit_fence.wait(u64::MAX)?;
