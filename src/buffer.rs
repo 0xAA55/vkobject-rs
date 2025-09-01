@@ -93,14 +93,14 @@ impl VulkanBuffer {
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		memory.bind_buffer(buffer.get_vk_buffer())?;
 		let mut command_pool = VulkanCommandPool::new(device.clone(), 1)?;
-		let submit_fence = VulkanFence::new(device.clone())?;
-		let pool_in_use = command_pool.use_pool(queue_index, None, true, Some(&submit_fence))?;
+		let pool_in_use = command_pool.use_pool(queue_index, None, true)?;
 		let copy_region = VkBufferCopy {
 			srcOffset: 0,
 			dstOffset: 0,
 			size: size as VkDeviceSize,
 		};
 		vkcore.vkCmdCopyBuffer(pool_in_use.cmdbuf, staging_buffer.buffer, buffer.buffer, 1, &copy_region)?;
+		let submit_fence = pool_in_use.submit_fence.clone();
 		drop(pool_in_use);
 		submit_fence.wait(u64::MAX)?;
 		Ok(Self {
