@@ -24,7 +24,7 @@ pub struct Buffer {
 }
 
 impl Buffer {
-	/// Create a new 
+	/// Create a new buffer
 	pub fn new(device: Arc<VulkanDevice>, size: usize, data: *const c_void, usage: VkBufferUsageFlags, queue_index: usize) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let staging_buffer = VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
