@@ -234,34 +234,25 @@ impl VulkanContext {
 
 	/// Acquire a command buffer and a queue, start recording the commands
 	/// * You could call this function in different threads, in order to achieve concurrent frame rendering
-	pub fn begin_frame(&mut self, one_time_submit: bool) -> Result<VulkanContextFrame, VulkanError> {
-		for (i, pool) in self.cmdpools.iter_mut().enumerate() {
-			match pool.try_use_pool(i, None, one_time_submit) {
-				Ok(mut pool_in_use) => {
-					let mut lock = self.swapchain.lock().unwrap();
-					let image_index = lock.acquire_next_image(true)?;
-					pool_in_use.swapchain_image = Some(lock.get_image(image_index));
-					return Ok(VulkanContextFrame::new(self.swapchain.clone(), pool_in_use, image_index))
-				}
-				Err(e) => match e {
-					VulkanError::CommandPoolIsInUse => {}
-					others => return Err(others)
-				}
-			}
-		}
-		Err(VulkanError::NoIdleCommandPools)
+	pub fn begin_frame<'a>(&'a mut self, pool_index: usize, one_time_submit: bool) -> Result<VulkanContextFrame<'a>, VulkanError> {
+		let mut pool_in_use = self.cmdpools[pool_index].use_pool(pool_index, None, one_time_submit)?;
+		let mut swapchain = self.swapchain.lock().unwrap();
+		let image_index = swapchain.acquire_next_image(true)?;
+		pool_in_use.swapchain_image = Some(swapchain.get_image(image_index));
+		println!("PI: {pool_index}, SI: {image_index}");
+		Ok(VulkanContextFrame::new(self.swapchain.clone(), pool_in_use, image_index))
 	}
 }
 
 #[derive(Debug)]
-pub struct VulkanContextFrame {
+pub struct VulkanContextFrame<'a> {
 	swapchain: Arc<Mutex<VulkanSwapchain>>,
-	pool_in_use: Option<VulkanCommandPoolInUse>,
+	pool_in_use: Option<VulkanCommandPoolInUse<'a>>,
 	image_index: usize,
 }
 
-impl VulkanContextFrame {
-	fn new(swapchain: Arc<Mutex<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse, image_index: usize) -> Self {
+impl<'a> VulkanContextFrame<'a> {
+	fn new(swapchain: Arc<Mutex<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Self {
 		Self {
 			swapchain,
 			pool_in_use: Some(pool_in_use),
