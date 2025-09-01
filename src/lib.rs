@@ -57,8 +57,8 @@ mod tests {
 	use crate::prelude::*;
 	use std::{
 		sync::{
-			Mutex,
 			atomic::{AtomicU64, Ordering},
+			Mutex,
 		},
 		thread::{sleep, spawn},
 		time::Duration,
