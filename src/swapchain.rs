@@ -544,6 +544,7 @@ impl Debug for VulkanSwapchain {
 		.field("swapchain_extent", &self.swapchain_extent)
 		.field("present_mode", &self.present_mode)
 		.field("depth_stencil_format", &self.depth_stencil_format)
+		.field("desired_num_of_swapchain_images", &self.desired_num_of_swapchain_images)
 		.field("images", &self.images)
 		.field("acquire_semaphore", &self.acquire_semaphore)
 		.field("cur_image_index", &self.cur_image_index)
