@@ -101,7 +101,7 @@ mod tests {
 				drop(lock);
 				self.ctx.on_resize()?;
 				let frame = self.ctx.begin_frame(pool_index, true)?;
-				sleep(Duration::from_micros(100));
+
 				drop(frame);
 				self.num_frames.fetch_add(1, Ordering::Relaxed);
 			}
