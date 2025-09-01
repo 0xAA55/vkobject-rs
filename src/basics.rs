@@ -477,7 +477,7 @@ impl VulkanBuffer {
 		Ok(ret)
 	}
 
-	fn get_vk_buffer(&self) -> VkBuffer {
+	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer
 	}
 }
