@@ -408,14 +408,14 @@ impl VulkanMemory {
 	}
 
 	/// Bind to a buffer
-	pub fn bind_buffer(&self, buffer: VkBuffer) -> Result<(), VulkanError> {
+	pub(crate) fn bind_vk_buffer(&self, buffer: VkBuffer) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		vkcore.vkBindBufferMemory(self.device.get_vk_device(), buffer, self.memory, 0)?;
 		Ok(())
 	}
 
 	/// Bind to a image
-	pub fn bind_image(&self, image: VkImage) -> Result<(), VulkanError> {
+	pub(crate) fn bind_vk_image(&self, image: VkImage) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		vkcore.vkBindImageMemory(self.device.get_vk_device(), image, self.memory, 0)?;
 		Ok(())

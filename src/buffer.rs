@@ -27,7 +27,7 @@ impl Buffer {
 		let buffer = VulkanBuffer::new(device.clone(), size, usage | VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT as u32)?;
 		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
-		memory.bind_buffer(buffer.get_vk_buffer())?;
+		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
 		let mut ret = Self {
 			device,
 			memory,
@@ -47,7 +47,7 @@ impl Buffer {
 		let staging_memory = VulkanMemory::new(self.device.clone(), &staging_buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
-		staging_memory.bind_buffer(staging_buffer.get_vk_buffer())?;
+		staging_memory.bind_vk_buffer(staging_buffer.get_vk_buffer())?;
 		staging_memory.set_data(data)?;
 		let mut command_pool = VulkanCommandPool::new(self.device.clone(), 1)?;
 		let copy_region = VkBufferCopy {
