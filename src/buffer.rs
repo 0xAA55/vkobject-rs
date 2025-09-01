@@ -55,7 +55,7 @@ impl Buffer {
 	}
 
 	/// Update new data to the buffer
-	pub fn set_data(&self, data: *const c_void, offset: usize, length: usize, queue_index: usize) -> Result<(), VulkanError> {
+	pub fn set_data(&self, data: *const c_void, offset: u64, length: usize, queue_index: usize) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let staging_buffer = VulkanBuffer::new(self.device.clone(), length, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
 		let staging_memory = VulkanMemory::new(self.device.clone(), &staging_buffer.get_memory_requirements()?,
