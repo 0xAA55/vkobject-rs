@@ -60,8 +60,7 @@ mod tests {
 			atomic::{AtomicU64, Ordering},
 			Mutex,
 		},
-		thread::{sleep, spawn},
-		time::Duration,
+		thread::spawn,
 	};
 
 	const TEST_TIME: f64 = 10.0;
@@ -163,7 +162,6 @@ mod tests {
 					break;
 				}
 			}
-			sleep(Duration::from_millis(100));
 		}
 	}
 
