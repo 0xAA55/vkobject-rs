@@ -449,14 +449,14 @@ pub struct VulkanBuffer {
 
 impl VulkanBuffer {
 	/// Create the `VulkanBuffer`
-	pub fn new(device: Arc<VulkanDevice>, size: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, size: VkDeviceSize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let buffer_ci = VkBufferCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
-			size: size as VkDeviceSize,
+			size,
 			usage,
 			sharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
 			queueFamilyIndexCount: 0,
