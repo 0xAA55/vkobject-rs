@@ -201,9 +201,6 @@ pub struct VulkanFence {
 
 	/// The fence handle
 	fence: VkFence,
-
-	/// Is the fence a fresh new fence?
-	pub is_fresh: bool,
 }
 
 unsafe impl Send for VulkanFence {}
@@ -222,7 +219,6 @@ impl VulkanFence {
 		Ok(Self{
 			device,
 			fence,
-			is_fresh: true,
 		})
 	}
 
@@ -332,7 +328,6 @@ impl Debug for VulkanFence {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanFence")
 		.field("fence", &self.fence)
-		.field("is_fresh", &self.is_fresh)
 		.finish()
 	}
 }
