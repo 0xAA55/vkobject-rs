@@ -70,7 +70,9 @@ impl VulkanDepthStencilImage {
 				a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
 			},
 			subresourceRange: VkImageSubresourceRange {
-				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as u32 | VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as u32,
+				aspectMask:
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as u32 |
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as u32,
 				baseMipLevel: 0,
 				levelCount: 1,
 				baseArrayLayer: 0,
