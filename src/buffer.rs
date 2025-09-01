@@ -23,7 +23,8 @@ pub struct Buffer {
 
 impl Buffer {
 	/// Create a new buffer
-	pub fn new(device: Arc<VulkanDevice>, size: VkDeviceSize, data: Option<*const c_void>, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+	/// * If `data` is `None`, `cmdbuf` could be `null()` because no `vkCmdCopyBuffer()` will be issued.
+	pub fn new(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, size: VkDeviceSize, data: Option<*const c_void>, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let buffer = VulkanBuffer::new(device.clone(), size, usage | VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT as u32)?;
 		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
@@ -35,13 +36,13 @@ impl Buffer {
 			usage,
 		};
 		if let Some(data) = data {
-			ret.set_data(data, 0, size)?;
+			ret.set_data(cmdbuf, data, 0, size)?;
 		}
 		Ok(ret)
 	}
 
 	/// Update new data to the buffer
-	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, length: VkDeviceSize) -> Result<(), VulkanError> {
+	pub fn set_data(&mut self, cmdbuf: VkCommandBuffer, data: *const c_void, offset: VkDeviceSize, length: VkDeviceSize) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let staging_buffer = VulkanBuffer::new(self.device.clone(), length, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
 		let staging_memory = VulkanMemory::new(self.device.clone(), &staging_buffer.get_memory_requirements()?,
@@ -49,13 +50,12 @@ impl Buffer {
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
 		staging_memory.bind_vk_buffer(staging_buffer.get_vk_buffer())?;
 		staging_memory.set_data(data)?;
-		let mut command_pool = VulkanCommandPool::new(self.device.clone(), 1)?;
 		let copy_region = VkBufferCopy {
 			srcOffset: 0,
 			dstOffset: offset,
 			size: length as VkDeviceSize,
 		};
-		vkcore.vkCmdCopyBuffer(pool_in_use.cmdbuf, staging_buffer.get_vk_buffer(), self.buffer.get_vk_buffer(), 1, &copy_region)?;
+		vkcore.vkCmdCopyBuffer(cmdbuf, staging_buffer.get_vk_buffer(), self.buffer.get_vk_buffer(), 1, &copy_region)?;
 		Ok(())
 	}
 }
