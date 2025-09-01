@@ -35,6 +35,9 @@ pub mod context;
 /// The buffer object
 pub mod buffer;
 
+/// The texture object
+pub mod texture;
+
 /// The common things for you to use
 pub mod prelude {
 	pub use vkcore_rs::*;
@@ -49,6 +52,7 @@ pub mod prelude {
 	pub use crate::cmdpool::*;
 	pub use crate::context::*;
 	pub use crate::buffer::*;
+	pub use crate::texture::*;
 }
 
 #[cfg(test)]
