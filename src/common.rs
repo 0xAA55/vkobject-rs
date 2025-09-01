@@ -105,6 +105,7 @@ pub fn spin_work_with_exp_backoff<T, E: Debug, W: FnMut() -> Result<T, SpinError
 	}
 }
 
+/// The resource guard ensures no resource is leaking. On `drop()`, the `destroyer` is used to free the `resource`.
 #[derive(Debug)]
 pub struct ResourceGuard<R, D: Fn(&R)> {
 	resource: Option<R>,
@@ -112,6 +113,7 @@ pub struct ResourceGuard<R, D: Fn(&R)> {
 }
 
 impl<R, D: Fn(&R)> ResourceGuard<R, D> {
+	/// Create the `ResourceGuard`, `resource` is the resource you want to handle, and `destroyer` is the closure you write to free the resource.
 	pub fn new(resource: R, destroyer: D) -> Self {
 		Self {
 			resource: Some(resource),
@@ -119,6 +121,7 @@ impl<R, D: Fn(&R)> ResourceGuard<R, D> {
 		}
 	}
 
+	/// Release the resource from this structure, so it won't be freed when the guard is `drop()`ing.
 	pub fn release(mut self) -> R {
 		self.resource.take().unwrap()
 	}
