@@ -111,7 +111,7 @@ impl Debug for VulkanCommandPool {
 		.field("pool", &self.pool)
 		.field("cmd_buffers", &self.cmd_buffers)
 		.field("last_buf_index", &self.last_buf_index)
-		.field("fence", &self.fence)
+		.field("submit_fence", &self.submit_fence)
 		.finish()
 	}
 }
