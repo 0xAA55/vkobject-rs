@@ -3,8 +3,6 @@ use crate::prelude::*;
 use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
-	ptr::null,
-	mem::MaybeUninit,
 	sync::Arc,
 };
 

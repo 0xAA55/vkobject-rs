@@ -5,6 +5,7 @@ use crate::prelude::*;
 use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
+	mem::MaybeUninit,
 	ptr::{null, null_mut, copy},
 	sync::Arc,
 };
