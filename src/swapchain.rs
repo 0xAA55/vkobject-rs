@@ -503,7 +503,6 @@ impl VulkanSwapchain {
 	pub(crate) fn acquire_next_image(&mut self, block: bool) -> Result<usize, VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let device = self.device.get_vk_device();
-		if block {self.acquire_semaphore.wait(u64::MAX)?;}
 		let mut cur_image_index = 0u32;
 		vkcore.vkAcquireNextImageKHR(device, self.swapchain, if block {u64::MAX} else {0}, self.acquire_semaphore.get_vk_semaphore(), null(), &mut cur_image_index)?;
 		println!("vkAcquireNextImageKHR {cur_image_index}");
