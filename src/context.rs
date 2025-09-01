@@ -239,7 +239,6 @@ impl VulkanContext {
 		let mut swapchain = self.swapchain.lock().unwrap();
 		let image_index = swapchain.acquire_next_image(true)?;
 		pool_in_use.swapchain_image = Some(swapchain.get_image(image_index));
-		println!("PI: {pool_index}, SI: {image_index}");
 		Ok(VulkanContextFrame::new(self.swapchain.clone(), pool_in_use, image_index))
 	}
 }
