@@ -3,7 +3,6 @@ use crate::prelude::*;
 use std::{
 	cmp::max,
 	fmt::{self, Debug, Formatter},
-	io::{stdout, Write},
 	mem::{MaybeUninit, transmute, swap},
 	ptr::{null, null_mut},
 	sync::{Arc, Mutex},
@@ -506,8 +505,6 @@ impl VulkanSwapchain {
 		let device = self.device.get_vk_device();
 		let mut cur_image_index = 0u32;
 		vkcore.vkAcquireNextImageKHR(device, self.swapchain, if block {u64::MAX} else {0}, self.acquire_semaphore.get_vk_semaphore(), null(), &mut cur_image_index)?;
-		print!("{cur_image_index}");
-		stdout().flush().unwrap();
 		self.cur_image_index = cur_image_index;
 		let image_lock = self.get_image(cur_image_index as usize);
 		swap(&mut self.acquire_semaphore, &mut image_lock.lock().unwrap().acquire_semaphore);
