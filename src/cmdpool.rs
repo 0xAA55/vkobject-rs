@@ -69,6 +69,7 @@ impl VulkanCommandPool {
 		let cmdbuf_index = self.last_buf_index as usize % self.cmd_buffers.len();
 		self.last_buf_index += 1;
 		let buf = self.cmd_buffers[cmdbuf_index];
+		self.device.vkcore.vkResetCommandBuffer(buf, 0).unwrap();
 		VulkanCommandPoolInUse::new(self, pool_lock, buf, queue_index, swapchain_image, one_time_submit)
 	}
 }
@@ -236,13 +237,8 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 
 impl Drop for VulkanCommandPoolInUse<'_> {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
 		if !self.submitted {
 			self.submit().unwrap();
-		}
-		if !self.one_time_submit {
-			self.submit_fence.wait(u64::MAX).unwrap();
-			vkcore.vkResetCommandBuffer(self.cmdbuf, 0).unwrap();
 		}
 	}
 }
