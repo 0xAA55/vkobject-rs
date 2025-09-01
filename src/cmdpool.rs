@@ -18,7 +18,7 @@ pub struct VulkanCommandPool {
 	pub(crate) cmd_buffers: Vec<VkCommandBuffer>,
 
 	/// The last command buffer index
-	pub last_buf_index: Mutex<u32>,
+	pub last_buf_index: u32,
 
 	/// The fence for the command pool
 	pub submit_fence: Arc<VulkanFence>,
@@ -53,7 +53,7 @@ impl VulkanCommandPool {
 		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, cmd_buffers.as_mut_ptr())?;
 		unsafe {cmd_buffers.set_len(num_buffers)};
 		let submit_fence = Arc::new(VulkanFence::new(device.clone())?);
-		let last_buf_index = Mutex::new(0);
+		let last_buf_index = 0;
 		Ok(Self{
 			device,
 			pool,
@@ -64,6 +64,12 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer of the command pool to record draw commands
+	pub(crate) fn use_pool<'a>(&'a mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+		let pool_lock = self.pool.lock().unwrap();
+		let cmdbuf_index = self.last_buf_index as usize % self.cmd_buffers.len();
+		self.last_buf_index += 1;
+		let buf = self.cmd_buffers[cmdbuf_index];
+		VulkanCommandPoolInUse::new(self, pool_lock, buf, queue_index, swapchain_image, one_time_submit)
 	}
 }
 
@@ -86,7 +92,7 @@ impl Drop for VulkanCommandPool {
 }
 
 /// The RAII wrapper for the usage of a Vulkan command pool/buffer. When created, your command could be recorded to the command buffer.
-pub struct VulkanCommandPoolInUse {
+pub struct VulkanCommandPoolInUse<'a> {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
@@ -94,7 +100,7 @@ pub struct VulkanCommandPoolInUse {
 	pub(crate) cmdbuf: VkCommandBuffer,
 
 	/// The command pool to submit commands
-	pub(crate) pool: VkCommandPool,
+	pub(crate) pool_lock: MutexGuard<'a, VkCommandPool>,
 
 	/// The queue index for the command pool to submit
 	pub(crate) queue_index: usize,
@@ -115,9 +121,9 @@ pub struct VulkanCommandPoolInUse {
 	pub submitted: bool,
 }
 
-impl VulkanCommandPoolInUse {
+impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool: VkCommandPool, cmdbuf: VkCommandBuffer, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<Self, VulkanError> {
 		let vkcore = cmdpool.device.vkcore.clone();
 		let device = cmdpool.device.clone();
 		let begin_info = VkCommandBufferBeginInfo {
@@ -131,7 +137,7 @@ impl VulkanCommandPoolInUse {
 		Ok(Self {
 			device,
 			cmdbuf,
-			pool,
+			pool_lock,
 			queue_index,
 			swapchain_image,
 			submit_fence,
@@ -213,11 +219,11 @@ impl VulkanCommandPoolInUse {
 	pub fn end(self) {}
 }
 
-impl Debug for VulkanCommandPoolInUse {
+impl Debug for VulkanCommandPoolInUse<'_> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanCommandPoolInUse")
 		.field("cmdbuf", &self.cmdbuf)
-		.field("pool", &self.pool)
+		.field("pool_lock", &self.pool_lock)
 		.field("queue_index", &self.queue_index)
 		.field("swapchain_image", &self.swapchain_image)
 		.field("submit_fence", &self.submit_fence)
@@ -228,7 +234,7 @@ impl Debug for VulkanCommandPoolInUse {
 	}
 }
 
-impl Drop for VulkanCommandPoolInUse {
+impl Drop for VulkanCommandPoolInUse<'_> {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
 		if !self.submitted {
