@@ -261,7 +261,7 @@ impl<'a> VulkanContextFrame<'a> {
 	}
 }
 
-impl Drop for VulkanContextFrame {
+impl Drop for VulkanContextFrame<'_> {
 	fn drop(&mut self) {
 		if let Some(ref mut pool_in_use) = self.pool_in_use {
 			let queue_index = pool_in_use.queue_index;
