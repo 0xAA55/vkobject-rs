@@ -92,28 +92,29 @@ mod tests {
 			})
 		}
 
-		fn render(&mut self) {
+		fn render(&mut self, pool_index: usize) -> Result<(), VulkanError> {
 			loop {
 				let lock = self.window.lock().unwrap();
 				if lock.should_close() {
 					break;
 				}
 				drop(lock);
-				self.ctx.on_resize().unwrap();
-				let frame = self.ctx.begin_frame(true).unwrap();
+				self.ctx.on_resize()?;
+				let frame = self.ctx.begin_frame(pool_index, true)?;
 				sleep(Duration::from_micros(100));
 				drop(frame);
 				self.num_frames.fetch_add(1, Ordering::Relaxed);
 			}
+			Ok(())
 		}
 
 		pub fn run(&mut self, test_time: Option<f64>) {
 			let mut renderers = Vec::with_capacity(MAX_CONCURRENT_FRAMES);
-			for _ in 0..MAX_CONCURRENT_FRAMES {
+			for i in 0..MAX_CONCURRENT_FRAMES {
 				let ptr = self as *mut Self as usize;
 				renderers.push(spawn(move || {
 					let this = unsafe {&mut *(ptr as *mut Self)};
-					this.render();
+					this.render(i).unwrap();
 				}));
 			}
 
