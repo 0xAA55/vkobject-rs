@@ -274,8 +274,8 @@ impl Drop for VulkanCommandPoolInUse {
 		if !self.submitted {
 			self.submit().unwrap();
 		}
-		self.submit_fence.wait(u64::MAX).unwrap();
 		if !self.one_time_submit {
+			self.submit_fence.wait(u64::MAX).unwrap();
 			vkcore.vkResetCommandBuffer(self.cmdbuf, 0).unwrap();
 		}
 	}
