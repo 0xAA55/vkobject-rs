@@ -77,6 +77,9 @@ pub struct Buffer {
 
 	/// The buffer
 	pub buffer: VulkanBuffer,
+
+	/// The usage of the buffer, not including `VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT` and `VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_DST_BIT`
+	pub(crate) usage: VkBufferUsageFlags,
 }
 
 impl Buffer {
@@ -108,6 +111,7 @@ impl Buffer {
 			device,
 			memory,
 			buffer,
+			usage,
 		})
 	}
 }
@@ -117,6 +121,7 @@ impl Debug for Buffer {
 		f.debug_struct("Buffer")
 		.field("memory", &self.memory)
 		.field("buffer", &self.buffer)
+		.field("usage", &self.usage)
 		.finish()
 	}
 }
