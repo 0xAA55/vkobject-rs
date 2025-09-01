@@ -8,65 +8,6 @@ use std::{
 	sync::Arc,
 };
 
-/// The buffer object that temporarily stores the `VkBuffer`
-pub struct VulkanBuffer {
-	/// The `VulkanDevice` is the associated device
-	pub device: Arc<VulkanDevice>,
-
-	/// The handle to the buffer
-	buffer: VkBuffer,
-}
-
-impl VulkanBuffer {
-	/// Create the `VulkanBuffer`
-	pub fn new(device: Arc<VulkanDevice>, size: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
-		let vkcore = device.vkcore.clone();
-		let vkdevice = device.get_vk_device();
-		let buffer_ci = VkBufferCreateInfo {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_BUFFER_CREATE_INFO,
-			pNext: null(),
-			flags: 0,
-			size: size as VkDeviceSize,
-			usage,
-			sharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
-			queueFamilyIndexCount: 0,
-			pQueueFamilyIndices: null(),
-		};
-		let mut buffer: VkBuffer = null();
-		vkcore.vkCreateBuffer(vkdevice, &buffer_ci, null(), &mut buffer)?;
-		Ok(Self {
-			device,
-			buffer,
-		})
-	}
-
-	pub fn get_memory_requirements(&self) -> Result<VkMemoryRequirements, VulkanError> {
-		let vkcore = self.device.vkcore.clone();
-		let mut ret: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
-		vkcore.vkGetBufferMemoryRequirements(self.device.get_vk_device(), self.buffer, &mut ret)?;
-		Ok(ret)
-	}
-
-	fn get_vk_buffer(&self) -> VkBuffer {
-		self.buffer
-	}
-}
-
-impl Debug for VulkanBuffer {
-	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-		f.debug_struct("VulkanBuffer")
-		.field("buffer", &self.buffer)
-		.finish()
-	}
-}
-
-impl Drop for VulkanBuffer {
-	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
-		vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
-	}
-}
-
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
 pub struct Buffer {
 	/// The `VulkanDevice` is the associated device
