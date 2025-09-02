@@ -384,6 +384,11 @@ impl VulkanMemory {
 		self.memory
 	}
 
+	/// Get the length of the memory
+	pub fn get_size(&self) -> VkDeviceSize {
+		self.size
+	}
+
 	/// Provide data for the memory, or retrieve data from the memory
 	pub fn manipulate_data(&self, data: *mut c_void, direction: DataDirection) -> Result<(), VulkanError> {
 		let vkdevice = self.device.get_vk_device();
