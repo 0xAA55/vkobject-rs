@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
 	ptr::null,
@@ -33,7 +34,7 @@ pub struct VulkanTexture {
 
 impl VulkanTexture {
 	/// Create the `VulkanTexture`
-	pub fn new(device: Arc<VulkanDevice>, dim: VkImageType, width: u32, height: u32, depth: u32, format: VkFormat, tiling: VkImageTiling, flags: VkImageCreateFlags, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, dim: VkImageType, width: u32, height: u32, depth: u32, format: VkFormat, tiling: VkImageTiling, flags: VkImageCreateFlags, usage: VkImageUsageFlags, data: Option<*const c_void>, cmdbuf: VkCommandBuffer) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let image_ci = VkImageCreateInfo {
@@ -65,7 +66,7 @@ impl VulkanTexture {
 		let memory = VulkanMemory::new(device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		memory.bind_vk_image(*image)?;
 		let image = image.release();
-		Ok(Self {
+		let mut ret = Self {
 			device,
 			image,
 			width,
@@ -73,7 +74,43 @@ impl VulkanTexture {
 			depth,
 			format,
 			memory,
-		})
+		};
+		if let Some(data) = data {
+			let offset = VkOffset3D {
+				x: 0,
+				y: 0,
+				z: 0,
+			};
+			ret.set_data(cmdbuf, data, &offset, &image_ci.extent, ret.memory.get_size())?;
+		}
+		Ok(ret)
+	}
+
+	/// Update new data to the texture
+	pub fn set_data(&mut self, cmdbuf: VkCommandBuffer, data: *const c_void, offset: &VkOffset3D, extent: &VkExtent3D, size: u64) -> Result<(), VulkanError> {
+		let vkcore = self.device.vkcore.clone();
+		let staging_buffer = VulkanBuffer::new(self.device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
+		let staging_memory = VulkanMemory::new(self.device.clone(), &staging_buffer.get_memory_requirements()?,
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
+		staging_memory.bind_vk_buffer(staging_buffer.get_vk_buffer())?;
+		staging_memory.set_data(data)?;
+		let copy_region = VkBufferImageCopy {
+			bufferOffset: 0,
+			bufferRowLength: 0,
+			bufferImageHeight: 0,
+			imageSubresource: VkImageSubresourceLayers {
+				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as u32,
+				mipLevel: 0,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+			imageOffset: *offset,
+			imageExtent: *extent,
+		};
+
+		vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
+		Ok(())
 	}
 }
 
