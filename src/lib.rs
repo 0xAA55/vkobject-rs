@@ -159,6 +159,7 @@ mod tests {
 					}
 				}
 			}
+			println!("End of the test");
 			loop {
 				if let Some(h) = renderers.pop() {
 					h.join().unwrap();
