@@ -238,23 +238,30 @@ impl VulkanContext {
 		let mut pool_in_use = self.cmdpools[pool_index].use_pool(pool_index, None, one_time_submit)?;
 		let mut swapchain = self.swapchain.lock().unwrap();
 		let image_index = swapchain.acquire_next_image(true)?;
-		pool_in_use.swapchain_image = Some(swapchain.get_image(image_index));
-		Ok(VulkanContextFrame::new(self.swapchain.clone(), pool_in_use, image_index))
+		let swapchain_image = swapchain.get_image(image_index);
+		pool_in_use.swapchain_image = Some(swapchain_image.clone());
+		Ok(VulkanContextFrame::new(self.device.vkcore.clone(), self.device.clone(), self.swapchain.clone(), swapchain_image, pool_in_use, image_index))
 	}
 }
 
 #[derive(Debug)]
 pub struct VulkanContextFrame<'a> {
+	vkcore: Arc<VkCore>,
+	device: Arc<VulkanDevice>,
 	swapchain: Arc<Mutex<VulkanSwapchain>>,
-	pool_in_use: Option<VulkanCommandPoolInUse<'a>>,
+	swapchain_image: Arc<Mutex<VulkanSwapchainImage>>,
+	pool_in_use: VulkanCommandPoolInUse<'a>,
 	image_index: usize,
 }
 
 impl<'a> VulkanContextFrame<'a> {
-	fn new(swapchain: Arc<Mutex<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Self {
+	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Arc<Mutex<VulkanSwapchain>>, swapchain_image: Arc<Mutex<VulkanSwapchainImage>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Self {
 		Self {
+			vkcore,
+			device,
 			swapchain,
-			pool_in_use: Some(pool_in_use),
+			swapchain_image,
+			pool_in_use,
 			image_index,
 		}
 	}
@@ -262,18 +269,16 @@ impl<'a> VulkanContextFrame<'a> {
 
 impl Drop for VulkanContextFrame<'_> {
 	fn drop(&mut self) {
-		if let Some(ref mut pool_in_use) = self.pool_in_use {
-			let queue_index = pool_in_use.queue_index;
-			pool_in_use.submit().unwrap();
-			let lock = self.swapchain.lock().unwrap();
-			if let Err(e) = lock.queue_present(queue_index, self.image_index) {
-				match e {
-					VulkanError::VkError(e) => match e {
-						VkError::VkErrorOutOfDateKhr(_) => {},
-						other => Err(other).unwrap(),
-					}
+		let queue_index = self.pool_in_use.queue_index;
+		self.pool_in_use.submit().unwrap();
+		let lock = self.swapchain.lock().unwrap();
+		if let Err(e) = lock.queue_present(queue_index, self.image_index) {
+			match e {
+				VulkanError::VkError(e) => match e {
+					VkError::VkErrorOutOfDateKhr(_) => {},
 					other => Err(other).unwrap(),
 				}
+				other => Err(other).unwrap(),
 			}
 		}
 	}
