@@ -3,6 +3,7 @@ use crate::prelude::*;
 use std::{
 	fmt::Debug,
 	mem::MaybeUninit,
+	ptr::null,
 	sync::{Arc, Mutex, MutexGuard},
 };
 
@@ -285,6 +286,23 @@ impl<'a> VulkanContextFrame<'a> {
 		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
 	}
 
+	pub fn clear(&self, color: Vec4, depth: f32, stencil: u32) -> Result<(), VulkanError> {
+		let cmdbuf = self.pool_in_use.cmdbuf;
+		let lock = self.swapchain_image.lock().unwrap();
+		let swapchain_image = lock.get_vk_image();
+		let depth_stencil_image = lock.depth_stencil.get_vk_image();
+		drop(lock);
+		let color_clear_value = VkClearColorValue {
+			float32: [color.x, color.y, color.z, color.w],
+		};
+		let depth_stencil_clear_value = VkClearDepthStencilValue {
+			depth,
+			stencil,
+		};
+		self.vkcore.vkCmdClearColorImage(cmdbuf, swapchain_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color_clear_value, 0, null())?;
+		self.vkcore.vkCmdClearDepthStencilImage(cmdbuf, depth_stencil_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &depth_stencil_clear_value, 0, null())?;
+		Ok(())
+	}
 }
 
 impl Drop for VulkanContextFrame<'_> {
