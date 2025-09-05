@@ -38,9 +38,12 @@ pub mod buffer;
 /// The texture object
 pub mod texture;
 
+extern crate nalgebra_glm as glm;
+
 /// The common things for you to use
 pub mod prelude {
 	pub use vkcore_rs::*;
+	pub use glm::*;
 	pub use crate::common::*;
 	pub use crate::init::*;
 	pub use crate::basics::*;
