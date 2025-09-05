@@ -99,7 +99,7 @@ mod tests {
 			})
 		}
 
-		fn render(&mut self, pool_index: usize) -> Result<(), VulkanError> {
+		fn render(&mut self, pool_index: usize, frame_time: f64) -> Result<(), VulkanError> {
 			loop {
 				let lock = self.window.lock().unwrap();
 				if lock.should_close() {
@@ -108,6 +108,12 @@ mod tests {
 				drop(lock);
 				self.ctx.on_resize()?;
 				let frame = self.ctx.begin_frame(pool_index, true)?;
+
+				frame.set_viewport_swapchain(0.0, 1.0)?;
+				let r = (frame_time.sin() * 0.5 + 0.5) as f32;
+				let g = (frame_time.cos() * 0.5 + 0.5) as f32;
+				let b = ((frame_time * 1.5).sin() * 0.5 + 0.5) as f32;
+				frame.clear(Vec4::new(r, g, b, 1.0), 1.0, 0)?;
 
 				drop(frame);
 				self.num_frames.fetch_add(1, Ordering::Relaxed);
@@ -121,7 +127,7 @@ mod tests {
 				let ptr = self as *mut Self as usize;
 				renderers.push(spawn(move || {
 					let this = unsafe {&mut *(ptr as *mut Self)};
-					this.render(i).unwrap();
+					this.render(i, this.glfw.get_time()).unwrap();
 				}));
 			}
 
