@@ -265,6 +265,21 @@ impl<'a> VulkanContextFrame<'a> {
 			image_index,
 		}
 	}
+
+	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
+		let viewport = VkViewport {
+			x,
+			y,
+			width,
+			height,
+			minDepth: min_depth,
+			maxDepth: max_depth,
+		};
+		let cmdbuf = self.pool_in_use.cmdbuf;
+		self.vkcore.vkCmdSetViewport(cmdbuf, 0, 1, &viewport)?;
+		Ok(())
+	}
+
 }
 
 impl Drop for VulkanContextFrame<'_> {
