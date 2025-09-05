@@ -280,6 +280,11 @@ impl<'a> VulkanContextFrame<'a> {
 		Ok(())
 	}
 
+	pub fn set_viewport_swapchain(&self, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
+		let extent = self.swapchain.lock().unwrap().get_swapchain_extent();
+		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
+	}
+
 }
 
 impl Drop for VulkanContextFrame<'_> {
