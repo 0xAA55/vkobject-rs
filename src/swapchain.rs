@@ -133,13 +133,13 @@ pub struct VulkanSwapchainImage {
 	image_view: VkImageView,
 
 	/// The depth stencil image
-	depth_stencil: VulkanDepthStencilImage,
+	pub(crate) depth_stencil: VulkanDepthStencilImage,
 
 	/// The framebuffer
-	framebuffer: VulkanFramebuffer,
+	pub(crate) framebuffer: VulkanFramebuffer,
 
 	/// The renderpass to the framebuffer
-	renderpass: VulkanRenderPass,
+	pub(crate) renderpass: VulkanRenderPass,
 
 	/// The extent of the image
 	extent: VkExtent2D,
