@@ -44,6 +44,7 @@ extern crate nalgebra_glm as glm;
 pub mod prelude {
 	pub use vkcore_rs::*;
 	pub use glm::*;
+	pub use half::f16;
 	pub use crate::common::*;
 	pub use crate::init::*;
 	pub use crate::basics::*;
