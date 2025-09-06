@@ -247,11 +247,11 @@ impl VulkanContext {
 
 #[derive(Debug)]
 pub struct VulkanContextFrame<'a> {
-	vkcore: Arc<VkCore>,
-	device: Arc<VulkanDevice>,
-	swapchain: Arc<Mutex<VulkanSwapchain>>,
-	swapchain_image: Arc<Mutex<VulkanSwapchainImage>>,
-	pool_in_use: VulkanCommandPoolInUse<'a>,
+	pub vkcore: Arc<VkCore>,
+	pub device: Arc<VulkanDevice>,
+	pub swapchain: Arc<Mutex<VulkanSwapchain>>,
+	pub swapchain_image: Arc<Mutex<VulkanSwapchainImage>>,
+	pub pool_in_use: VulkanCommandPoolInUse<'a>,
 	image_index: usize,
 }
 
