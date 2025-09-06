@@ -267,6 +267,10 @@ impl<'a> VulkanContextFrame<'a> {
 		}
 	}
 
+	pub fn get_image_index(&self) -> usize {
+		self.image_index
+	}
+
 	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
 		let viewport = VkViewport {
 			x,
