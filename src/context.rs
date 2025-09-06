@@ -238,10 +238,10 @@ impl VulkanContext {
 	pub fn begin_frame<'a>(&'a mut self, pool_index: usize, one_time_submit: bool) -> Result<VulkanContextFrame<'a>, VulkanError> {
 		let mut pool_in_use = self.cmdpools[pool_index].use_pool(pool_index, None, one_time_submit)?;
 		let mut swapchain = self.swapchain.lock().unwrap();
-		let image_index = swapchain.acquire_next_image(true)?;
-		let swapchain_image = swapchain.get_image(image_index);
+		let present_image_index = swapchain.acquire_next_image(true)?;
+		let swapchain_image = swapchain.get_image(present_image_index);
 		pool_in_use.swapchain_image = Some(swapchain_image.clone());
-		Ok(VulkanContextFrame::new(self.device.vkcore.clone(), self.device.clone(), self.swapchain.clone(), swapchain_image, pool_in_use, image_index)?)
+		Ok(VulkanContextFrame::new(self.device.vkcore.clone(), self.device.clone(), self.swapchain.clone(), swapchain_image, pool_in_use, present_image_index)?)
 	}
 }
 
@@ -253,11 +253,11 @@ pub struct VulkanContextFrame<'a> {
 	pub swapchain_image: Arc<Mutex<VulkanSwapchainImage>>,
 	pub barrier: VkImageMemoryBarrier,
 	pub pool_in_use: VulkanCommandPoolInUse<'a>,
-	image_index: usize,
+	present_image_index: usize,
 }
 
 impl<'a> VulkanContextFrame<'a> {
-	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Arc<Mutex<VulkanSwapchain>>, swapchain_image: Arc<Mutex<VulkanSwapchainImage>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Result<Self, VulkanError> {
+	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Arc<Mutex<VulkanSwapchain>>, swapchain_image: Arc<Mutex<VulkanSwapchainImage>>, pool_in_use: VulkanCommandPoolInUse<'a>, present_image_index: usize) -> Result<Self, VulkanError> {
 		let barrier = VkImageMemoryBarrier {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			pNext: null(),
@@ -283,7 +283,7 @@ impl<'a> VulkanContextFrame<'a> {
 			swapchain_image,
 			barrier,
 			pool_in_use,
-			image_index,
+			present_image_index,
 		};
 		ret.vkcore.vkCmdPipelineBarrier(
 			ret.pool_in_use.cmdbuf,
@@ -297,8 +297,8 @@ impl<'a> VulkanContextFrame<'a> {
 		Ok(ret)
 	}
 
-	pub fn get_image_index(&self) -> usize {
-		self.image_index
+	pub fn get_present_image_index(&self) -> usize {
+		self.present_image_index
 	}
 
 	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
@@ -380,7 +380,7 @@ impl Drop for VulkanContextFrame<'_> {
 		let queue_index = self.pool_in_use.queue_index;
 		self.pool_in_use.submit().unwrap();
 		let lock = self.swapchain.lock().unwrap();
-		if let Err(e) = lock.queue_present(queue_index, self.image_index) {
+		if let Err(e) = lock.queue_present(queue_index, self.present_image_index) {
 			match e {
 				VulkanError::VkError(e) => match e {
 					VkError::VkErrorOutOfDateKhr(_) => {},

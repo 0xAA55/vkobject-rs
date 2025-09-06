@@ -512,11 +512,11 @@ impl VulkanSwapchain {
 	}
 
 	/// Enqueue a present command to the queue
-	pub(crate) fn queue_present(&self, queue_index: usize, image_index: usize) -> Result<(), VulkanError> {
+	pub(crate) fn queue_present(&self, queue_index: usize, present_image_index: usize) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let swapchains = [self.swapchain];
-		let image_indices = [image_index as u32];
-		let wait_semaphores = [self.get_image(image_index).lock().unwrap().release_semaphore.get_vk_semaphore()];
+		let image_indices = [present_image_index as u32];
+		let wait_semaphores = [self.get_image(present_image_index).lock().unwrap().release_semaphore.get_vk_semaphore()];
 		let present_info = VkPresentInfoKHR {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PRESENT_INFO_KHR,
 			pNext: null(),
