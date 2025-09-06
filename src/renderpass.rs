@@ -9,7 +9,10 @@ use std::{
 /// The renderpass attachment
 #[derive(Debug)]
 pub struct VulkanRenderPassAttachment {
+	/// The format of the attachment
 	pub format: VkFormat,
+
+	/// Is this attachment for depth stencil?
 	pub is_depth_stencil: bool,
 }
 
