@@ -17,9 +17,6 @@ pub struct VulkanCommandPool {
 	/// The command buffers of the command pool
 	pub(crate) cmd_buffers: Vec<VkCommandBuffer>,
 
-	/// The last command buffer index
-	pub last_buf_index: u32,
-
 	/// The fence for the command pool
 	pub submit_fence: Arc<VulkanFence>,
 }
@@ -53,12 +50,10 @@ impl VulkanCommandPool {
 		vkcore.vkAllocateCommandBuffers(vk_device, &cmd_buffers_ci, cmd_buffers.as_mut_ptr())?;
 		unsafe {cmd_buffers.set_len(num_buffers)};
 		let submit_fence = Arc::new(VulkanFence::new(device.clone())?);
-		let last_buf_index = 0;
 		Ok(Self{
 			device,
 			pool,
 			cmd_buffers,
-			last_buf_index,
 			submit_fence,
 		})
 	}
@@ -66,11 +61,17 @@ impl VulkanCommandPool {
 	/// Use a command buffer of the command pool to record draw commands
 	pub(crate) fn use_pool<'a>(&'a mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
 		let pool_lock = self.pool.lock().unwrap();
-		let cmdbuf_index = self.last_buf_index as usize % self.cmd_buffers.len();
-		self.last_buf_index += 1;
-		let buf = self.cmd_buffers[cmdbuf_index];
-		self.device.vkcore.vkResetCommandBuffer(buf, 0).unwrap();
-		VulkanCommandPoolInUse::new(self, pool_lock, buf, queue_index, swapchain_image, one_time_submit)
+		let begin_info = VkCommandBufferBeginInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
+			pNext: null(),
+			flags: 0,
+			pInheritanceInfo: null(),
+		};
+		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[0], 0).unwrap();
+		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[1], 0).unwrap();
+		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[0], &begin_info).unwrap();
+		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[1], &begin_info).unwrap();
+		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[0], self.cmd_buffers[1], queue_index, swapchain_image)
 	}
 }
 
@@ -79,7 +80,6 @@ impl Debug for VulkanCommandPool {
 		f.debug_struct("VulkanCommandPool")
 		.field("pool", &self.pool)
 		.field("cmd_buffers", &self.cmd_buffers)
-		.field("last_buf_index", &self.last_buf_index)
 		.field("submit_fence", &self.submit_fence)
 		.finish()
 	}
@@ -99,6 +99,9 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 	/// The command buffer we are using here
 	pub(crate) cmdbuf: VkCommandBuffer,
+
+	/// The command buffer for backup usage (e.g. concat command buffers, etc.)
+	pub(crate) cmdbuf_backup: VkCommandBuffer,
 
 	/// The command pool to submit commands
 	pub(crate) pool_lock: MutexGuard<'a, VkCommandPool>,
@@ -124,17 +127,11 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, cmdbuf_backup: VkCommandBuffer, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>) -> Result<Self, VulkanError> {
 		let vkcore = cmdpool.device.vkcore.clone();
 		let device = cmdpool.device.clone();
-		let begin_info = VkCommandBufferBeginInfo {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
-			pNext: null(),
-			flags: if one_time_submit {VkCommandBufferUsageFlagBits::VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT as u32} else {0u32},
-			pInheritanceInfo: null(),
-		};
 		let submit_fence = cmdpool.submit_fence.clone();
-		vkcore.vkBeginCommandBuffer(cmdbuf, &begin_info)?;
 		Ok(Self {
 			device,
 			cmdbuf,
+			cmdbuf_backup,
 			pool_lock,
 			queue_index,
 			swapchain_image,
@@ -149,13 +146,17 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		self.cmdbuf
 	}
 
+	/// Get the current command buffer
+	pub(crate) fn get_vk_cmdbuf_2(&self) -> VkCommandBuffer {
+		self.cmdbuf_backup
 	}
 
 	/// End recording commands
 	pub fn end_cmd(&mut self) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		if !self.ended {
-			vkcore.vkEndCommandBuffer(self.get_vk_cmdbuf())?;
+			vkcore.vkEndCommandBuffer(self.cmdbuf)?;
+			vkcore.vkEndCommandBuffer(self.cmdbuf_backup)?;
 			self.ended = true;
 			Ok(())
 		} else {
@@ -217,6 +218,7 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanCommandPoolInUse")
 		.field("cmdbuf", &self.cmdbuf)
+		.field("cmdbuf_backup", &self.cmdbuf_backup)
 		.field("pool_lock", &self.pool_lock)
 		.field("queue_index", &self.queue_index)
 		.field("swapchain_image", &self.swapchain_image)
