@@ -286,6 +286,22 @@ impl<'a> VulkanContextFrame<'a> {
 		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
 	}
 
+	pub fn set_scissor(&self, extent: VkExtent2D) -> Result<(), VulkanError> {
+		let scissor = VkRect2D {
+			offset: VkOffset2D {
+				x: 0,
+				y: 0,
+			},
+			extent,
+		};
+		self.vkcore.vkCmdSetScissor(self.pool_in_use.cmdbuf, 0, 1, &scissor)?;
+		Ok(())
+	}
+
+	pub fn set_scissor_swapchain(&self) -> Result<(), VulkanError> {
+		self.set_scissor(self.swapchain.lock().unwrap().get_swapchain_extent())
+	}
+
 	pub fn clear(&self, color: Vec4, depth: f32, stencil: u32) -> Result<(), VulkanError> {
 		let cmdbuf = self.pool_in_use.cmdbuf;
 		let lock = self.swapchain_image.lock().unwrap();
