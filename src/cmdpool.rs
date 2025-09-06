@@ -64,7 +64,7 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer of the command pool to record draw commands
-	pub(crate) fn use_pool<'a>(&'a mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub(crate) fn use_pool<'a>(&'a mut self, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
 		let pool_lock = self.pool.lock().unwrap();
 		let cmdbuf_index = self.last_buf_index as usize % self.cmd_buffers.len();
 		self.last_buf_index += 1;
@@ -112,9 +112,6 @@ pub struct VulkanCommandPoolInUse<'a> {
 	/// The fence indicating if all commands were submitted
 	pub submit_fence: Arc<VulkanFence>,
 
-	/// Is this command buffer got automatically cleaned when submitted
-	pub(crate) one_time_submit: bool,
-
 	/// Is recording commands ended
 	pub(crate) ended: bool,
 
@@ -124,7 +121,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>, one_time_submit: bool) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, cmdbuf_backup: VkCommandBuffer, queue_index: usize, swapchain_image: Option<Arc<Mutex<VulkanSwapchainImage>>>) -> Result<Self, VulkanError> {
 		let vkcore = cmdpool.device.vkcore.clone();
 		let device = cmdpool.device.clone();
 		let begin_info = VkCommandBufferBeginInfo {
@@ -142,7 +139,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			queue_index,
 			swapchain_image,
 			submit_fence,
-			one_time_submit,
 			ended: false,
 			submitted: false,
 		})
@@ -153,9 +149,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		self.cmdbuf
 	}
 
-	/// Is this command buffer an one time submit command buffer
-	pub fn is_one_time_submit(&self) -> bool {
-		self.one_time_submit
 	}
 
 	/// End recording commands
@@ -228,7 +221,6 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 		.field("queue_index", &self.queue_index)
 		.field("swapchain_image", &self.swapchain_image)
 		.field("submit_fence", &self.submit_fence)
-		.field("one_time_submit", &self.one_time_submit)
 		.field("ended", &self.ended)
 		.field("submitted", &self.submitted)
 		.finish()
