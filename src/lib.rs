@@ -110,6 +110,7 @@ mod tests {
 				let frame = self.ctx.begin_frame(pool_index, true)?;
 
 				frame.set_viewport_swapchain(0.0, 1.0)?;
+				frame.set_scissor_swapchain()?;
 				let r = (frame_time.sin() * 0.5 + 0.5) as f32;
 				let g = (frame_time.cos() * 0.5 + 0.5) as f32;
 				let b = ((frame_time * 1.5).sin() * 0.5 + 0.5) as f32;
