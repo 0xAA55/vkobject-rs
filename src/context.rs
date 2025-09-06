@@ -241,7 +241,7 @@ impl VulkanContext {
 		let image_index = swapchain.acquire_next_image(true)?;
 		let swapchain_image = swapchain.get_image(image_index);
 		pool_in_use.swapchain_image = Some(swapchain_image.clone());
-		Ok(VulkanContextFrame::new(self.device.vkcore.clone(), self.device.clone(), self.swapchain.clone(), swapchain_image, pool_in_use, image_index))
+		Ok(VulkanContextFrame::new(self.device.vkcore.clone(), self.device.clone(), self.swapchain.clone(), swapchain_image, pool_in_use, image_index)?)
 	}
 }
 
@@ -251,20 +251,50 @@ pub struct VulkanContextFrame<'a> {
 	pub device: Arc<VulkanDevice>,
 	pub swapchain: Arc<Mutex<VulkanSwapchain>>,
 	pub swapchain_image: Arc<Mutex<VulkanSwapchainImage>>,
+	pub barrier: VkImageMemoryBarrier,
 	pub pool_in_use: VulkanCommandPoolInUse<'a>,
 	image_index: usize,
 }
 
 impl<'a> VulkanContextFrame<'a> {
-	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Arc<Mutex<VulkanSwapchain>>, swapchain_image: Arc<Mutex<VulkanSwapchainImage>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Self {
-		Self {
+	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Arc<Mutex<VulkanSwapchain>>, swapchain_image: Arc<Mutex<VulkanSwapchainImage>>, pool_in_use: VulkanCommandPoolInUse<'a>, image_index: usize) -> Result<Self, VulkanError> {
+		let barrier = VkImageMemoryBarrier {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			pNext: null(),
+			srcAccessMask: 0,
+			dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+			oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+			newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+			dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+			image: swapchain_image.lock().unwrap().get_vk_image(),
+			subresourceRange: VkImageSubresourceRange {
+				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+				baseMipLevel: 0,
+				levelCount: 1,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+		};
+		let ret = Self {
 			vkcore,
 			device,
 			swapchain,
 			swapchain_image,
+			barrier,
 			pool_in_use,
 			image_index,
-		}
+		};
+		ret.vkcore.vkCmdPipelineBarrier(
+			ret.pool_in_use.cmdbuf,
+			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT as VkPipelineStageFlags,
+			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+			0,
+			0, null(),
+			0, null(),
+			1, &ret.barrier
+		)?;
+		Ok(ret)
 	}
 
 	pub fn get_image_index(&self) -> usize {
@@ -334,6 +364,19 @@ impl<'a> VulkanContextFrame<'a> {
 
 impl Drop for VulkanContextFrame<'_> {
 	fn drop(&mut self) {
+		self.barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		self.barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+		self.barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags;
+		self.barrier.dstAccessMask = 0;
+		self.vkcore.vkCmdPipelineBarrier(
+			self.pool_in_use.cmdbuf,
+			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT as VkPipelineStageFlags,
+			0,
+			0, null(),
+			0, null(),
+			1, &self.barrier
+		).unwrap();
 		let queue_index = self.pool_in_use.queue_index;
 		self.pool_in_use.submit().unwrap();
 		let lock = self.swapchain.lock().unwrap();
