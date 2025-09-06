@@ -17,14 +17,17 @@ pub mod device;
 /// The Vulkan surface
 pub mod surface;
 
-/// The Vulkan swapchain
-pub mod swapchain;
+/// The Vulkan renderpass
+pub mod renderpass;
 
 /// The Vulkan framebuffer
 pub mod framebuffer;
 
-/// The Vulkan renderpass
-pub mod renderpass;
+/// The render target
+pub mod rendertarget;
+
+/// The Vulkan swapchain
+pub mod swapchain;
 
 /// The Vulkan command pool
 pub mod cmdpool;
@@ -50,9 +53,10 @@ pub mod prelude {
 	pub use crate::basics::*;
 	pub use crate::device::*;
 	pub use crate::surface::*;
-	pub use crate::swapchain::*;
-	pub use crate::framebuffer::*;
 	pub use crate::renderpass::*;
+	pub use crate::framebuffer::*;
+	pub use crate::rendertarget::*;
+	pub use crate::swapchain::*;
 	pub use crate::cmdpool::*;
 	pub use crate::context::*;
 	pub use crate::buffer::*;
