@@ -34,7 +34,7 @@ pub struct VulkanTexture {
 
 impl VulkanTexture {
 	/// Create the `VulkanTexture`
-	pub fn new(device: Arc<VulkanDevice>, dim: VkImageType, width: u32, height: u32, depth: u32, format: VkFormat, tiling: VkImageTiling, flags: VkImageCreateFlags, usage: VkImageUsageFlags, data: Option<*const c_void>, cmdbuf: VkCommandBuffer) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, dim: VkImageType, width: u32, height: u32, depth: u32, format: VkFormat, tiling: VkImageTiling, flags: VkImageCreateFlags, usage: VkImageUsageFlags, data: Option<*const c_void>, cmdbuf_for_init: VkCommandBuffer) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let image_ci = VkImageCreateInfo {
@@ -81,7 +81,7 @@ impl VulkanTexture {
 				y: 0,
 				z: 0,
 			};
-			ret.set_data(cmdbuf, data, &offset, &image_ci.extent, ret.memory.get_size())?;
+			ret.set_data(cmdbuf_for_init, data, &offset, &image_ci.extent, ret.memory.get_size())?;
 		}
 		Ok(ret)
 	}
