@@ -319,8 +319,15 @@ impl<'a> VulkanContextFrame<'a> {
 			depth,
 			stencil,
 		};
-		self.vkcore.vkCmdClearColorImage(cmdbuf, swapchain_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color_clear_value, 0, null())?;
-		self.vkcore.vkCmdClearDepthStencilImage(cmdbuf, depth_stencil_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &depth_stencil_clear_value, 0, null())?;
+		let range = VkImageSubresourceRange {
+			aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+			baseMipLevel: 0,
+			levelCount: 1,
+			baseArrayLayer: 0,
+			layerCount: 1,
+		};
+		self.vkcore.vkCmdClearColorImage(cmdbuf, swapchain_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color_clear_value, 1, &range)?;
+		self.vkcore.vkCmdClearDepthStencilImage(cmdbuf, depth_stencil_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &depth_stencil_clear_value, 1, &range)?;
 		Ok(())
 	}
 }
