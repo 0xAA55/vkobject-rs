@@ -241,7 +241,7 @@ impl VulkanContext {
 			self.cmdpools[pool_index].use_pool(pool_index, rt_props)?
 		} else {
 			swapchain = Some(self.swapchain.clone());
-			let index = self.swapchain.acquire_next_image(true)?;
+			let index = self.swapchain.acquire_next_image(pool_index, u64::MAX)?;
 			present_image_index = Some(index);
 			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(index).rt_props.clone())?
 		};

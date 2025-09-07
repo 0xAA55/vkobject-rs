@@ -101,8 +101,8 @@ pub struct VulkanSwapchain {
 	/// The swapchain images
 	pub images: Vec<Arc<VulkanSwapchainImage>>,
 
-	/// The semaphore for acquiring new frame image
-	acquire_semaphore: Arc<Mutex<VulkanSemaphore>>,
+	/// The semaphores for acquiring new frame image
+	acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>>,
 }
 
 unsafe impl Send for VulkanSwapchain {}
@@ -218,7 +218,10 @@ impl VulkanSwapchain {
 		for vk_image in vk_images.iter() {
 			images.push(Arc::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?));
 		}
-		let acquire_semaphore = Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?));
+		let mut acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>> = Vec::with_capacity(num_images as usize);
+		for _ in 0..num_images {
+			acquire_semaphores.push(Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?)));
+		}
 		let swapchain = swapchain.release();
 
 		Ok(Self {
@@ -233,7 +236,7 @@ impl VulkanSwapchain {
 			depth_stencil_format,
 			desired_num_of_swapchain_images,
 			images,
-			acquire_semaphore,
+			acquire_semaphores,
 		})
 	}
 
@@ -307,19 +310,19 @@ impl VulkanSwapchain {
 	}
 
 	/// Acquire the next image, get the new image index
-	pub(crate) fn acquire_next_image(&self, block: bool) -> Result<usize, VulkanError> {
+	pub(crate) fn acquire_next_image(&self, thread_index: usize, timeout: u64) -> Result<usize, VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let device = self.device.get_vk_device();
 		let mut cur_image_index = 0u32;
-		let sem = self.acquire_semaphore.lock().unwrap().get_vk_semaphore();
-		vkcore.vkAcquireNextImageKHR(device, self.swapchain, if block {u64::MAX} else {0}, sem, null(), &mut cur_image_index)?;
+		let sem = self.acquire_semaphores[thread_index].lock().unwrap().get_vk_semaphore();
+		vkcore.vkAcquireNextImageKHR(device, self.swapchain, timeout, sem, null(), &mut cur_image_index)?;
 		let image = self.get_image(cur_image_index as usize);
-		swap(&mut *self.acquire_semaphore.lock().unwrap(), &mut *image.rt_props.acquire_semaphore.lock().unwrap());
+		swap(&mut *self.acquire_semaphores[thread_index].lock().unwrap(), &mut *image.rt_props.acquire_semaphore.lock().unwrap());
 		Ok(cur_image_index as usize)
 	}
 
 	/// Enqueue a present command to the queue
-	pub(crate) fn queue_present(&self, queue_index: usize, present_image_index: usize) -> Result<(), VulkanError> {
+	pub(crate) fn queue_present(&self, thread_index: usize, present_image_index: usize) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let swapchains = [self.swapchain];
 		let image_indices = [present_image_index as u32];
@@ -335,7 +338,7 @@ impl VulkanSwapchain {
 			pResults: null_mut(),
 		};
 
-		vkcore.vkQueuePresentKHR(self.device.get_vk_queue(queue_index), &present_info)?;
+		vkcore.vkQueuePresentKHR(self.device.get_vk_queue(thread_index), &present_info)?;
 		Ok(())
 	}
 }
@@ -353,7 +356,7 @@ impl Debug for VulkanSwapchain {
 		.field("depth_stencil_format", &self.depth_stencil_format)
 		.field("desired_num_of_swapchain_images", &self.desired_num_of_swapchain_images)
 		.field("images", &self.images)
-		.field("acquire_semaphore", &self.acquire_semaphore)
+		.field("acquire_semaphores", &self.acquire_semaphores)
 		.finish()
 	}
 }
