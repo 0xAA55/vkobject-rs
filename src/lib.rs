@@ -32,6 +32,9 @@ pub mod swapchain;
 /// The Vulkan command pool
 pub mod cmdpool;
 
+/// The Vulkan shader
+pub mod shader;
+
 /// The Vulkan context
 pub mod context;
 
@@ -58,6 +61,7 @@ pub mod prelude {
 	pub use crate::rendertarget::*;
 	pub use crate::swapchain::*;
 	pub use crate::cmdpool::*;
+	pub use crate::shader::*;
 	pub use crate::context::*;
 	pub use crate::buffer::*;
 	pub use crate::texture::*;
