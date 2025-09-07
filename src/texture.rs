@@ -160,22 +160,55 @@ impl VulkanTexture {
 		let image = image.release();
 		let mut ret = Self {
 			device,
+	/// Create the `VulkanTexture` from a image that's not owned (e.g. from a swapchain image)
+	pub(crate) fn new_from_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
+		let vkcore = device.vkcore.clone();
+		let vkdevice = device.get_vk_device();
+		let image_view_ci = VkImageViewCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
 			image,
-			width,
-			height,
-			depth,
+			viewType: if type_size.is_cube() {
+				VkImageViewType::VK_IMAGE_VIEW_TYPE_CUBE
+			} else {
+				match type_size.get_image_type() {
+					VkImageType::VK_IMAGE_TYPE_1D => VkImageViewType::VK_IMAGE_VIEW_TYPE_1D,
+					VkImageType::VK_IMAGE_TYPE_2D => VkImageViewType::VK_IMAGE_VIEW_TYPE_2D,
+					VkImageType::VK_IMAGE_TYPE_3D => VkImageViewType::VK_IMAGE_VIEW_TYPE_3D,
+					_ => panic!("Bad image type"),
+				}
+			},
 			format,
-			memory,
+			components: VkComponentMapping {
+				r: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+				g: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+				b: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+				a: VkComponentSwizzle::VK_COMPONENT_SWIZZLE_IDENTITY,
+			},
+			subresourceRange: VkImageSubresourceRange {
+				aspectMask: if type_size.is_depth_stencil() {
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+				} else {
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+				},
+				baseMipLevel: 0,
+				levelCount: 1,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
 		};
-		if let Some(data) = data {
-			let offset = VkOffset3D {
-				x: 0,
-				y: 0,
-				z: 0,
-			};
-			ret.set_data(cmdbuf_for_init, data, &offset, &image_ci.extent, ret.memory.get_size())?;
-		}
-		Ok(ret)
+		let mut image_view: VkImageView = null();
+		vkcore.vkCreateImageView(vkdevice, &image_view_ci, null(), &mut image_view)?;
+		Ok(Self {
+			device,
+			image,
+			image_view,
+			type_size,
+			format,
+			memory: None,
+		})
 	}
 
 	/// Update new data to the texture
