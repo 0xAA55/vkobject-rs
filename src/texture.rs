@@ -9,6 +9,13 @@ use std::{
 	sync::Arc,
 };
 
+/// The offset and extent of a piece of the texture
+#[derive(Debug, Clone, Copy)]
+pub struct TextureRegion {
+	pub offset: VkOffset3D,
+	pub extent: VkExtent3D,
+}
+
 /// The texture type and size
 #[derive(Debug, Clone, Copy)]
 pub enum VulkanTextureType {
@@ -131,6 +138,9 @@ pub struct VulkanTexture {
 
 	/// The memory holds the image data
 	pub(crate) memory: Option<VulkanMemory>,
+
+	/// The staging buffer for the texture
+	pub staging_buffer: Option<StagingBuffer>,
 }
 
 impl VulkanTexture {
@@ -230,24 +240,39 @@ impl VulkanTexture {
 			type_size,
 			format,
 			memory: None,
+			staging_buffer: None,
 		})
 	}
 
-	/// Update new data to the texture
-	pub fn set_data(&mut self, cmdbuf: VkCommandBuffer, data: *const c_void, offset: &VkOffset3D, extent: &VkExtent3D, size: u64) -> Result<(), VulkanError> {
-		let vkcore = self.device.vkcore.clone();
-		let staging_buffer = VulkanBuffer::new(self.device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
-		let staging_memory = VulkanMemory::new(self.device.clone(), &staging_buffer.get_memory_requirements()?,
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
-		staging_memory.bind_vk_buffer(staging_buffer.get_vk_buffer())?;
-		staging_memory.set_data(data)?;
+	/// Get the size of the image
+	pub fn get_size(&self) -> Result<VkDeviceSize, VulkanError> {
+		let mut mem_reqs: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
+		self.device.vkcore.vkGetImageMemoryRequirements(self.device.get_vk_device(), self.image, &mut mem_reqs)?;
+		Ok(mem_reqs.size)
+	}
+
+	/// Update new data to the staging buffer
+	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		if let None = self.staging_buffer {
+			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.get_size()?)?);
+		}
+		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
+		Ok(())
+	}
+
+	/// Upload the staging buffer data to the texture
+	pub fn upload_staging_buffer(&self, cmdbuf: VkCommandBuffer, offset: &VkOffset3D, extent: &VkExtent3D) -> Result<(), VulkanError> {
 		let copy_region = VkBufferImageCopy {
 			bufferOffset: 0,
 			bufferRowLength: 0,
 			bufferImageHeight: 0,
 			imageSubresource: VkImageSubresourceLayers {
-				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as u32,
+				aspectMask: if self.is_depth_stencil() {
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+				} else {
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+				},
 				mipLevel: 0,
 				baseArrayLayer: 0,
 				layerCount: 1,
@@ -256,7 +281,32 @@ impl VulkanTexture {
 			imageExtent: *extent,
 		};
 
-		vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
+		self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, self.staging_buffer.as_ref().unwrap().get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
+		Ok(())
+	}
+
+	/// Upload the staging buffer data to the texture
+	pub fn upload_staging_buffer_multi(&self, cmdbuf: VkCommandBuffer, regions: &[TextureRegion]) -> Result<(), VulkanError> {
+		let copy_regions: Vec<VkBufferImageCopy> = regions.iter().map(|r| VkBufferImageCopy {
+			bufferOffset: 0,
+			bufferRowLength: 0,
+			bufferImageHeight: 0,
+			imageSubresource: VkImageSubresourceLayers {
+				aspectMask: if self.is_depth_stencil() {
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+				} else {
+					VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+				},
+				mipLevel: 0,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+			imageOffset: r.offset,
+			imageExtent: r.extent,
+		}).collect();
+
+		self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, self.staging_buffer.as_ref().unwrap().get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy_regions.len() as u32, copy_regions.as_ptr())?;
 		Ok(())
 	}
 
@@ -268,6 +318,11 @@ impl VulkanTexture {
 	/// Get the `VkImageView`
 	pub(crate) fn get_vk_image_view(&self) -> VkImageView {
 		self.image_view
+	}
+
+	/// Get the type and size of the texture
+	pub fn get_type_size(&self) -> VulkanTextureType {
+		self.type_size
 	}
 
 	/// Get if the image is cubemap
@@ -289,6 +344,11 @@ impl VulkanTexture {
 	pub fn get_extent(&self) -> VkExtent3D {
 		self.type_size.get_extent()
 	}
+
+	/// Discard the staging buffer to save memory
+	pub fn discard_staging_buffer(&mut self) {
+		self.staging_buffer = None;
+	}
 }
 
 unsafe impl Send for VulkanTexture {}
@@ -301,6 +361,7 @@ impl Debug for VulkanTexture {
 		.field("type_size", &self.type_size)
 		.field("format", &self.format)
 		.field("memory", &self.memory)
+		.field("staging_buffer", &self.staging_buffer)
 		.finish()
 	}
 }
