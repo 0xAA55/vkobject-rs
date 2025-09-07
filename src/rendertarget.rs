@@ -34,11 +34,8 @@ impl RenderTargetProps {
 		let renderpass_attachments: Vec<VulkanRenderPassAttachment> = attachments.iter().map(|t| {
 			VulkanRenderPassAttachment::new(t.format, t.type_size.is_depth_stencil())
 		}).collect();
-		let framebuffer_attachments: Vec<VkImageView> = attachments.iter().map(|t| {
-			t.image_view
-		}).collect();
 		let renderpass = VulkanRenderPass::new(device.clone(), &renderpass_attachments)?;
-		let framebuffer = VulkanFramebuffer::new(device.clone(), extent, renderpass.get_vk_renderpass(), &framebuffer_attachments)?;
+		let framebuffer = VulkanFramebuffer::new(device.clone(), extent, &renderpass, attachments)?;
 		Ok(Self {
 			renderpass,
 			framebuffer,
