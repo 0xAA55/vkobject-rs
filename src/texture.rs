@@ -12,10 +12,19 @@ use std::{
 /// The texture type and size
 #[derive(Debug, Clone, Copy)]
 pub enum VulkanTextureType {
+	/// 1D texture
 	T1d(u32),
+
+	/// 2D texture
 	T2d(VkExtent2D),
+
+	/// 3D texture (a.k.a. volume texture)
 	T3d(VkExtent3D),
+
+	/// Cubemap texture with 6 faces
 	Cube(u32),
+
+	/// The texture dedicated for a depth stencil buffer
 	DepthStencil(VkExtent2D),
 }
 
