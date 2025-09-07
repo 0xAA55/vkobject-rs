@@ -6,66 +6,6 @@ use std::{
 	sync::Arc,
 };
 
-/// The region of a buffer
-#[derive(Debug)]
-pub struct BufferRegion {
-	pub offset: VkDeviceSize,
-	pub size: VkDeviceSize,
-}
-
-/// The staging buffer for the Vulkan buffer object
-pub struct StagingBuffer {
-	/// The `VulkanDevice` is the associated device
-	pub device: Arc<VulkanDevice>,
-
-	/// The device memory
-	pub memory: VulkanMemory,
-
-	/// The buffer
-	pub buffer: VulkanBuffer,
-}
-
-impl StagingBuffer {
-	/// Create a new staging buffer
-	pub fn new(device: Arc<VulkanDevice>, size: VkDeviceSize) -> Result<Self, VulkanError> {
-		let buffer = VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
-		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
-		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
-		Ok(Self {
-			device,
-			memory,
-			buffer,
-		})
-	}
-
-	/// Get the `VkBuffer`
-	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
-		self.buffer.get_vk_buffer()
-	}
-
-	/// Get the `VkDeviceMemory`
-	pub(crate) fn get_vk_memory(&self) -> VkDeviceMemory {
-		self.memory.get_vk_memory()
-	}
-
-	/// Set the content of the staging buffer
-	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
-		self.memory.set_data(data, offset, size)?;
-		Ok(())
-	}
-}
-
-impl Debug for StagingBuffer {
-	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-		f.debug_struct("StagingBuffer")
-		.field("memory", &self.memory)
-		.field("buffer", &self.buffer)
-		.finish()
-	}
-}
-
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
 pub struct Buffer {
 	/// The `VulkanDevice` is the associated device
