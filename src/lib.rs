@@ -67,13 +67,6 @@ pub mod prelude {
 mod tests {
 	use glfw::*;
 	use crate::prelude::*;
-	use std::{
-		sync::{
-			atomic::{AtomicU64, Ordering},
-			Mutex,
-		},
-		thread::spawn,
-	};
 
 	const TEST_TIME: f64 = 10.0;
 	const MAX_CONCURRENT_FRAMES: usize = 3;
@@ -81,10 +74,10 @@ mod tests {
 	#[derive(Debug)]
 	pub struct TestInstance {
 		pub ctx: VulkanContext,
-		pub window: Mutex<PWindow>,
+		pub window: PWindow,
 		pub events: GlfwReceiver<(f64, WindowEvent)>,
 		pub glfw: Glfw,
-		pub num_frames: AtomicU64,
+		pub num_frames: u64,
 	}
 
 	impl TestInstance {
@@ -96,92 +89,57 @@ mod tests {
 			let ctx = create_vulkan_context(&window, true, MAX_CONCURRENT_FRAMES, false)?;
 			Ok(Self {
 				glfw,
-				window: Mutex::new(window),
+				window,
 				events,
-				num_frames: AtomicU64::new(0),
+				num_frames: 0,
 				ctx,
 			})
 		}
 
-		fn render(&mut self, pool_index: usize, frame_time: f64) -> Result<(), VulkanError> {
-			loop {
-				let lock = self.window.lock().unwrap();
-				if lock.should_close() {
-					break;
-				}
-				drop(lock);
-				self.ctx.on_resize()?;
-				let frame = self.ctx.begin_frame(pool_index, true)?;
-
-				frame.set_viewport_swapchain(0.0, 1.0)?;
-				frame.set_scissor_swapchain()?;
-				let r = (frame_time.sin() * 0.5 + 0.5) as f32;
-				let g = (frame_time.cos() * 0.5 + 0.5) as f32;
-				let b = ((frame_time * 1.5).sin() * 0.5 + 0.5) as f32;
-				frame.clear(Vec4::new(r, g, b, 1.0), 1.0, 0)?;
-
-				drop(frame);
-				self.num_frames.fetch_add(1, Ordering::Relaxed);
-			}
-			Ok(())
-		}
-
-		pub fn run(&mut self, test_time: Option<f64>) {
-			let mut renderers = Vec::with_capacity(MAX_CONCURRENT_FRAMES);
-			for i in 0..MAX_CONCURRENT_FRAMES {
-				let ptr = self as *mut Self as usize;
-				renderers.push(spawn(move || {
-					let this = unsafe {&mut *(ptr as *mut Self)};
-					this.render(i, this.glfw.get_time()).unwrap();
-				}));
-			}
-
+		pub fn run(&mut self, test_time: Option<f64>) -> Result<(), VulkanError> {
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
-			loop {
+			while !self.window.should_close() {
 				let cur_frame_time = self.glfw.get_time();
 				let run_time = cur_frame_time - start_time;
-				let lock = self.window.lock().unwrap();
-				if lock.should_close() {
-					break;
-				}
-				drop(lock);
+				let scene = self.ctx.begin_scene(0, None)?;
+
+				scene.set_viewport_swapchain(0.0, 1.0)?;
+				scene.set_scissor_swapchain()?;
+				let r = (cur_frame_time.sin() * 0.5 + 0.5) as f32;
+				let g = (cur_frame_time.cos() * 0.5 + 0.5) as f32;
+				let b = ((cur_frame_time * 1.5).sin() * 0.5 + 0.5) as f32;
+				scene.clear(Vec4::new(r, g, b, 1.0), 1.0, 0)?;
+
+				drop(scene);
+				self.num_frames += 1;
 
 				let new_time_in_sec = run_time.floor() as u64;
 				if new_time_in_sec > time_in_sec {
-					let frames = self.num_frames.fetch_add(0, Ordering::Relaxed);
-					let fps = frames - num_frames_prev;
+					let fps = self.num_frames - num_frames_prev;
 					println!("FPS: {fps}\tat {new_time_in_sec}s");
 					time_in_sec = new_time_in_sec;
-					num_frames_prev = frames;
+					num_frames_prev = self.num_frames;
 				}
 
 				self.glfw.poll_events();
 				for (_, event) in glfw::flush_messages(&self.events) {
 					match event {
 						glfw::WindowEvent::Key(Key::Escape, _, Action::Press, _) => {
-							let mut lock = self.window.lock().unwrap();
-							lock.set_should_close(true);
+							self.window.set_should_close(true);
 						}
 						_ => {}
 					}
 				}
 				if let Some(test_time) = test_time {
 					if run_time >= test_time {
-						let mut lock = self.window.lock().unwrap();
-						lock.set_should_close(true);
+						self.window.set_should_close(true);
 					}
 				}
 			}
 			println!("End of the test");
-			loop {
-				if let Some(h) = renderers.pop() {
-					h.join().unwrap();
-				} else {
-					break;
-				}
-			}
+			Ok(())
 		}
 	}
 
@@ -190,6 +148,6 @@ mod tests {
 	#[test]
 	fn test() {
 		let mut inst = Box::new(TestInstance::new(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).unwrap());
-		inst.run(Some(TEST_TIME));
+		inst.run(Some(TEST_TIME)).unwrap();
 	}
 }
