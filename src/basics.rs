@@ -5,6 +5,7 @@ use crate::prelude::*;
 use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
+	io::{self, ErrorKind},
 	mem::MaybeUninit,
 	ptr::{null, null_mut, copy},
 	sync::Arc,
@@ -14,6 +15,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub enum VulkanError {
 	VkError(VkError),
+	IOError((String, ErrorKind)),
 	ChooseGpuFailed,
 	NoGoodQueueForSurface(&'static str),
 	NoGoodDepthStencilFormat,
@@ -26,6 +28,12 @@ pub enum VulkanError {
 impl From<VkError> for VulkanError {
 	fn from(e: VkError) -> Self {
 		Self::VkError(e)
+	}
+}
+
+impl From<io::Error> for VulkanError {
+	fn from(e: io::Error) -> Self {
+		Self::IOError((format!("{e:?}"), e.kind()))
 	}
 }
 
