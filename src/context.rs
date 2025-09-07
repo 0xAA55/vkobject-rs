@@ -4,7 +4,7 @@ use std::{
 	fmt::Debug,
 	mem::MaybeUninit,
 	ptr::null,
-	sync::{Arc, Mutex, MutexGuard},
+	sync::Arc,
 };
 
 /// The struct to provide the information of the surface
@@ -83,7 +83,7 @@ pub struct VulkanContextCreateInfo<'a> {
 #[derive(Debug)]
 pub struct VulkanContext {
 	/// The swapchain
-	pub(crate) swapchain: Arc<Mutex<VulkanSwapchain>>,
+	pub(crate) swapchain: Arc<VulkanSwapchain>,
 
 	/// The command pools
 	pub(crate) cmdpools: Vec<VulkanCommandPool>,
@@ -131,7 +131,7 @@ impl VulkanContext {
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = Arc::new(Mutex::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, (max_concurrent_frames + 1) as u32, None)?));
+		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, (max_concurrent_frames + 1) as u32, None)?);
 		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
 		for _ in 0..max_concurrent_frames {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
@@ -182,8 +182,8 @@ impl VulkanContext {
 	}
 
 	/// Get the swapchain
-	pub fn get_swapchain<'a>(&'a self) -> MutexGuard<'a, VulkanSwapchain> {
-		self.swapchain.lock().unwrap()
+	pub fn get_swapchain(&self) -> Arc<VulkanSwapchain> {
+		self.swapchain.clone()
 	}
 
 	/// Get the `VkSwapchainKHR`
@@ -211,8 +211,7 @@ impl VulkanContext {
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		let mut lock = self.swapchain.lock().unwrap();
-		*lock = VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, vsync, is_vr, lock.get_desired_num_of_swapchain_images() as u32, Some(lock.get_vk_swapchain()))?;
+		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, vsync, is_vr, self.swapchain.get_desired_num_of_swapchain_images() as u32, Some(self.swapchain.get_vk_swapchain()))?);
 		Ok(())
 	}
 
@@ -224,10 +223,8 @@ impl VulkanContext {
 			swapchain_extent.height == surface_size.height {
 			Ok(false)
 		} else {
-			let lock = self.swapchain.lock().unwrap();
-			let is_vsync = lock.get_is_vsync();
-			let is_vr = lock.get_is_vr();
-			drop(lock);
+			let is_vsync = self.swapchain.get_is_vsync();
+			let is_vr = self.swapchain.get_is_vr();
 			self.recreate_swapchain(surface_size.width, surface_size.height, is_vsync, is_vr)?;
 			Ok(true)
 		}
@@ -235,30 +232,35 @@ impl VulkanContext {
 
 	/// Acquire a command buffer and a queue, start recording the commands
 	/// * You could call this function in different threads, in order to achieve concurrent frame rendering
-	pub fn begin_frame<'a>(&'a mut self, pool_index: usize, one_time_submit: bool) -> Result<VulkanContextFrame<'a>, VulkanError> {
-		let mut pool_in_use = self.cmdpools[pool_index].use_pool(pool_index, None, one_time_submit)?;
-		let mut swapchain = self.swapchain.lock().unwrap();
-		let present_image_index = swapchain.acquire_next_image(true)?;
-		let swapchain_image = swapchain.get_image(present_image_index);
-		pool_in_use.swapchain_image = Some(swapchain_image.clone());
-		Ok(VulkanContextFrame::new(self.device.vkcore.clone(), self.device.clone(), self.swapchain.clone(), swapchain_image, pool_in_use, present_image_index)?)
+	pub fn begin_scene<'a>(&'a mut self, pool_index: usize, rt_props: Option<Arc<RenderTargetProps>>) -> Result<VulkanContextScene<'a>, VulkanError> {
+		let present_image_index;
+		let swapchain;
+		let pool_in_use = if let Some(rt_props) = rt_props {
+			swapchain = None;
+			present_image_index = None;
+			self.cmdpools[pool_index].use_pool(pool_index, rt_props)?
+		} else {
+			swapchain = Some(self.swapchain.clone());
+			let index = self.swapchain.acquire_next_image(true)?;
+			present_image_index = Some(index);
+			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(index).rt_props.clone())?
+		};
+		Ok(VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)?)
 	}
 }
 
 #[derive(Debug)]
-pub struct VulkanContextFrame<'a> {
+pub struct VulkanContextScene<'a> {
 	pub vkcore: Arc<VkCore>,
 	pub device: Arc<VulkanDevice>,
-	pub swapchain: Arc<Mutex<VulkanSwapchain>>,
-	pub swapchain_image: Arc<Mutex<VulkanSwapchainImage>>,
-	pub barrier: VkImageMemoryBarrier,
 	pub pool_in_use: VulkanCommandPoolInUse<'a>,
-	present_image_index: usize,
+	swapchain: Option<Arc<VulkanSwapchain>>,
+	present_image_index: Option<usize>,
 }
 
-impl<'a> VulkanContextFrame<'a> {
-	fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Arc<Mutex<VulkanSwapchain>>, swapchain_image: Arc<Mutex<VulkanSwapchainImage>>, pool_in_use: VulkanCommandPoolInUse<'a>, present_image_index: usize) -> Result<Self, VulkanError> {
-		let barrier = VkImageMemoryBarrier {
+impl<'a> VulkanContextScene<'a> {
+	pub(crate) fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Option<Arc<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse<'a>, present_image_index: Option<usize>) -> Result<Self, VulkanError> {
+		let mut barrier = VkImageMemoryBarrier {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			pNext: null(),
 			srcAccessMask: 0,
@@ -267,38 +269,40 @@ impl<'a> VulkanContextFrame<'a> {
 			newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 			srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
 			dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
-			image: swapchain_image.lock().unwrap().get_vk_image(),
+			image: null(),
 			subresourceRange: VkImageSubresourceRange {
-				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+				aspectMask: 0,
 				baseMipLevel: 0,
 				levelCount: 1,
 				baseArrayLayer: 0,
 				layerCount: 1,
 			},
 		};
-		let ret = Self {
+		for image in pool_in_use.rt_props.attachments.iter() {
+			barrier.image = image.get_vk_image();
+			barrier.subresourceRange.aspectMask = if image.is_depth_stencil() {
+				VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+				VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+			} else {
+				VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+			};
+			vkcore.vkCmdPipelineBarrier(
+				pool_in_use.cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier
+			)?;
+		}
+		Ok(Self {
 			vkcore,
 			device,
-			swapchain,
-			swapchain_image,
-			barrier,
 			pool_in_use,
+			swapchain,
 			present_image_index,
-		};
-		ret.vkcore.vkCmdPipelineBarrier(
-			ret.pool_in_use.cmdbuf,
-			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT as VkPipelineStageFlags,
-			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
-			0,
-			0, null(),
-			0, null(),
-			1, &ret.barrier
-		)?;
-		Ok(ret)
-	}
-
-	pub fn get_present_image_index(&self) -> usize {
-		self.present_image_index
+		})
 	}
 
 	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
@@ -316,7 +320,7 @@ impl<'a> VulkanContextFrame<'a> {
 	}
 
 	pub fn set_viewport_swapchain(&self, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
-		let extent = self.swapchain.lock().unwrap().get_swapchain_extent();
+		let extent = self.pool_in_use.get_extent();
 		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
 	}
 
@@ -333,61 +337,96 @@ impl<'a> VulkanContextFrame<'a> {
 	}
 
 	pub fn set_scissor_swapchain(&self) -> Result<(), VulkanError> {
-		self.set_scissor(self.swapchain.lock().unwrap().get_swapchain_extent())
+		self.set_scissor(self.pool_in_use.get_extent())
 	}
 
 	pub fn clear(&self, color: Vec4, depth: f32, stencil: u32) -> Result<(), VulkanError> {
 		let cmdbuf = self.pool_in_use.cmdbuf;
-		let lock = self.swapchain_image.lock().unwrap();
-		let swapchain_image = lock.get_vk_image();
-		let depth_stencil_image = lock.depth_stencil.get_vk_image();
-		drop(lock);
-		let color_clear_value = VkClearColorValue {
-			float32: [color.x, color.y, color.z, color.w],
-		};
-		let depth_stencil_clear_value = VkClearDepthStencilValue {
-			depth,
-			stencil,
-		};
-		let range = VkImageSubresourceRange {
-			aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
-			baseMipLevel: 0,
-			levelCount: 1,
-			baseArrayLayer: 0,
-			layerCount: 1,
-		};
-		self.vkcore.vkCmdClearColorImage(cmdbuf, swapchain_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color_clear_value, 1, &range)?;
-		self.vkcore.vkCmdClearDepthStencilImage(cmdbuf, depth_stencil_image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &depth_stencil_clear_value, 1, &range)?;
+		for image in self.pool_in_use.rt_props.attachments.iter() {
+			if !image.is_depth_stencil() {
+				let color_clear_value = VkClearColorValue {
+					float32: [color.x, color.y, color.z, color.w],
+				};
+				let range = VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					baseMipLevel: 0,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				};
+				self.vkcore.vkCmdClearColorImage(cmdbuf, image.get_vk_image(), VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &color_clear_value, 1, &range)?;
+			} else {
+				let depth_stencil_clear_value = VkClearDepthStencilValue {
+					depth,
+					stencil,
+				};
+				let range = VkImageSubresourceRange {
+					aspectMask: 
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags,
+					baseMipLevel: 0,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				};
+				self.vkcore.vkCmdClearDepthStencilImage(cmdbuf, image.get_vk_image(), VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, &depth_stencil_clear_value, 1, &range)?;
+			}
+		}
 		Ok(())
 	}
+
+	pub fn present(&mut self) -> Result<(), VulkanError> {
+		let queue_index = self.pool_in_use.queue_index;
+		let mut barrier = VkImageMemoryBarrier {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			pNext: null(),
+			srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+			dstAccessMask: 0,
+			oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			newLayout: VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
+			srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+			dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+			image: null(),
+			subresourceRange: VkImageSubresourceRange {
+				aspectMask: 0,
+				baseMipLevel: 0,
+				levelCount: 1,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+		};
+		for image in self.pool_in_use.rt_props.attachments.iter() {
+			barrier.image = image.get_vk_image();
+			barrier.subresourceRange.aspectMask = if image.is_depth_stencil() {
+				VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+				VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+			} else {
+				VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+			};
+			self.vkcore.vkCmdPipelineBarrier(
+				self.pool_in_use.cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier
+			)?;
+		}
+		self.pool_in_use.submit().unwrap();
+		self.swapchain.as_ref().unwrap().queue_present(queue_index, self.present_image_index.unwrap())?;
+		Ok(())
+	}
+
+	pub fn finish(self) {}
 }
 
-impl Drop for VulkanContextFrame<'_> {
+impl Drop for VulkanContextScene<'_> {
 	fn drop(&mut self) {
-		self.barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		self.barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-		self.barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags;
-		self.barrier.dstAccessMask = 0;
-		self.vkcore.vkCmdPipelineBarrier(
-			self.pool_in_use.cmdbuf,
-			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
-			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT as VkPipelineStageFlags,
-			0,
-			0, null(),
-			0, null(),
-			1, &self.barrier
-		).unwrap();
-		let queue_index = self.pool_in_use.queue_index;
-		self.pool_in_use.submit().unwrap();
-		let lock = self.swapchain.lock().unwrap();
-		if let Err(e) = lock.queue_present(queue_index, self.present_image_index) {
-			match e {
-				VulkanError::VkError(e) => match e {
-					VkError::VkErrorOutOfDateKhr(_) => {},
-					other => Err(other).unwrap(),
-				}
-				other => Err(other).unwrap(),
-			}
+		if let Some(_) = self.present_image_index {
+			self.present().unwrap();
+		} else {
+			self.pool_in_use.submit().unwrap();
 		}
 	}
 }
