@@ -8,6 +8,100 @@ use std::{
 	sync::Arc,
 };
 
+/// The texture type and size
+#[derive(Debug, Clone, Copy)]
+pub enum VulkanTextureType {
+	T1d(u32),
+	T2d(VkExtent2D),
+	T3d(VkExtent3D),
+	Cube(u32),
+	DepthStencil(VkExtent2D),
+}
+
+impl VulkanTextureType {
+	/// Get if the image is cubemap
+	pub fn is_cube(&self) -> bool {
+		if let Self::Cube(_) = self {
+			true
+		} else {
+			false
+		}
+	}
+
+	/// Get if the image is depth stencil
+	pub fn is_depth_stencil(&self) -> bool {
+		if let Self::DepthStencil(_) = self {
+			true
+		} else {
+			false
+		}
+	}
+
+	/// Get the `VkImageType`
+	pub fn get_image_type(&self) -> VkImageType {
+		match self {
+			Self::T1d(_) => {
+				VkImageType::VK_IMAGE_TYPE_1D
+			}
+			Self::T2d(_) => {
+				VkImageType::VK_IMAGE_TYPE_2D
+			}
+			Self::T3d(_) => {
+				VkImageType::VK_IMAGE_TYPE_3D
+			}
+			Self::Cube(_) => {
+				VkImageType::VK_IMAGE_TYPE_2D
+			}
+			Self::DepthStencil(_) => {
+				VkImageType::VK_IMAGE_TYPE_2D
+			}
+		}
+	}
+
+	/// Get the `VkExtent3D`
+	pub fn get_extent(&self) -> VkExtent3D {
+		match self {
+			Self::T1d(size) => {
+				VkExtent3D {
+					width: *size,
+					height: 1,
+					depth: 1,
+				}
+			}
+			Self::T2d(size) => {
+				VkExtent3D {
+					width: size.width,
+					height: size.height,
+					depth: 1,
+				}
+			}
+			Self::T3d(size) => {
+				VkExtent3D {
+					width: size.width,
+					height: size.height,
+					depth: size.depth,
+				}
+			}
+			Self::Cube(size) => {
+				VkExtent3D {
+					width: *size,
+					height: *size,
+					depth: 1,
+				}
+			}
+			Self::DepthStencil(size) => {
+				VkExtent3D {
+					width: size.width,
+					height: size.height,
+					depth: 1,
+				}
+			}
+		}
+	}
+}
+
+unsafe impl Send for VulkanTextureType {}
+
 /// The wrapper for the Vulkan texture images
 pub struct VulkanTexture {
 	/// The device holds all of the resource
