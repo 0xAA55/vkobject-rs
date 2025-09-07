@@ -126,24 +126,34 @@ pub struct VulkanTexture {
 
 impl VulkanTexture {
 	/// Create the `VulkanTexture`
-	pub fn new(device: Arc<VulkanDevice>, dim: VkImageType, width: u32, height: u32, depth: u32, format: VkFormat, tiling: VkImageTiling, flags: VkImageCreateFlags, usage: VkImageUsageFlags, data: Option<*const c_void>, cmdbuf_for_init: VkCommandBuffer) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, type_size: VulkanTextureType, with_mipmap: bool, format: VkFormat, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
+		let extent = type_size.get_extent();
+		let dim = type_size.get_image_type();
+		let is_cube = type_size.is_cube();
+		let mipmap_levels = if with_mipmap {
+			let mut levels = 0u32;
+			let mut size = max(max(extent.width, extent.height), extent.depth);
+			while size > 0 {
+				size >>= 1;
+				levels += 1;
+			}
+			levels
+		} else {
+			1
+		};
 		let image_ci = VkImageCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO,
 			pNext: null(),
-			flags,
+			flags: if is_cube {VkImageCreateFlagBits::VK_IMAGE_CREATE_CUBE_COMPATIBLE_BIT as VkImageCreateFlags} else {0},
 			imageType: dim,
 			format,
-			extent: VkExtent3D {
-				width,
-				height,
-				depth,
-			},
-			mipLevels: 1,
+			extent,
+			mipLevels: mipmap_levels,
 			arrayLayers: 1,
 			samples: VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
-			tiling,
+			tiling: VkImageTiling::VK_IMAGE_TILING_OPTIMAL,
 			usage,
 			sharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
 			queueFamilyIndexCount: 0,
@@ -157,9 +167,12 @@ impl VulkanTexture {
 		vkcore.vkGetImageMemoryRequirements(vkdevice, *image, &mut mem_reqs)?;
 		let memory = VulkanMemory::new(device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		memory.bind_vk_image(*image)?;
-		let image = image.release();
-		let mut ret = Self {
-			device,
+		let mut ret = Self::new_from_image(device, *image, type_size, format)?;
+		ret.memory = Some(memory);
+		image.release();
+		Ok(ret)
+	}
+
 	/// Create the `VulkanTexture` from a image that's not owned (e.g. from a swapchain image)
 	pub(crate) fn new_from_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
