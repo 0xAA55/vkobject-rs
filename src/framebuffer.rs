@@ -20,13 +20,13 @@ pub struct VulkanFramebuffer {
 
 impl VulkanFramebuffer {
 	/// Create the `VulkanFramebuffer`
-	pub fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, render_pass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
+	pub(crate) fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, renderpass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let framebuffer_ci = VkFramebufferCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
-			renderPass: render_pass,
+			renderPass: renderpass,
 			attachmentCount: attachments.len() as u32,
 			pAttachments: attachments.as_ptr(),
 			width: extent.width,
