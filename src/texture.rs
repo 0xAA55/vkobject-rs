@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	cmp::max,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
@@ -108,22 +109,19 @@ pub struct VulkanTexture {
 	pub device: Arc<VulkanDevice>,
 
 	/// The texture image
-	image: VkImage,
+	pub(crate) image: VkImage,
 
-	/// The width of the texture (pixels per row)
-	width: u32,
+	/// The image view
+	pub(crate) image_view: VkImageView,
 
-	/// The height of the texture (rows per layer)
-	height: u32,
-
-	/// The depth of the texture (number of layers)
-	depth: u32,
+	/// The type and size of the texture
+	pub(crate) type_size: VulkanTextureType,
 
 	/// The format of the texture
-	format: VkFormat,
+	pub(crate) format: VkFormat,
 
 	/// The memory holds the image data
-	memory: VulkanMemory,
+	pub(crate) memory: Option<VulkanMemory>,
 }
 
 impl VulkanTexture {
@@ -205,6 +203,36 @@ impl VulkanTexture {
 
 		vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
 		Ok(())
+	}
+
+	/// Get the `VkImage`
+	pub(crate) fn get_vk_image(&self) -> VkImage {
+		self.image
+	}
+
+	/// Get the `VkImageView`
+	pub(crate) fn get_vk_image_view(&self) -> VkImageView {
+		self.image_view
+	}
+
+	/// Get if the image is cubemap
+	pub fn is_cube(&self) -> bool {
+		self.type_size.is_cube()
+	}
+
+	/// Get if the image is depth stencil
+	pub fn is_depth_stencil(&self) -> bool {
+		self.type_size.is_depth_stencil()
+	}
+
+	/// Get the `VkImageType`
+	pub fn get_image_type(&self) -> VkImageType {
+		self.type_size.get_image_type()
+	}
+
+	/// Get the extent of the image
+	pub fn get_extent(&self) -> VkExtent3D {
+		self.type_size.get_extent()
 	}
 }
 
