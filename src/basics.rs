@@ -390,26 +390,26 @@ impl VulkanMemory {
 	}
 
 	/// Provide data for the memory, or retrieve data from the memory
-	pub fn manipulate_data(&self, data: *mut c_void, direction: DataDirection) -> Result<(), VulkanError> {
+	pub fn manipulate_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
 		let vkdevice = self.device.get_vk_device();
 		let mut map_pointer: *mut c_void = null_mut();
-		self.device.vkcore.vkMapMemory(vkdevice, self.memory, 0, self.size, 0, &mut map_pointer)?;
+		self.device.vkcore.vkMapMemory(vkdevice, self.memory, offset, size as VkDeviceSize, 0, &mut map_pointer)?;
 		match direction {
-			DataDirection::SetData => unsafe {copy(data as *const u8, map_pointer as *mut u8, self.size as usize)},
-			DataDirection::GetData => unsafe {copy(map_pointer as *const u8, data as *mut u8, self.size as usize)},
+			DataDirection::SetData => unsafe {copy(data as *const u8, map_pointer as *mut u8, size)},
+			DataDirection::GetData => unsafe {copy(map_pointer as *const u8, data as *mut u8, size)},
 		}
 		self.device.vkcore.vkUnmapMemory(vkdevice, self.memory)?;
 		Ok(())
 	}
 
 	/// Provide data for the memory
-	pub fn set_data(&self, data: *const c_void) -> Result<(), VulkanError> {
-		self.manipulate_data(data as *mut c_void, DataDirection::SetData)
+	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		self.manipulate_data(data as *mut c_void, offset, size, DataDirection::SetData)
 	}
 
 	/// Retrieve data from the memory
-	pub fn get_data(&self, data: *mut c_void) -> Result<(), VulkanError> {
-		self.manipulate_data(data, DataDirection::GetData)
+	pub fn get_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		self.manipulate_data(data, offset, size, DataDirection::GetData)
 	}
 
 	/// Bind to a buffer
