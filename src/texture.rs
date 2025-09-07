@@ -282,13 +282,14 @@ impl VulkanTexture {
 	}
 }
 
+unsafe impl Send for VulkanTexture {}
+
 impl Debug for VulkanTexture {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanTexture")
 		.field("image", &self.image)
-		.field("width", &self.width)
-		.field("height", &self.height)
-		.field("depth", &self.depth)
+		.field("image_view", &self.image_view)
+		.field("type_size", &self.type_size)
 		.field("format", &self.format)
 		.field("memory", &self.memory)
 		.finish()
@@ -297,6 +298,13 @@ impl Debug for VulkanTexture {
 
 impl Drop for VulkanTexture {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyImage(self.device.get_vk_device(), self.image, null()).unwrap();
+		let vkcore = self.device.vkcore.clone();
+		let vkdevice = self.device.get_vk_device();
+		vkcore.vkDestroyImageView(vkdevice, self.image_view, null()).unwrap();
+
+		// Only destroy the image if it was owned by the struct.
+		if let Some(_) = self.memory {
+			vkcore.vkDestroyImage(vkdevice, self.image, null()).unwrap();
+		}
 	}
 }
