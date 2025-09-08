@@ -313,10 +313,10 @@ impl VulkanSwapchain {
 	/// Acquire the next image, get the new image index
 	pub(crate) fn acquire_next_image(&self, thread_index: usize, timeout: u64) -> Result<usize, VulkanError> {
 		let vkcore = self.device.vkcore.clone();
-		let device = self.device.get_vk_device();
+		let vkdevice = self.device.get_vk_device();
 		let mut cur_image_index = 0u32;
 		let sem = self.acquire_semaphores[thread_index].lock().unwrap().get_vk_semaphore();
-		vkcore.vkAcquireNextImageKHR(device, self.swapchain, timeout, sem, null(), &mut cur_image_index)?;
+		vkcore.vkAcquireNextImageKHR(vkdevice, self.swapchain, timeout, sem, null(), &mut cur_image_index)?;
 		let image = self.get_image(cur_image_index as usize);
 		swap(&mut *self.acquire_semaphores[thread_index].lock().unwrap(), &mut *image.rt_props.acquire_semaphore.lock().unwrap());
 		Ok(cur_image_index as usize)
