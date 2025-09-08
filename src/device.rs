@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	ffi::CStr,
 	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
 	ptr::{null, null_mut},
@@ -141,9 +142,18 @@ impl VulkanDevice {
 			queueCount: queue_count as u32,
 			pQueuePriorities: priorities.as_ptr(),
 		};
-		let mut extensions = Vec::<*const i8>::with_capacity(gpu.extension_properties.len());
+		let mut extensions: Vec<*const i8> = Vec::with_capacity(gpu.extension_properties.len());
+		let mut has_vk_khr_buffer_device_address = false;
 		for ext in gpu.extension_properties.iter() {
-			extensions.push(&ext.extensionName[0] as *const _);
+			let ext_ptr = ext.extensionName.as_ptr();
+			let ext_str = unsafe {CStr::from_ptr(ext_ptr)}.to_string_lossy().into_owned();
+			if ext_str == "VK_KHR_buffer_device_address" {
+				has_vk_khr_buffer_device_address = true;
+			} else if ext_str == "VK_EXT_buffer_device_address" {
+				if has_vk_khr_buffer_device_address {continue;}
+			}
+			dbg!(ext_ptr);
+			extensions.push(ext_ptr)
 		}
 		let device_ci = VkDeviceCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
