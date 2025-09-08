@@ -35,7 +35,6 @@ impl VulkanSwapchainImage {
 			false,
 			depth_stencil_format,
 			VkImageUsageFlagBits::VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT as VkImageUsageFlags |
-			VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as VkImageUsageFlags |
 			VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as VkImageUsageFlags
 		)?);
 		let attachments = [image.clone(), depth_stencil.clone()];
