@@ -152,7 +152,6 @@ impl VulkanDevice {
 			} else if ext_str == "VK_EXT_buffer_device_address" {
 				if has_vk_khr_buffer_device_address {continue;}
 			}
-			dbg!(ext_ptr);
 			extensions.push(ext_ptr)
 		}
 		let device_ci = VkDeviceCreateInfo {
