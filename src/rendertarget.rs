@@ -24,9 +24,6 @@ pub struct RenderTargetProps {
 
 	/// The semaphore indicating that the render commands were runned
 	pub release_semaphore: Arc<VulkanSemaphore>,
-
-	/// The fence of submitting commands to a queue
-	pub queue_submit_fence: Arc<VulkanFence>,
 }
 
 impl RenderTargetProps {
@@ -43,7 +40,6 @@ impl RenderTargetProps {
 			extent: *extent,
 			acquire_semaphore: Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?)),
 			release_semaphore: Arc::new(VulkanSemaphore::new(device.clone())?),
-			queue_submit_fence: Arc::new(VulkanFence::new(device.clone())?),
 		})
 	}
 }
