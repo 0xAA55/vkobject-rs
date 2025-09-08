@@ -241,9 +241,24 @@ impl VulkanContext {
 			self.cmdpools[pool_index].use_pool(pool_index, rt_props)?
 		} else {
 			swapchain = Some(self.swapchain.clone());
-			let index = self.swapchain.acquire_next_image(pool_index, u64::MAX)?;
-			present_image_index = Some(index);
-			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(index).rt_props.clone())?
+			loop {
+				match self.swapchain.acquire_next_image(pool_index, u64::MAX) {
+					Ok(index) => {
+						present_image_index = Some(index);
+						break;
+					}
+					Err(e) => match e {
+						VulkanError::VkError(ve) => match ve {
+							VkError::VkErrorOutOfDateKhr(_) => {
+								self.on_resize()?;
+							}
+							_ => return Err(VulkanError::VkError(ve)),
+						}
+						_ => return Err(e),
+					}
+				};
+			}
+			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(present_image_index.unwrap()).rt_props.clone())?
 		};
 		VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)
 	}
@@ -417,7 +432,18 @@ impl<'a> VulkanContextScene<'a> {
 			)?;
 		}
 		self.pool_in_use.submit().unwrap();
-		self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap())?;
+		match self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap()) {
+			Ok(_) => Ok(()),
+			Err(e) => match e {
+				VulkanError::VkError(ve) => match ve {
+					VkError::VkErrorOutOfDateKhr(_) => {
+						Ok(())
+					},
+					_ => Err(VulkanError::VkError(ve))
+				}
+				_ => Err(e),
+			}
+		}?;
 		self.present_queued = true;
 		Ok(())
 	}
