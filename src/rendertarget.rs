@@ -36,7 +36,7 @@ impl RenderTargetProps {
 		Ok(Self {
 			renderpass,
 			framebuffer,
-			attachments: attachments.iter().map(|t|t.clone()).collect(),
+			attachments: attachments.to_vec(),
 			extent: *extent,
 			acquire_semaphore: Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?)),
 			release_semaphore: Arc::new(VulkanSemaphore::new(device.clone())?),

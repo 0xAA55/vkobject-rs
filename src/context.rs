@@ -245,7 +245,7 @@ impl VulkanContext {
 			present_image_index = Some(index);
 			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(index).rt_props.clone())?
 		};
-		Ok(VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)?)
+		VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)
 	}
 }
 

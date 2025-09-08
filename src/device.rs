@@ -95,10 +95,9 @@ impl VulkanGpuInfo {
 	/// Get memory type index by the memory properties flags
 	pub fn get_memory_type_index(&self, mut type_bits: u32, properties: VkMemoryPropertyFlags) -> Result<u32, VulkanError> {
 		for i in 0..self.mem_properties.memoryTypeCount {
-			if (type_bits & 1) == 1 {
-				if (self.mem_properties.memoryTypes[i as usize].propertyFlags & properties) == properties {
-					return Ok(i)
-				}
+			if (type_bits & 1) == 1
+				&& (self.mem_properties.memoryTypes[i as usize].propertyFlags & properties) == properties {
+				return Ok(i)
 			}
 			type_bits >>= 1;
 		}
@@ -146,10 +145,9 @@ impl VulkanDevice {
 			let ext_str = unsafe {CStr::from_ptr(ext_ptr)}.to_string_lossy().into_owned();
 			if ext_str == "VK_KHR_buffer_device_address" {
 				has_vk_khr_buffer_device_address = true;
-			} else if ext_str == "VK_EXT_buffer_device_address" {
-				if has_vk_khr_buffer_device_address {
-					continue;
-				}
+			} else if ext_str == "VK_EXT_buffer_device_address"
+				&& has_vk_khr_buffer_device_address {
+				continue;
 			}
 			extensions.push(ext_ptr)
 		}

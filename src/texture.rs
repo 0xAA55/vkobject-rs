@@ -38,20 +38,12 @@ pub enum VulkanTextureType {
 impl VulkanTextureType {
 	/// Get if the image is cubemap
 	pub fn is_cube(&self) -> bool {
-		if let Self::Cube(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Self::Cube(_))
 	}
 
 	/// Get if the image is depth stencil
 	pub fn is_depth_stencil(&self) -> bool {
-		if let Self::DepthStencil(_) = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Self::DepthStencil(_))
 	}
 
 	/// Get the `VkImageType`
