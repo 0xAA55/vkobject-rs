@@ -256,6 +256,7 @@ pub struct VulkanContextScene<'a> {
 	pub pool_in_use: VulkanCommandPoolInUse<'a>,
 	swapchain: Option<Arc<VulkanSwapchain>>,
 	present_image_index: Option<usize>,
+	present_queued: bool,
 }
 
 impl<'a> VulkanContextScene<'a> {
@@ -302,6 +303,7 @@ impl<'a> VulkanContextScene<'a> {
 			pool_in_use,
 			swapchain,
 			present_image_index,
+			present_queued: false,
 		})
 	}
 
@@ -376,6 +378,9 @@ impl<'a> VulkanContextScene<'a> {
 	}
 
 	pub fn present(&mut self) -> Result<(), VulkanError> {
+		if self.present_queued {
+			panic!("Duplicated call to `VulkanContextScene::present()`.");
+		}
 		let mut barrier = VkImageMemoryBarrier {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			pNext: null(),
@@ -414,6 +419,7 @@ impl<'a> VulkanContextScene<'a> {
 		}
 		self.pool_in_use.submit().unwrap();
 		self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap())?;
+		self.present_queued = true;
 		Ok(())
 	}
 
@@ -423,7 +429,9 @@ impl<'a> VulkanContextScene<'a> {
 impl Drop for VulkanContextScene<'_> {
 	fn drop(&mut self) {
 		if let Some(_) = self.present_image_index {
-			self.present().unwrap();
+			if !self.present_queued {
+				self.present().unwrap();
+			}
 		} else {
 			self.pool_in_use.submit().unwrap();
 		}
