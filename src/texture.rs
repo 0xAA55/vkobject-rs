@@ -253,7 +253,7 @@ impl VulkanTexture {
 
 	/// Update new data to the staging buffer
 	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
-		if let None = self.staging_buffer {
+		if self.staging_buffer.is_none() {
 			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.get_size()?)?);
 		}
 		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
@@ -374,7 +374,7 @@ impl Drop for VulkanTexture {
 		vkcore.vkDestroyImageView(vkdevice, self.image_view, null()).unwrap();
 
 		// Only destroy the image if it was owned by the struct.
-		if let Some(_) = self.memory {
+		if self.memory.is_some() {
 			vkcore.vkDestroyImage(vkdevice, self.image, null()).unwrap();
 		}
 	}

@@ -438,7 +438,7 @@ impl Debug for VulkanContextScene<'_> {
 
 impl Drop for VulkanContextScene<'_> {
 	fn drop(&mut self) {
-		if let Some(_) = self.present_image_index {
+		if self.present_image_index.is_some() {
 			if !self.present_queued {
 				self.present().unwrap();
 			}

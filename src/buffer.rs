@@ -47,7 +47,7 @@ impl Buffer {
 
 	/// Update new data to the buffer
 	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
-		if let None = self.staging_buffer {
+		if self.staging_buffer.is_none() {
 			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.memory.get_size())?);
 		}
 		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
