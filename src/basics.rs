@@ -199,6 +199,7 @@ impl Debug for VulkanSemaphore {
 impl Drop for VulkanSemaphore {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
+		self.device.wait_idle().unwrap();
 		vkcore.vkDestroySemaphore(self.device.get_vk_device(), self.semaphore, null()).unwrap();
 	}
 }
@@ -344,6 +345,7 @@ impl Debug for VulkanFence {
 impl Drop for VulkanFence {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
+		self.device.wait_idle().unwrap();
 		vkcore.vkDestroyFence(self.device.get_vk_device(), self.fence, null()).unwrap();
 	}
 }
