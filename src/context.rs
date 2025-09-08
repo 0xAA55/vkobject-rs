@@ -106,10 +106,10 @@ impl VulkanContext {
 		let max_concurrent_frames = create_info.max_concurrent_frames;
 		let vkcore = create_info.vkcore.clone();
 		let device = Arc::new(match (create_info.device_can_graphics, create_info.device_can_compute) {
-			(false, false) => VulkanDevice::choose_gpu_anyway(vkcore.clone(), max_concurrent_frames)?,
-			(true, false) => VulkanDevice::choose_gpu_with_graphics(vkcore.clone(), max_concurrent_frames)?,
-			(false, true) => VulkanDevice::choose_gpu_with_compute(vkcore.clone(), max_concurrent_frames)?,
-			(true, true) => VulkanDevice::choose_gpu_with_graphics_and_compute(vkcore.clone(), max_concurrent_frames)?,
+			(false, false) => VulkanDevice::choose_gpu_anyway(vkcore.clone())?,
+			(true, false) => VulkanDevice::choose_gpu_with_graphics(vkcore.clone())?,
+			(false, true) => VulkanDevice::choose_gpu_with_compute(vkcore.clone())?,
+			(true, true) => VulkanDevice::choose_gpu_with_graphics_and_compute(vkcore.clone())?,
 		});
 		let surface = &create_info.surface;
 
@@ -167,8 +167,8 @@ impl VulkanContext {
 	}
 
 	/// Get a queue for the current device. To submit commands to a queue concurrently, the queue must be locked.
-	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> VkQueue {
-		self.device.get_vk_queue(queue_index)
+	pub(crate) fn get_vk_queue(&self) -> VkQueue {
+		self.device.get_vk_queue()
 	}
 
 	/// Get the `VkSurfaceKHR`
@@ -376,7 +376,6 @@ impl<'a> VulkanContextScene<'a> {
 	}
 
 	pub fn present(&mut self) -> Result<(), VulkanError> {
-		let queue_index = self.pool_in_use.queue_index;
 		let mut barrier = VkImageMemoryBarrier {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			pNext: null(),
@@ -414,7 +413,7 @@ impl<'a> VulkanContextScene<'a> {
 			)?;
 		}
 		self.pool_in_use.submit().unwrap();
-		self.swapchain.as_ref().unwrap().queue_present(queue_index, self.present_image_index.unwrap())?;
+		self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap())?;
 		Ok(())
 	}
 
