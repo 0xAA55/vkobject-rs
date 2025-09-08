@@ -3,7 +3,7 @@ use crate::prelude::*;
 use std::{
 	cmp::max,
 	fmt::{self, Debug, Formatter},
-	mem::{MaybeUninit, transmute, swap},
+	mem::{MaybeUninit, swap},
 	ptr::{null, null_mut},
 	sync::{Arc, Mutex},
 };
@@ -156,13 +156,13 @@ impl VulkanSwapchain {
 		}
 
 		// Find the transformation of the surface
-		let pre_transform: VkSurfaceTransformFlagBitsKHR = unsafe {transmute(if (surf_caps.supportedTransforms &
-			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as u32) ==
-			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as u32 {
+		let pre_transform: VkSurfaceTransformFlagBitsKHR = if (surf_caps.supportedTransforms &
+			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as VkSurfaceTransformFlagsKHR) ==
+			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR as VkSurfaceTransformFlagsKHR {
 			VkSurfaceTransformFlagBitsKHR::VK_SURFACE_TRANSFORM_IDENTITY_BIT_KHR
 		} else {
 			surf_caps.currentTransform
-		} as u32)};
+		};
 
 		// Find a supported composite alpha format (not all devices support alpha opaque)
 		let mut composite_alpha = VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_OPAQUE_BIT_KHR;
@@ -173,7 +173,7 @@ impl VulkanSwapchain {
 			VkCompositeAlphaFlagBitsKHR::VK_COMPOSITE_ALPHA_INHERIT_BIT_KHR,
 		];
 		for flag in COMPOSITE_ALPHA_FLAGS.iter() {
-			if (surf_caps.supportedCompositeAlpha & *flag as u32) == *flag as u32 {
+			if (surf_caps.supportedCompositeAlpha & *flag as VkCompositeAlphaFlagsKHR) == *flag as VkCompositeAlphaFlagsKHR {
 				composite_alpha = *flag;
 				break;
 			}
@@ -189,10 +189,9 @@ impl VulkanSwapchain {
 			imageColorSpace: surface_format.colorSpace,
 			imageExtent: swapchain_extent,
 			imageArrayLayers: if !is_vr {1} else {2},
-			imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as u32 |
-				(surf_caps.supportedUsageFlags & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as u32) |
-				(surf_caps.supportedUsageFlags & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as u32)
-				as VkImageUsageFlags,
+			imageUsage: VkImageUsageFlagBits::VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT as VkImageUsageFlags |
+				(surf_caps.supportedUsageFlags & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT as VkImageUsageFlags) |
+				(surf_caps.supportedUsageFlags & VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as VkImageUsageFlags),
 			imageSharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
 			queueFamilyIndexCount: 0,
 			pQueueFamilyIndices: null(),
@@ -254,7 +253,7 @@ impl VulkanSwapchain {
 	pub fn is_supported_depth_stencil_format(vkcore: &VkCore, vkgpu: VkPhysicalDevice, format: VkFormat) -> Result<bool, VulkanError> {
 		let mut format_props: VkFormatProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 		vkcore.vkGetPhysicalDeviceFormatProperties(vkgpu, format, &mut format_props)?;
-		if (format_props.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT as u32) == VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT as u32 {
+		if (format_props.optimalTilingFeatures & VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT as VkFormatFeatureFlags) == VkFormatFeatureFlagBits::VK_FORMAT_FEATURE_DEPTH_STENCIL_ATTACHMENT_BIT as VkFormatFeatureFlags {
 			Ok(true)
 		} else {
 			Ok(false)

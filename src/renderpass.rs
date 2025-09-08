@@ -96,27 +96,27 @@ impl VulkanRenderPass {
 				srcSubpass: VK_SUBPASS_EXTERNAL,
 				dstSubpass: 0,
 				srcStageMask:
-					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT as u32 |
-					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT as u32,
+					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT as VkPipelineStageFlags |
+					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT as VkPipelineStageFlags,
 				dstStageMask:
-					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT as u32 |
-					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT as u32,
+					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_EARLY_FRAGMENT_TESTS_BIT as VkPipelineStageFlags |
+					VkPipelineStageFlagBits::VK_PIPELINE_STAGE_LATE_FRAGMENT_TESTS_BIT as VkPipelineStageFlags,
 				srcAccessMask:
-					VkAccessFlagBits::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT as u32,
+					VkAccessFlagBits::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT as VkPipelineStageFlags,
 				dstAccessMask:
-					VkAccessFlagBits::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT as u32 |
-					VkAccessFlagBits::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT as u32,
+					VkAccessFlagBits::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_WRITE_BIT as VkPipelineStageFlags |
+					VkAccessFlagBits::VK_ACCESS_DEPTH_STENCIL_ATTACHMENT_READ_BIT as VkPipelineStageFlags,
 				dependencyFlags: 0,
 			},
 			VkSubpassDependency {
 				srcSubpass: VK_SUBPASS_EXTERNAL,
 				dstSubpass: 0,
-				srcStageMask: VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT as u32,
-				dstStageMask: VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT as u32,
+				srcStageMask: VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT as VkPipelineStageFlags,
+				dstStageMask: VkPipelineStageFlagBits::VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT as VkPipelineStageFlags,
 				srcAccessMask: 0,
 				dstAccessMask:
-					VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT as u32 |
-					VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT as u32,
+					VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT as VkAccessFlags |
+					VkAccessFlagBits::VK_ACCESS_COLOR_ATTACHMENT_READ_BIT as VkAccessFlags,
 				dependencyFlags: 0,
 			},
 		];

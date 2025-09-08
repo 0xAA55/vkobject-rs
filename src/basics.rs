@@ -156,7 +156,7 @@ impl VulkanSemaphore {
 			let wait_i = VkSemaphoreWaitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
 				pNext: null(),
-				flags: if any {VkSemaphoreWaitFlagBits::VK_SEMAPHORE_WAIT_ANY_BIT as u32} else {0},
+				flags: if any {VkSemaphoreWaitFlagBits::VK_SEMAPHORE_WAIT_ANY_BIT as VkSemaphoreWaitFlags} else {0},
 				semaphoreCount: semaphores.len() as u32,
 				pSemaphores: semaphores.as_ptr(),
 				pValues: timelines.as_ptr(),
@@ -176,7 +176,7 @@ impl VulkanSemaphore {
 			let wait_i = VkSemaphoreWaitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SEMAPHORE_WAIT_INFO,
 				pNext: null(),
-				flags: if any {VkSemaphoreWaitFlagBits::VK_SEMAPHORE_WAIT_ANY_BIT as u32} else {0},
+				flags: if any {VkSemaphoreWaitFlagBits::VK_SEMAPHORE_WAIT_ANY_BIT as VkSemaphoreWaitFlags} else {0},
 				semaphoreCount: semaphores.len() as u32,
 				pSemaphores: semaphores.as_ptr(),
 				pValues: timelines.as_ptr(),
@@ -532,10 +532,10 @@ pub struct StagingBuffer {
 impl StagingBuffer {
 	/// Create a new staging buffer
 	pub fn new(device: Arc<VulkanDevice>, size: VkDeviceSize) -> Result<Self, VulkanError> {
-		let buffer = VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as u32)?;
+		let buffer = VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as VkBufferUsageFlags)?;
 		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as u32 |
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as u32)?;
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as VkMemoryPropertyFlags |
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?;
 		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
 		Ok(Self {
 			device,

@@ -44,8 +44,8 @@ impl VulkanCommandPool {
 			pNext: null(),
 			queueFamilyIndex: device.get_queue_family_index(),
 			flags:
-				VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT as u32 |
-				VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_TRANSIENT_BIT as u32,
+				VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT as VkCommandPoolCreateFlags |
+				VkCommandPoolCreateFlagBits::VK_COMMAND_POOL_CREATE_TRANSIENT_BIT as VkCommandPoolCreateFlags,
 		};
 		let mut pool: VkCommandPool = null();
 		vkcore.vkCreateCommandPool(vk_device, &pool_ci, null(), &mut pool)?;

@@ -45,7 +45,7 @@ impl VulkanSurface {
 		let mut graphics_queue_node_index = u32::MAX;
 		let mut present_queue_node_index = u32::MAX;
 		for (i, queue_family) in queue_families.iter().enumerate() {
-			if (queue_family.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32) == VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 {
+			if (queue_family.queueFlags & VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as VkQueueFlags) == VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as VkQueueFlags {
 				graphics_queue_node_index = i as u32;
 				if supported[i] {
 					present_queue_node_index = i as u32;
