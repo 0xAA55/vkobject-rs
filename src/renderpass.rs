@@ -79,7 +79,7 @@ impl VulkanRenderPass {
 			pColorAttachments: attachment_refs.as_ptr(),
 			pResolveAttachments: null(),
 			pDepthStencilAttachment: if let Some(depth) = depth_attachment_ref {
-				depth as *const _
+				depth
 			} else {
 				null()
 			},
@@ -122,7 +122,7 @@ impl VulkanRenderPass {
 			attachmentCount: attachment_descs.len() as u32,
 			pAttachments: attachment_descs.as_ptr(),
 			subpassCount: 1,
-			pSubpasses: &subpass_desc as *const _,
+			pSubpasses: &subpass_desc,
 			dependencyCount: dependencies.len() as u32,
 			pDependencies: dependencies.as_ptr(),
 		};
