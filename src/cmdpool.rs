@@ -5,7 +5,7 @@ use std::{
 	ptr::null,
 	sync::{
 		Arc,
-		atomic::{AtomicBool, Ordering},
+		atomic::{AtomicBool, AtomicUsize, Ordering},
 		Mutex,
 		MutexGuard
 	},
@@ -21,6 +21,9 @@ pub struct VulkanCommandPool {
 
 	/// The command buffers of the command pool
 	pub(crate) cmd_buffers: Vec<VkCommandBuffer>,
+
+	/// The index of the command buffer
+	pub index_of_buffer: AtomicUsize,
 
 	/// The fence for the command pool
 	pub submit_fence: Arc<VulkanFence>,
@@ -61,6 +64,7 @@ impl VulkanCommandPool {
 		Ok(Self{
 			device,
 			pool,
+			index_of_buffer: AtomicUsize::new(0),
 			cmd_buffers,
 			submit_fence,
 			fence_is_signaling: Arc::new(AtomicBool::new(false)),
@@ -76,15 +80,10 @@ impl VulkanCommandPool {
 			flags: 0,
 			pInheritanceInfo: null(),
 		};
-		if self.fence_is_signaling.fetch_and(false, Ordering::Relaxed) {
-			self.submit_fence.wait(u64::MAX)?;
-			self.submit_fence.unsignal()?;
-		}
-		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[0], 0).unwrap();
-		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[1], 0).unwrap();
-		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[0], &begin_info).unwrap();
-		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[1], &begin_info).unwrap();
-		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[0], self.cmd_buffers[1], thread_index, rt_props, self.fence_is_signaling.clone())
+		let buffer_index = self.index_of_buffer.fetch_add(1, Ordering::Relaxed) % self.cmd_buffers.len();
+		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[buffer_index], 0).unwrap();
+		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[buffer_index], &begin_info).unwrap();
+		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], thread_index, rt_props, self.fence_is_signaling.clone())
 	}
 }
 
@@ -93,6 +92,7 @@ impl Debug for VulkanCommandPool {
 		f.debug_struct("VulkanCommandPool")
 		.field("pool", &self.pool)
 		.field("cmd_buffers", &self.cmd_buffers)
+		.field("index_of_buffer", &self.index_of_buffer)
 		.field("submit_fence", &self.submit_fence)
 		.field("fence_is_signaling", &self.fence_is_signaling)
 		.finish()
@@ -118,9 +118,6 @@ pub struct VulkanCommandPoolInUse<'a> {
 	/// The command buffer we are using here
 	pub(crate) cmdbuf: VkCommandBuffer,
 
-	/// The command buffer for backup usage (e.g. concat command buffers, etc.)
-	pub(crate) cmdbuf_backup: VkCommandBuffer,
-
 	/// The command pool to submit commands
 	pub(crate) pool_lock: MutexGuard<'a, VkCommandPool>,
 
@@ -145,13 +142,12 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, cmdbuf_backup: VkCommandBuffer, thread_index: usize, rt_props: Arc<RenderTargetProps>, fence_is_signaling: Arc<AtomicBool>) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, thread_index: usize, rt_props: Arc<RenderTargetProps>, fence_is_signaling: Arc<AtomicBool>) -> Result<Self, VulkanError> {
 		let device = cmdpool.device.clone();
 		let submit_fence = cmdpool.submit_fence.clone();
 		Ok(Self {
 			device,
 			cmdbuf,
-			cmdbuf_backup,
 			pool_lock,
 			thread_index,
 			rt_props,
@@ -167,11 +163,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		self.cmdbuf
 	}
 
-	/// Get the current command buffer
-	pub(crate) fn get_vk_cmdbuf_2(&self) -> VkCommandBuffer {
-		self.cmdbuf_backup
-	}
-
 	/// Get the extent of the render target
 	pub fn get_extent(&self) -> VkExtent2D {
 		self.rt_props.extent
@@ -182,7 +173,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 		let vkcore = self.device.vkcore.clone();
 		if !self.ended {
 			vkcore.vkEndCommandBuffer(self.cmdbuf)?;
-			vkcore.vkEndCommandBuffer(self.cmdbuf_backup)?;
 			self.ended = true;
 			Ok(())
 		} else {
@@ -239,7 +229,6 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanCommandPoolInUse")
 		.field("cmdbuf", &self.cmdbuf)
-		.field("cmdbuf_backup", &self.cmdbuf_backup)
 		.field("pool_lock", &self.pool_lock)
 		.field("thread_index", &self.thread_index)
 		.field("rt_props", &self.rt_props)
