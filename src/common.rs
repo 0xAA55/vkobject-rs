@@ -143,7 +143,7 @@ impl<R, D: Fn(&R)> DerefMut for ResourceGuard<R, D> {
 impl<R, D: Fn(&R)> Drop for ResourceGuard<R, D> {
 	fn drop(&mut self) {
 		if let Some(resource) = &self.resource {
-			(self.destroyer)(&resource);
+			(self.destroyer)(resource);
 		}
 	}
 }
