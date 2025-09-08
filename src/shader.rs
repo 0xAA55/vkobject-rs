@@ -3,7 +3,6 @@ use crate::prelude::*;
 use std::{
 	fmt::{self, Debug, Formatter},
 	fs::read,
-	mem::transmute,
 	path::Path,
 	ptr::null,
 	sync::Arc,
@@ -38,8 +37,12 @@ impl VulkanShader {
 
 	/// Create the `VulkanShader` from file
 	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &Path) -> Result<Self, VulkanError> {
-		let mut shader_code: Vec<u32> = unsafe {transmute::<Vec<u8>, Vec<u32>>(read(shader_file)?)};
-		unsafe {shader_code.set_len(shader_code.len() >> 2)};
+		let shader_bytes = read(shader_file)?;
+		let mut shader_code: Vec<u32> = Vec::with_capacity(shader_bytes.len() >> 2);
+		for chunk in shader_bytes.chunks_exact(4) {
+			let bytes: [u8; 4] = chunk.try_into().unwrap();
+			shader_code.push(u32::from_ne_bytes(bytes));
+		}
 		Self::new(device, &shader_code)
 	}
 }
