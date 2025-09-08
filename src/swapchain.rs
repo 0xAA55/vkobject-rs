@@ -323,7 +323,7 @@ impl VulkanSwapchain {
 	}
 
 	/// Enqueue a present command to the queue
-	pub(crate) fn queue_present(&self, thread_index: usize, present_image_index: usize) -> Result<(), VulkanError> {
+	pub(crate) fn queue_present(&self, present_image_index: usize) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let swapchains = [self.swapchain];
 		let image_indices = [present_image_index as u32];
@@ -339,7 +339,7 @@ impl VulkanSwapchain {
 			pResults: null_mut(),
 		};
 
-		vkcore.vkQueuePresentKHR(self.device.get_vk_queue(thread_index), &present_info)?;
+		vkcore.vkQueuePresentKHR(self.device.get_vk_queue(), &present_info)?;
 		Ok(())
 	}
 }
