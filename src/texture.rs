@@ -352,6 +352,7 @@ impl VulkanTexture {
 }
 
 unsafe impl Send for VulkanTexture {}
+unsafe impl Sync for VulkanTexture {}
 
 impl Debug for VulkanTexture {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {

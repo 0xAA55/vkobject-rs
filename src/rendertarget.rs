@@ -43,3 +43,6 @@ impl RenderTargetProps {
 		})
 	}
 }
+
+unsafe impl Send for RenderTargetProps {}
+unsafe impl Sync for RenderTargetProps {}

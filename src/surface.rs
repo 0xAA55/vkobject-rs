@@ -19,6 +19,7 @@ pub struct VulkanSurface {
 }
 
 unsafe impl Send for VulkanSurface {}
+unsafe impl Sync for VulkanSurface {}
 
 impl VulkanSurface {
 	/// Create a new `VulkanSurface` by the given `VkSurfaceKHR` and `VkSurfaceFormatKHR`

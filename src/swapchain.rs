@@ -23,8 +23,6 @@ pub struct VulkanSwapchainImage {
 	pub rt_props: Arc<RenderTargetProps>,
 }
 
-unsafe impl Send for VulkanSwapchainImage {}
-
 impl VulkanSwapchainImage {
 	/// Create the `VulkanSwapchainImage`
 	pub(crate) fn new(device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
@@ -67,6 +65,9 @@ impl Debug for VulkanSwapchainImage {
 	}
 }
 
+unsafe impl Send for VulkanSwapchainImage {}
+unsafe impl Sync for VulkanSwapchainImage {}
+
 /// A swapchain for presenting frames to the window surface.
 pub struct VulkanSwapchain {
 	/// The `VulkanDevice` is the associated device
@@ -105,8 +106,6 @@ pub struct VulkanSwapchain {
 	/// The semaphores for acquiring new frame image
 	acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>>,
 }
-
-unsafe impl Send for VulkanSwapchain {}
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
@@ -368,3 +367,6 @@ impl Drop for VulkanSwapchain {
 		vkcore.vkDestroySwapchainKHR(self.device.get_vk_device(), self.swapchain, null()).unwrap();
 	}
 }
+
+unsafe impl Send for VulkanSwapchain {}
+unsafe impl Sync for VulkanSwapchain {}

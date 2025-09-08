@@ -50,6 +50,7 @@ pub struct VulkanSemaphore {
 }
 
 unsafe impl Send for VulkanSemaphore {}
+unsafe impl Sync for VulkanSemaphore {}
 
 impl VulkanSemaphore {
 	/// Create a new binary semaphore
@@ -213,6 +214,7 @@ pub struct VulkanFence {
 }
 
 unsafe impl Send for VulkanFence {}
+unsafe impl Sync for VulkanFence {}
 
 impl VulkanFence {
 	/// Create a new fence
