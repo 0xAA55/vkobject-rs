@@ -288,7 +288,7 @@ impl<'a> VulkanContextScene<'a> {
 			};
 			vkcore.vkCmdPipelineBarrier(
 				pool_in_use.cmdbuf,
-				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_ALL_COMMANDS_BIT as VkPipelineStageFlags,
 				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
 				0,
 				0, null(),
@@ -404,7 +404,7 @@ impl<'a> VulkanContextScene<'a> {
 			};
 			self.vkcore.vkCmdPipelineBarrier(
 				self.pool_in_use.cmdbuf,
-				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TOP_OF_PIPE_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_ALL_COMMANDS_BIT as VkPipelineStageFlags,
 				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
 				0,
 				0, null(),
