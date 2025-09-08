@@ -55,8 +55,8 @@ impl VulkanRenderPass {
 	pub fn new(device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.to_attachment_desc()).collect();
-		let attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().filter_map(|(i, a)|
-			if a.is_depth_stencil {
+		let color_attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().filter_map(|(i, a)|
+			if !a.is_depth_stencil {
 				Some(VkAttachmentReference {
 					attachment: i as u32,
 					layout: VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
@@ -65,7 +65,7 @@ impl VulkanRenderPass {
 				None
 			}
 		).collect();
-		let depth_attachment_ref: Option<&VkAttachmentReference> = attachment_refs.iter().filter_map(|a|{
+		let depth_attachment_ref: Option<&VkAttachmentReference> = attachments.iter().filter_map(|a|{
 			if a.layout == VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
 				Some(a)
 			} else {
@@ -77,8 +77,8 @@ impl VulkanRenderPass {
 			pipelineBindPoint: VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS,
 			inputAttachmentCount: 0,
 			pInputAttachments: null(),
-			colorAttachmentCount: attachment_refs.len() as u32,
-			pColorAttachments: attachment_refs.as_ptr(),
+			colorAttachmentCount: color_attachment_refs.len() as u32,
+			pColorAttachments: color_attachment_refs.as_ptr(),
 			pResolveAttachments: null(),
 			pDepthStencilAttachment: if let Some(depth) = depth_attachment_ref {
 				depth
