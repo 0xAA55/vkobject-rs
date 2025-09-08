@@ -51,3 +51,9 @@ impl Debug for VulkanShader {
 		.finish()
 	}
 }
+
+impl Drop for VulkanShader {
+	fn drop(&mut self) {
+		self.device.vkcore.vkDestroyShaderModule(self.device.get_vk_device(), self.shader, null()).unwrap();
+	}
+}
