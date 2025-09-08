@@ -65,13 +65,16 @@ impl VulkanRenderPass {
 				None
 			}
 		).collect();
-		let depth_attachment_ref: Option<&VkAttachmentReference> = attachments.iter().filter_map(|a|{
-			if a.layout == VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
-				Some(a)
+		let depth_attachment_ref: Option<VkAttachmentReference> = attachments.iter().enumerate().filter_map(|(i, a)|
+			if a.is_depth_stencil {
+				Some(VkAttachmentReference {
+					attachment: i as u32,
+					layout: VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+				})
 			} else {
 				None
 			}
-		}).next();
+		).next();
 		let subpass_desc = VkSubpassDescription {
 			flags: 0,
 			pipelineBindPoint: VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS,
@@ -80,7 +83,7 @@ impl VulkanRenderPass {
 			colorAttachmentCount: color_attachment_refs.len() as u32,
 			pColorAttachments: color_attachment_refs.as_ptr(),
 			pResolveAttachments: null(),
-			pDepthStencilAttachment: if let Some(depth) = depth_attachment_ref {
+			pDepthStencilAttachment: if let Some(depth) = &depth_attachment_ref {
 				depth
 			} else {
 				null()
