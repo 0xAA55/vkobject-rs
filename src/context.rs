@@ -1,7 +1,7 @@
 
 use crate::prelude::*;
 use std::{
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
 	ptr::null,
 	sync::Arc,
@@ -249,7 +249,6 @@ impl VulkanContext {
 	}
 }
 
-#[derive(Debug)]
 pub struct VulkanContextScene<'a> {
 	pub vkcore: Arc<VkCore>,
 	pub device: Arc<VulkanDevice>,
@@ -424,6 +423,17 @@ impl<'a> VulkanContextScene<'a> {
 	}
 
 	pub fn finish(self) {}
+}
+
+impl Debug for VulkanContextScene<'_> {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanContextScene")
+		.field("pool_in_use", &self.pool_in_use)
+		.field("swapchain", &self.swapchain)
+		.field("present_image_index", &self.present_image_index)
+		.field("present_queued", &self.present_queued)
+		.finish()
+	}
 }
 
 impl Drop for VulkanContextScene<'_> {
