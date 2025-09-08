@@ -55,14 +55,16 @@ impl VulkanRenderPass {
 	pub fn new(device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.to_attachment_desc()).collect();
-		let attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().map(|(i, a)| VkAttachmentReference {
-			attachment: i as u32,
-			layout: if !a.is_depth_stencil {
-				VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+		let attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().filter_map(|(i, a)|
+			if a.is_depth_stencil {
+				Some(VkAttachmentReference {
+					attachment: i as u32,
+					layout: VkImageLayout::VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL
+				})
 			} else {
-				VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL
+				None
 			}
-		}).collect();
+		).collect();
 		let depth_attachment_ref: Option<&VkAttachmentReference> = attachment_refs.iter().filter_map(|a|{
 			if a.layout == VkImageLayout::VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL {
 				Some(a)
