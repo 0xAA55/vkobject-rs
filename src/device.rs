@@ -124,22 +124,19 @@ pub struct VulkanDevice {
 	device: VkDevice,
 
 	/// The queues of the device. Submit commands to the queue to control GPU.
-	pub(crate) queues: Vec<VkQueue>,
+	pub(crate) queue: VkQueue,
 }
 
 impl VulkanDevice {
 	/// Create the `VulkanDevice` by the given `VkPhysicalDevice` and the queue family index
-	/// * `queue_count`: **important**: This argument determines how many concurrent rendering tasks are allowed in the GPU.
-	///   * Too much causes huge system memory/video memory usage,
-	///     while too little causes the GPU to be unable to run multiple drawing command queues at once.
-	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32, queue_count: usize) -> Result<Self, VulkanError> {
-		let priorities = [1.0];
+	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VulkanError> {
+		let priorities = [1.0_f32];
 		let queue_ci = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 			queueFamilyIndex: queue_family_index,
-			queueCount: queue_count as u32,
+			queueCount: 1,
 			pQueuePriorities: priorities.as_ptr(),
 		};
 		let mut extensions: Vec<*const i8> = Vec::with_capacity(gpu.extension_properties.len());
@@ -150,7 +147,9 @@ impl VulkanDevice {
 			if ext_str == "VK_KHR_buffer_device_address" {
 				has_vk_khr_buffer_device_address = true;
 			} else if ext_str == "VK_EXT_buffer_device_address" {
-				if has_vk_khr_buffer_device_address {continue;}
+				if has_vk_khr_buffer_device_address {
+					continue;
+				}
 			}
 			extensions.push(ext_ptr)
 		}
@@ -159,7 +158,7 @@ impl VulkanDevice {
 			pNext: null(),
 			flags: 0,
 			queueCreateInfoCount: 1,
-			pQueueCreateInfos: &queue_ci as *const _,
+			pQueueCreateInfos: &queue_ci,
 			enabledLayerCount: 0,
 			ppEnabledLayerNames: null(),
 			enabledExtensionCount: extensions.len() as u32,
@@ -171,30 +170,27 @@ impl VulkanDevice {
 		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_ci, null(), &mut device)?;
 		let device = ResourceGuard::new(device, |&d|vkcore.vkDestroyDevice(d, null()).unwrap());
 
-		let mut queues: Vec<VkQueue> = Vec::with_capacity(queue_count);
-		for i in 0..queue_count {
-			let mut queue: VkQueue = null();
-			vkcore.vkGetDeviceQueue(*device, queue_family_index, i as u32, &mut queue)?;
-			queues.push(queue);
-		}
+		let mut queue: VkQueue = null();
+		vkcore.vkGetDeviceQueue(*device, queue_family_index, 0, &mut queue)?;
+		let device = device.release();
 
 		Ok(Self {
-			vkcore: vkcore.clone(),
+			vkcore,
 			queue_family_index,
 			gpu,
-			device: device.release(),
-			queues,
+			device,
+			queue,
 		})
 	}
 
 	/// Choose a GPU that matches the `VkQueueFlags`
 	/// * `flags`: The flags you want to match
 	/// * `queue_count`: see `VulkanDevice::new()`
-	pub fn choose_gpu(vkcore: Arc<VkCore>, flags: VkQueueFlags, queue_count: usize) -> Result<Self, VulkanError> {
+	pub fn choose_gpu(vkcore: Arc<VkCore>, flags: VkQueueFlags) -> Result<Self, VulkanError> {
 		for gpu in VulkanGpuInfo::get_gpu_info(&vkcore)?.iter() {
 			let index = gpu.get_queue_family_index_by_flags(flags);
 			if index != u32::MAX {
-				return Self::new(vkcore, gpu.clone(), index, queue_count);
+				return Self::new(vkcore, gpu.clone(), index);
 			}
 		}
 		Err(VulkanError::ChooseGpuFailed)
@@ -202,29 +198,28 @@ impl VulkanDevice {
 
 	/// Choose a GPU that must support graphics
 	/// * `queue_count`: see `VulkanDevice::new()`
-	pub fn choose_gpu_with_graphics(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
-		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32, queue_count)
+	pub fn choose_gpu_with_graphics(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32)
 	}
 
 	/// Choose a GPU that must support compute
 	/// * `queue_count`: see `VulkanDevice::new()`
-	pub fn choose_gpu_with_compute(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
-		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32, queue_count)
+	pub fn choose_gpu_with_compute(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore, VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
 	}
 
 	/// Choose a GPU that must support both graphics and compute
 	/// * `queue_count`: see `VulkanDevice::new()`
-	pub fn choose_gpu_with_graphics_and_compute(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
+	pub fn choose_gpu_with_graphics_and_compute(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
 		Self::choose_gpu(vkcore,
 			VkQueueFlagBits::VK_QUEUE_GRAPHICS_BIT as u32 |
-			VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32,
-			queue_count)
+			VkQueueFlagBits::VK_QUEUE_COMPUTE_BIT as u32)
 	}
 
 	/// Choose a GPU that is, anyway, a GPU regardless of can do graphics/compute or not.
 	/// * `queue_count`: see `VulkanDevice::new()`
-	pub fn choose_gpu_anyway(vkcore: Arc<VkCore>, queue_count: usize) -> Result<Self, VulkanError> {
-		Self::choose_gpu(vkcore, 0, queue_count)
+	pub fn choose_gpu_anyway(vkcore: Arc<VkCore>) -> Result<Self, VulkanError> {
+		Self::choose_gpu(vkcore, 0)
 	}
 
 	/// Get the current queue family index
@@ -261,8 +256,8 @@ impl VulkanDevice {
 	}
 
 	/// Get a queue for the current device
-	pub(crate) fn get_vk_queue(&self, queue_index: usize) -> VkQueue {
-		self.queues[queue_index]
+	pub(crate) fn get_vk_queue(&self) -> VkQueue {
+		self.queue
 	}
 }
 
@@ -272,14 +267,14 @@ impl Debug for VulkanDevice {
 		.field("queue_family_index", &self.queue_family_index)
 		.field("gpu", &self.gpu)
 		.field("device", &self.device)
-		.field("queues", &self.queues)
+		.field("queue", &self.queue)
 		.finish()
 	}
 }
 
 impl Clone for VulkanDevice {
 	fn clone(&self) -> Self {
-		Self::new(self.vkcore.clone(), self.gpu.clone(), self.queue_family_index, self.queues.len()).unwrap()
+		Self::new(self.vkcore.clone(), self.gpu.clone(), self.queue_family_index).unwrap()
 	}
 }
 
