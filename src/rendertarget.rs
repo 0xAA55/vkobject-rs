@@ -42,6 +42,10 @@ impl RenderTargetProps {
 			release_semaphore: Arc::new(VulkanSemaphore::new(device.clone())?),
 		})
 	}
+
+	pub fn get_extent(&self) -> &VkExtent2D {
+		&self.extent
+	}
 }
 
 impl Drop for RenderTargetProps {
