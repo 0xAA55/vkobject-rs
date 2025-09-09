@@ -247,14 +247,15 @@ impl VulkanContext {
 						present_image_index = Some(index);
 						break;
 					}
-					Err(e) => match e {
-						VulkanError::VkError(ve) => match ve {
+					Err(e) => if let Some(ve) = e.is_vkerror() {
+						match ve {
 							VkError::VkErrorOutOfDateKhr(_) => {
 								self.on_resize()?;
 							}
 							_ => return Err(VulkanError::VkError(ve)),
 						}
-						_ => return Err(e),
+					} else {
+						return Err(e)
 					}
 				};
 			}
@@ -434,14 +435,13 @@ impl<'a> VulkanContextScene<'a> {
 		self.pool_in_use.submit().unwrap();
 		match self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap()) {
 			Ok(_) => Ok(()),
-			Err(e) => match e {
-				VulkanError::VkError(ve) => match ve {
-					VkError::VkErrorOutOfDateKhr(_) => {
-						Ok(())
-					},
-					_ => Err(VulkanError::VkError(ve))
+			Err(e) => if let Some(ve) = e.is_vkerror() {
+				match ve {
+					VkError::VkErrorOutOfDateKhr(_) => Ok(()),
+					_ => Err(VulkanError::VkError(ve)),
 				}
-				_ => Err(e),
+			} else {
+				Err(e)
 			}
 		}?;
 		self.present_queued = true;
