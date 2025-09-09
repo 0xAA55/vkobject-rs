@@ -140,17 +140,30 @@ impl VulkanDevice {
 		};
 		let mut extensions: Vec<*const i8> = Vec::with_capacity(gpu.extension_properties.len());
 		let mut has_vk_khr_buffer_device_address = false;
+		let mut has_vk_ext_buffer_device_address = false;
 		for ext in gpu.extension_properties.iter() {
 			let ext_ptr = ext.extensionName.as_ptr();
-			let ext_str = unsafe {CStr::from_ptr(ext_ptr)}.to_string_lossy().into_owned();
+			let ext_str = unsafe {CStr::from_ptr(ext_ptr)}.to_string_lossy();
 			if ext_str == "VK_KHR_buffer_device_address" {
 				has_vk_khr_buffer_device_address = true;
-			} else if ext_str == "VK_EXT_buffer_device_address"
-				&& has_vk_khr_buffer_device_address {
-				continue;
+			} else if ext_str == "VK_EXT_buffer_device_address" {
+				has_vk_ext_buffer_device_address = true;
 			}
 			extensions.push(ext_ptr)
 		}
+		if has_vk_khr_buffer_device_address && has_vk_ext_buffer_device_address {
+			let len = extensions.len();
+			for i in 0..len {
+				let ext_ptr = extensions[i];
+				let ext_str = unsafe {CStr::from_ptr(ext_ptr)}.to_string_lossy();
+				if ext_str == "VK_EXT_buffer_device_address" {
+					extensions[i] = extensions[len - 1];
+					extensions.pop();
+					break;
+				}
+			}
+		}
+
 		let device_ci = VkDeviceCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO,
 			pNext: null(),
