@@ -44,5 +44,12 @@ impl RenderTargetProps {
 	}
 }
 
+impl Drop for RenderTargetProps {
+	fn drop(&mut self) {
+		let device = self.renderpass.device.clone();
+		device.vkcore.vkQueueWaitIdle(device.get_vk_queue()).unwrap();
+	}
+}
+
 unsafe impl Send for RenderTargetProps {}
 unsafe impl Sync for RenderTargetProps {}
