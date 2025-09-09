@@ -37,6 +37,16 @@ impl From<io::Error> for VulkanError {
 	}
 }
 
+impl VulkanError {
+	pub fn is_vkerror(&self) -> Option<VkError> {
+		if let Self::VkError(ve) = self {
+			Some(ve.clone())
+		} else {
+			None
+		}
+	}
+}
+
 /// The wrapper for the `VkSemaphore`
 pub struct VulkanSemaphore {
 	/// The `VulkanDevice` is the associated device
