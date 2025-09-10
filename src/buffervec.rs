@@ -132,6 +132,11 @@ where
 		Ok(())
 	}
 
+	/// Clear the buffer
+	pub fn clear(&mut self) {
+		self.num_items = 0;
+	}
+
 	/// Get num items in the buffer
 	pub fn len(&self) -> usize {
 		self.num_items
