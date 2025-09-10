@@ -41,6 +41,9 @@ pub mod context;
 /// The buffer object
 pub mod buffer;
 
+/// The advanced buffer object that could be used as a vector
+pub mod buffervec;
+
 /// The texture object
 pub mod texture;
 
@@ -64,6 +67,7 @@ pub mod prelude {
 	pub use crate::shader::*;
 	pub use crate::context::*;
 	pub use crate::buffer::*;
+	pub use crate::buffervec::*;
 	pub use crate::texture::*;
 }
 
