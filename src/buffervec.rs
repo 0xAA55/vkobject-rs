@@ -121,13 +121,14 @@ where
 		if self.capacity < new_len {
 			self.change_capacity(new_len)?;
 		}
-		if self.num_items > new_len {
-			self.num_items = new_len;
-		} else {
-			while self.num_items < new_len {
-				self.push(new_data)?;
+		if new_len > self.num_items {
+			self.cache_modified = true;
+			unsafe {from_raw_parts_mut(self.staging_buffer_data_address.wrapping_add(self.num_items), new_len - self.num_items)}.fill(new_data);
+			for i in self.num_items..new_len {
+				self.cache_modified_bitmap.set(i, true);
 			}
 		}
+		self.num_items = new_len;
 		self.cache_modified_bitmap.resize(new_len, false);
 		Ok(())
 	}
