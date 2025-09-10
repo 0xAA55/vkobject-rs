@@ -573,6 +573,9 @@ pub struct StagingBuffer {
 
 	/// The buffer
 	pub buffer: VulkanBuffer,
+
+	/// The address of the data
+	pub(crate) address: *mut c_void,
 }
 
 impl StagingBuffer {
@@ -583,10 +586,13 @@ impl StagingBuffer {
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as VkMemoryPropertyFlags |
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?;
 		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
+		let mut address: *mut c_void = null_mut();
+		device.vkcore.vkMapMemory(device.get_vk_device(), memory.get_vk_memory(), 0, size, 0, &mut address)?;
 		Ok(Self {
 			device,
 			memory,
 			buffer,
+			address,
 		})
 	}
 
@@ -600,10 +606,26 @@ impl StagingBuffer {
 		self.memory.get_vk_memory()
 	}
 
+	/// Get the address of the memory data
+	pub fn get_address(&self) -> *mut c_void {
+		self.address
+	}
+
 	/// Set the content of the staging buffer
 	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.memory.set_data(data, offset, size)?;
 		Ok(())
+	}
+
+	/// Set the content of the staging buffer
+	pub fn get_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		self.memory.get_data(data, offset, size)?;
+		Ok(())
+	}
+
+	/// Map the memory
+	pub fn map<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+		self.memory.map(offset, size)
 	}
 }
 
@@ -612,6 +634,13 @@ impl Debug for StagingBuffer {
 		f.debug_struct("StagingBuffer")
 		.field("memory", &self.memory)
 		.field("buffer", &self.buffer)
+		.field("address", &self.address)
 		.finish()
+	}
+}
+
+impl Drop for StagingBuffer {
+	fn drop(&mut self) {
+		self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()).unwrap();
 	}
 }
