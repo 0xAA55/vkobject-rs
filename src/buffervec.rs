@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use bitvec::vec::BitVec;
 use std::{
+	cmp::max,
 	fmt::Debug,
 	marker::PhantomData,
 	mem::size_of,
@@ -155,8 +156,9 @@ where
 
 	/// Shrink to fit
 	pub fn shrink_to_fit(&mut self) -> Result<(), VulkanError> {
-		if self.capacity != self.num_items {
-			self.change_capacity(self.num_items)?;
+		let min_cap = max(self.num_items, 16);
+		if self.capacity != min_cap {
+			self.change_capacity(min_cap)?;
 		}
 		Ok(())
 	}
