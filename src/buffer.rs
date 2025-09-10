@@ -45,12 +45,55 @@ impl Buffer {
 		Ok(ret)
 	}
 
-	/// Update new data to the buffer
-	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	/// Get the `VkBuffer`
+	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
+		self.buffer.get_vk_buffer()
+	}
+
+	/// Create the staging buffer if not exist
+	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
 		if self.staging_buffer.is_none() {
 			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.memory.get_size())?);
 		}
+		Ok(())
+	}
+
+	/// Discard the staging buffer to save memory
+	pub fn discard_staging_buffer(&mut self) {
+		self.staging_buffer = None;
+	}
+
+	/// Get the staging buffer
+	pub fn get_staging_buffer(&self) -> Option<&StagingBuffer> {
+		self.staging_buffer.as_ref()
+	}
+
+	/// Get the usage
+	pub fn get_usage(&self) -> VkBufferUsageFlags {
+		self.usage
+	}
+
+	/// Get the size
+	pub fn get_size(&self) -> VkDeviceSize {
+		self.memory.get_size()
+	}
+
+	/// Get the address of the staging buffer memory data
+	pub fn get_staging_buffer_address(&mut self) -> Result<*mut c_void, VulkanError> {
+		self.ensure_staging_buffer()?;
+		Ok(self.staging_buffer.as_ref().unwrap().get_address())
+	}
+
+	/// Update new data to the buffer
+	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		self.ensure_staging_buffer()?;
 		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
+		Ok(())
+	}
+
+	/// Retrieve the data from the staging buffer
+	pub fn get_staging_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		self.staging_buffer.as_ref().unwrap().get_data(data, offset, size)?;
 		Ok(())
 	}
 
@@ -76,9 +119,35 @@ impl Buffer {
 		Ok(())
 	}
 
-	/// Discard the staging buffer to save memory
-	pub fn discard_staging_buffer(&mut self) {
-		self.staging_buffer = None;
+	/// Download the data to the staging buffer
+	pub fn download_staging_buffer(&mut self, cmdbuf: VkCommandBuffer, offset: VkDeviceSize, size: VkDeviceSize) -> Result<(), VulkanError> {
+		self.ensure_staging_buffer()?;
+		let copy_region = VkBufferCopy {
+			srcOffset: offset,
+			dstOffset: offset,
+			size: size as VkDeviceSize,
+		};
+		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.buffer.get_vk_buffer(), self.staging_buffer.as_ref().unwrap().get_vk_buffer(), 1, &copy_region)?;
+		Ok(())
+	}
+
+	/// Download the data to the staging buffer
+	pub fn download_staging_buffer_multi(&mut self, cmdbuf: VkCommandBuffer, regions: &[BufferRegion]) -> Result<(), VulkanError> {
+		self.ensure_staging_buffer()?;
+		let copy_regions: Vec<VkBufferCopy> = regions.iter().map(|r|VkBufferCopy {
+			srcOffset: r.offset,
+			dstOffset: r.offset,
+			size: r.size as VkDeviceSize,
+		}).collect();
+		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.buffer.get_vk_buffer(), self.staging_buffer.as_ref().unwrap().get_vk_buffer(), copy_regions.len() as u32, copy_regions.as_ptr())?;
+		Ok(())
+	}
+
+	/// Map the staging buffer
+	pub fn map_staging_buffer<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+		self.ensure_staging_buffer()?;
+		let staging_buffer = self.staging_buffer.as_ref().unwrap();
+		staging_buffer.memory.map(offset, size)
 	}
 }
 
