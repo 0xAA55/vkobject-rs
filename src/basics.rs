@@ -409,16 +409,21 @@ impl VulkanMemory {
 		self.size
 	}
 
-	/// Provide data for the memory, or retrieve data from the memory
-	pub fn manipulate_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
+	/// Map the memory
+	pub fn map<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		let vkdevice = self.device.get_vk_device();
 		let mut map_pointer: *mut c_void = null_mut();
 		self.device.vkcore.vkMapMemory(vkdevice, self.memory, offset, size as VkDeviceSize, 0, &mut map_pointer)?;
+		Ok(MappedMemory::new(self, map_pointer))
+	}
+
+	/// Provide data for the memory, or retrieve data from the memory
+	pub fn manipulate_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
+		let map_guard = self.map(offset, size)?;
 		match direction {
-			DataDirection::SetData => unsafe {copy(data as *const u8, map_pointer as *mut u8, size)},
-			DataDirection::GetData => unsafe {copy(map_pointer as *const u8, data as *mut u8, size)},
+			DataDirection::SetData => unsafe {copy(data as *const u8, map_guard.address as *mut u8, size)},
+			DataDirection::GetData => unsafe {copy(map_guard.address as *const u8, data as *mut u8, size)},
 		}
-		self.device.vkcore.vkUnmapMemory(vkdevice, self.memory)?;
 		Ok(())
 	}
 
@@ -460,6 +465,35 @@ impl Drop for VulkanMemory {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
 		vkcore.vkFreeMemory(self.device.get_vk_device(), self.memory, null()).unwrap();
+	}
+}
+
+/// The state that indicates the Vulkan memory is currently mapped
+#[derive(Debug)]
+pub struct MappedMemory<'a> {
+	/// The reference to the memory
+	pub memory: &'a VulkanMemory,
+
+	/// The mapped address
+	pub(crate) address: *mut c_void,
+}
+
+impl<'a> MappedMemory<'a> {
+	pub(crate) fn new(memory: &'a VulkanMemory, address: *mut c_void) -> Self {
+		Self {
+			memory,
+			address,
+		}
+	}
+
+	pub fn get_address(&self) -> *const c_void {
+		self.address
+	}
+}
+
+impl Drop for MappedMemory<'_> {
+	fn drop(&mut self) {
+		self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory).unwrap();
 	}
 }
 
