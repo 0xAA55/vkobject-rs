@@ -183,7 +183,7 @@ where
 				if is_in {
 					ei = i;
 					is_in = false;
-					gap = 1;
+					gap = 1; // This ensures all regions were flushed including the last one.
 				} else {
 					gap += 1;
 					if gap == MAX_GAP {
