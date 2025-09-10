@@ -137,6 +137,11 @@ where
 		self.num_items = 0;
 	}
 
+	/// Get the capacity
+	pub fn get_capacity(&self) -> usize {
+		self.capacity
+	}
+
 	/// Get num items in the buffer
 	pub fn len(&self) -> usize {
 		self.num_items
