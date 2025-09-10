@@ -92,10 +92,11 @@ where
 
 	/// Push data to the buffer
 	pub fn push(&mut self, data: T) -> Result<(), VulkanError> {
-		if self.num_items <= self.capacity {
+		if self.num_items >= self.capacity {
 			self.grow()?;
 		}
 		unsafe {*self.staging_buffer_data_address.wrapping_add(self.num_items) = data};
+		self.cache_modified_bitmap.push(true);
 		self.num_items += 1;
 		Ok(())
 	}
@@ -106,6 +107,7 @@ where
 			panic!("`BufferVec::<T>::pop()` called on an empty `BufferVec<T>`.");
 		}
 		self.num_items -= 1;
+		self.cache_modified_bitmap.pop();
 		Ok(unsafe {*self.staging_buffer_data_address.wrapping_add(self.num_items)})
 	}
 
@@ -121,6 +123,7 @@ where
 				self.push(new_data)?;
 			}
 		}
+		self.cache_modified_bitmap.resize(new_len, false);
 		Ok(())
 	}
 
