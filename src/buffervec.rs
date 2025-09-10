@@ -114,6 +114,9 @@ where
 
 	/// Resize the buffer
 	pub fn resize(&mut self, new_len: usize, new_data: T) -> Result<(), VulkanError> {
+		if self.num_items == new_len {
+			return Ok(());
+		}
 		self.cache_modified = true;
 		if self.capacity < new_len {
 			self.change_capacity(new_len)?;
