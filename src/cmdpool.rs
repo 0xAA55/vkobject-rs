@@ -33,6 +33,7 @@ pub struct VulkanCommandPool {
 }
 
 unsafe impl Send for VulkanCommandPool {}
+unsafe impl Sync for VulkanCommandPool {}
 
 impl VulkanCommandPool {
 	/// Create a new `VulkanCommandPool`
