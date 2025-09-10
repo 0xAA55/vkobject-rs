@@ -96,6 +96,7 @@ where
 			self.grow()?;
 		}
 		unsafe {*self.staging_buffer_data_address.wrapping_add(self.num_items) = data};
+		self.cache_modified = true;
 		self.cache_modified_bitmap.push(true);
 		self.num_items += 1;
 		Ok(())
@@ -113,6 +114,7 @@ where
 
 	/// Resize the buffer
 	pub fn resize(&mut self, new_len: usize, new_data: T) -> Result<(), VulkanError> {
+		self.cache_modified = true;
 		if self.capacity < new_len {
 			self.change_capacity(new_len)?;
 		}
@@ -147,6 +149,9 @@ where
 
 	/// Flush the staging buffer to the device memory
 	pub fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		if !self.cache_modified {
+			return Ok(());
+		}
 		const MAX_GAP: usize = 16;
 		let mut si = 0;
 		let mut ei = 0;
@@ -186,6 +191,7 @@ where
 		if !region.is_empty() {
 			self.buffer.upload_staging_buffer_multi(cmdbuf, region.as_ref())?;
 		}
+		self.cache_modified = false;
 		Ok(())
 	}
 }
@@ -209,6 +215,7 @@ where
 		if index >= self.len() {
 			panic!("Index {index:?} out of bounds (len() == {})", self.len());
 		}
+		self.cache_modified = true;
 		self.cache_modified_bitmap.set(index, true);
 		unsafe {&mut *self.staging_buffer_data_address.wrapping_add(index)}
 	}
@@ -233,6 +240,7 @@ where
 		if range.start >= self.len() && range.end > self.len() {
 			panic!("Slice range {range:?} out of bounds (len() == {})", self.len());
 		}
+		self.cache_modified = true;
 		for i in range.clone() {
 			self.cache_modified_bitmap.set(i, true);
 		}
@@ -259,6 +267,7 @@ where
 		if range.start >= self.len() {
 			panic!("Slice range {range:?} out of bounds (len() == {})", self.len());
 		}
+		self.cache_modified = true;
 		for i in range.start..self.len() {
 			self.cache_modified_bitmap.set(i, true);
 		}
@@ -285,6 +294,7 @@ where
 		if range.end > self.len() {
 			panic!("Slice range {range:?} out of bounds (len() == {})", self.len());
 		}
+		self.cache_modified = true;
 		for i in 0..range.end {
 			self.cache_modified_bitmap.set(i, true);
 		}
@@ -305,6 +315,7 @@ impl<T> IndexMut<RangeFull> for BufferVec<T>
 where
 	T: BufferVecItem {
 	fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
+		self.cache_modified = true;
 		self.cache_modified_bitmap.fill(true);
 		unsafe {from_raw_parts_mut(self.staging_buffer_data_address, self.len())}
 	}
@@ -329,6 +340,7 @@ where
 		if *range.start() >= self.len() || *range.end() >= self.len() {
 			panic!("Slice range {range:?} out of bounds (len() == {})", self.len());
 		}
+		self.cache_modified = true;
 		for i in range.clone() {
 			self.cache_modified_bitmap.set(i, true);
 		}
@@ -355,6 +367,7 @@ where
 		if range.end >= self.len() {
 			panic!("Slice range {range:?} out of bounds (len() == {})", self.len());
 		}
+		self.cache_modified = true;
 		for i in 0..=range.end {
 			self.cache_modified_bitmap.set(i, true);
 		}
