@@ -106,7 +106,7 @@ pub struct VulkanContextCreateInfo<'a> {
 	pub present_interval: PresentInterval,
 
 	/// How many scenes could be rendered concurrently?
-	/// **NOTE** You could create a multi-threaded rendering engine, submitting draw calls concurrently, and the GPU could render multiple scenes concurrently.
+	/// **NOTE** You could create a multi-threaded rendering engine, recording draw commands concurrently, and the GPU could render multiple scenes concurrently.
 	pub cpu_renderer_threads: usize,
 
 	/// Is this a VR project?
