@@ -97,6 +97,9 @@ pub struct VulkanSwapchain {
 	/// The depth stencil format
 	depth_stencil_format: VkFormat,
 
+	/// The number of the CPU renderer threads that would acquire the next image concurrently
+	cpu_renderer_threads: usize,
+
 	/// The desired image count
 	desired_num_of_swapchain_images: u32,
 
@@ -109,7 +112,7 @@ pub struct VulkanSwapchain {
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
-	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, present_interval: PresentInterval, cpu_renderer_threads: usize, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let surface_format = *surface.get_vk_surface_format();
 		let vk_device = device.get_vk_device();
@@ -240,8 +243,8 @@ impl VulkanSwapchain {
 		for vk_image in vk_images.iter() {
 			images.push(Arc::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?));
 		}
-		let mut acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>> = Vec::with_capacity(num_images as usize);
-		for _ in 0..num_images {
+		let mut acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>> = Vec::with_capacity(cpu_renderer_threads as usize);
+		for _ in 0..cpu_renderer_threads {
 			acquire_semaphores.push(Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?)));
 		}
 		let swapchain = swapchain.release();
@@ -256,6 +259,7 @@ impl VulkanSwapchain {
 			swapchain_extent,
 			present_mode,
 			depth_stencil_format,
+			cpu_renderer_threads,
 			desired_num_of_swapchain_images,
 			images,
 			acquire_semaphores,
@@ -336,6 +340,11 @@ impl VulkanSwapchain {
 		self.is_vr
 	}
 
+	/// Get the number of CPU renderer threads that supports
+	pub fn get_supported_number_of_cpu_renderer_threads(&self) -> usize {
+		self.cpu_renderer_threads
+	}
+
 	/// Acquire the next image, get the new image index
 	pub(crate) fn acquire_next_image(&self, thread_index: usize, timeout: u64) -> Result<usize, VulkanError> {
 		let vkcore = self.device.vkcore.clone();
@@ -381,6 +390,7 @@ impl Debug for VulkanSwapchain {
 		.field("swapchain_extent", &self.swapchain_extent)
 		.field("present_mode", &self.present_mode)
 		.field("depth_stencil_format", &self.depth_stencil_format)
+		.field("cpu_renderer_threads", &self.cpu_renderer_threads)
 		.field("desired_num_of_swapchain_images", &self.desired_num_of_swapchain_images)
 		.field("images", &self.images)
 		.field("acquire_semaphores", &self.acquire_semaphores)
