@@ -52,6 +52,40 @@ pub struct VulkanSurfaceInfo<'a> {
 	pub window: xcb_window_t,
 }
 
+/// The policy of using V-Sync for the smoothest `present()` or the minimum-latency tearing `present()`.
+#[derive(Debug, Clone, Copy)]
+pub enum PresentInterval {
+	/// Enable V-Sync for the smoothest `present()` with minimum power consumption.
+	/// * If your device supports adaptive presentation interval, it will be automatically enabled.
+	VSync,
+
+	/// Disable V-Sync for maximum framerate with minimum-latency tearing `present()`.
+	/// * The `usize` is the max concurrent frames; if the device doesn't limit the max concurrent frames, you have to provide one.
+	/// * If you give zero, a default number of the max concurrent frames will be used.
+	/// * The greater the number you give, the higher the framerate you could achieve, but the more memory will be used to store the framebuffer.
+	MinLatencyPresent(usize),
+}
+
+impl PresentInterval {
+	/// Is V-Sync requested?
+	pub fn is_vsync(&self) -> bool {
+		if let Self::VSync = self {
+			true
+		} else {
+			false
+		}
+	}
+
+	/// Is minimum-latency tearing `present()` requested?
+	pub fn is_minimum_latency_present(&self) -> Option<usize> {
+		if let Self::MinLatencyPresent(maximum_frames) = self {
+			Some(*maximum_frames)
+		} else {
+			None
+		}
+	}
+}
+
 /// The struct to create the `VulkanContext`
 #[derive(Debug)]
 pub struct VulkanContextCreateInfo<'a> {
@@ -69,11 +103,11 @@ pub struct VulkanContextCreateInfo<'a> {
 
 	/// VSYNC should be on or off?
 	/// * It's recommended to enable VSYNC for most usage since this could be the smoothest achieve and lower the power consumption, **except** for players who play PVP and want to win with the lowest latency (You are designing these sorts of games)
-	pub vsync: bool,
+	pub present_interval: PresentInterval,
 
-	/// How many frames could be rendered concurrently?
+	/// How many scenes could be rendered concurrently?
 	/// **NOTE** You could create a multi-threaded rendering engine, submitting draw calls concurrently, and the GPU could render multiple scenes concurrently.
-	pub max_concurrent_frames: usize,
+	pub cpu_renderer_threads: usize,
 
 	/// Is this a VR project?
 	pub is_vr: bool,
@@ -103,7 +137,7 @@ unsafe impl Send for VulkanContext {}
 impl VulkanContext {
 	/// Create a new `VulkanContext`
 	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Self, VulkanError> {
-		let max_concurrent_frames = create_info.max_concurrent_frames;
+		let cpu_renderer_threads = create_info.cpu_renderer_threads;
 		let vkcore = create_info.vkcore.clone();
 		let device = Arc::new(match (create_info.device_can_graphics, create_info.device_can_compute) {
 			(false, false) => VulkanDevice::choose_gpu_anyway(vkcore.clone())?,
@@ -131,9 +165,9 @@ impl VulkanContext {
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.vsync, create_info.is_vr, (max_concurrent_frames + 1) as u32, None)?);
-		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(max_concurrent_frames);
-		for _ in 0..max_concurrent_frames {
+		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, create_info.is_vr, None)?);
+		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(cpu_renderer_threads);
+		for _ in 0..cpu_renderer_threads {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
 		}
 		let ret = Self {
@@ -209,9 +243,9 @@ impl VulkanContext {
 	}
 
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
-	pub fn recreate_swapchain(&mut self, width: u32, height: u32, vsync: bool, is_vr: bool) -> Result<(), VulkanError> {
+	pub fn recreate_swapchain(&mut self, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, vsync, is_vr, self.swapchain.get_desired_num_of_swapchain_images() as u32, Some(self.swapchain.get_vk_swapchain()))?);
+		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, is_vr, Some(self.swapchain.get_vk_swapchain()))?);
 		Ok(())
 	}
 
@@ -223,9 +257,9 @@ impl VulkanContext {
 			swapchain_extent.height == surface_size.height {
 			Ok(false)
 		} else {
-			let is_vsync = self.swapchain.get_is_vsync();
+			let present_interval = self.swapchain.get_present_interval();
 			let is_vr = self.swapchain.get_is_vr();
-			self.recreate_swapchain(surface_size.width, surface_size.height, is_vsync, is_vr)?;
+			self.recreate_swapchain(surface_size.width, surface_size.height, present_interval, is_vr)?;
 			Ok(true)
 		}
 	}

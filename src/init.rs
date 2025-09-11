@@ -31,7 +31,7 @@ pub mod init_from_glfw {
 	}
 
 	/// Create a Vulkan context
-	pub fn create_vulkan_context(window: &glfw::PWindow, vsync: bool, max_concurrent_frames: usize, is_vr: bool) -> Result<VulkanContext, VulkanError> {
+	pub fn create_vulkan_context(window: &glfw::PWindow, present_interval: PresentInterval, cpu_renderer_threads: usize, is_vr: bool) -> Result<VulkanContext, VulkanError> {
 		let vkcore = Arc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 0, 0))?);
 		let surface = VulkanSurfaceInfo {
 			window,
@@ -41,8 +41,8 @@ pub mod init_from_glfw {
 			device_can_graphics: true,
 			device_can_compute: false,
 			surface,
-			vsync,
-			max_concurrent_frames,
+			present_interval,
+			cpu_renderer_threads,
 			is_vr,
 		};
 		VulkanContext::new(context_ci)

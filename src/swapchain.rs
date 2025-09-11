@@ -1,7 +1,7 @@
 
 use crate::prelude::*;
 use std::{
-	cmp::max,
+	cmp::{min, max},
 	fmt::{self, Debug, Formatter},
 	mem::{MaybeUninit, swap},
 	ptr::{null, null_mut},
@@ -76,8 +76,8 @@ pub struct VulkanSwapchain {
 	/// The `VulkanSurface` that is needed by the swapchain
 	surface: Arc<VulkanSurface>,
 
-	/// Is VSYNC on?
-	vsync: bool,
+	/// Is V-Sync requested or minimum-latency present requested?
+	present_interval: PresentInterval,
 
 	/// Is this swapchain for VR?
 	is_vr: bool,
@@ -109,7 +109,7 @@ pub struct VulkanSwapchain {
 
 impl VulkanSwapchain {
 	/// Create the `VulkanSwapchain`
-	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, vsync: bool, is_vr: bool, num_images: u32, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, surface: Arc<VulkanSurface>, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool, old_swapchain: Option<VkSwapchainKHR>) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let surface_format = *surface.get_vk_surface_format();
 		let vk_device = device.get_vk_device();
@@ -134,24 +134,42 @@ impl VulkanSwapchain {
 		vkcore.vkGetPhysicalDeviceSurfacePresentModesKHR(vk_phy_dev, vk_surface, &mut num_present_mode, present_modes.as_mut_ptr())?;
 		unsafe {present_modes.set_len(num_present_mode as usize)};
 
-		// Select a present mode for the swapchain
+		// Select a present mode for the swapchain, the FIFO mode is the default mode.
 		let mut present_mode = VkPresentModeKHR::VK_PRESENT_MODE_FIFO_KHR;
 
-		// If v-sync is not requested, try to find a mailbox mode
+		// If V-Sync is not requested, try to find a mailbox mode
 		// It's the lowest latency non-tearing present mode available
-		if !vsync {
+		// Otherwise use the immediate mode for the tearing `present()`
+		let desired_num_of_swapchain_images;
+		if let PresentInterval::MinLatencyPresent(max_image_count) = present_interval {
 			for mode in present_modes.iter() {
-				if *mode == VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR || *mode == VkPresentModeKHR::VK_PRESENT_MODE_IMMEDIATE_KHR {
+				if *mode == VkPresentModeKHR::VK_PRESENT_MODE_IMMEDIATE_KHR {
 					present_mode = *mode;
 					break;
 				}
 			}
-		}
-
-		// Determine the number of images
-		let mut desired_num_of_swapchain_images = max(num_images, surf_caps.minImageCount + 1);
-		if surf_caps.maxImageCount > 0 && desired_num_of_swapchain_images > surf_caps.maxImageCount {
-			desired_num_of_swapchain_images = surf_caps.maxImageCount;
+			// If V-Sync is not requested, it's needed to render as many frames as possible and present the images as fast as possible, so more images, less latency could be achieved
+			desired_num_of_swapchain_images = max(max(surf_caps.minImageCount, 2), if max_image_count == 0 {
+				// Magic number happens here, on my computer (RTX 3060 Ti), 4 could achieve maximum framerate, greater than 4 is redundant, and less than 4 would cause a lower framerate.
+				4
+			} else {
+				if surf_caps.maxImageCount != 0 {
+					// Limit to the device's max image count
+					min(max_image_count as u32, surf_caps.maxImageCount)
+				} else {
+					// If the device image count is not limited, use the given number of images if it was given.
+					max_image_count as u32
+				}
+			});
+		} else {
+			for mode in present_modes.iter() {
+				if *mode == VkPresentModeKHR::VK_PRESENT_MODE_MAILBOX_KHR {
+					present_mode = *mode;
+					break;
+				}
+			}
+			// If V-Sync is requested, we don't need that much of images.
+			desired_num_of_swapchain_images = max(surf_caps.minImageCount, 2);
 		}
 
 		// Find the transformation of the surface
@@ -226,7 +244,7 @@ impl VulkanSwapchain {
 		Ok(Self {
 			device,
 			surface,
-			vsync,
+			present_interval,
 			is_vr,
 			surf_caps,
 			swapchain,
@@ -300,7 +318,12 @@ impl VulkanSwapchain {
 
 	/// Get if the swapchain is VSYNC
 	pub fn get_is_vsync(&self) -> bool {
-		self.vsync
+		self.present_interval.is_vsync()
+	}
+
+	/// Get the present interval
+	pub fn get_present_interval(&self) -> PresentInterval {
+		self.present_interval
 	}
 
 	/// Get if the swapchain is for VR
@@ -346,7 +369,7 @@ impl Debug for VulkanSwapchain {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanSwapchain")
 		.field("surface", &self.surface)
-		.field("vsync", &self.vsync)
+		.field("present_interval", &self.present_interval)
 		.field("is_vr", &self.is_vr)
 		.field("surf_caps", &self.surf_caps)
 		.field("swapchain", &self.swapchain)

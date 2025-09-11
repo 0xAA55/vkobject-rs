@@ -77,7 +77,6 @@ mod tests {
 	use crate::prelude::*;
 
 	const TEST_TIME: f64 = 10.0;
-	const MAX_CONCURRENT_FRAMES: usize = 3;
 
 	#[derive(Debug)]
 	pub struct TestInstance {
@@ -94,7 +93,7 @@ mod tests {
 			glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
 			let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
 			window.set_key_polling(true);
-			let ctx = create_vulkan_context(&window, true, MAX_CONCURRENT_FRAMES, false)?;
+			let ctx = create_vulkan_context(&window, PresentInterval::VSync, 1, false)?;
 			Ok(Self {
 				glfw,
 				window,
