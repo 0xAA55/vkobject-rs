@@ -150,8 +150,13 @@ impl VulkanSwapchain {
 			}
 			// If V-Sync is not requested, it's needed to render as many frames as possible and present the images as fast as possible, so more images, less latency could be achieved
 			desired_num_of_swapchain_images = max(max(surf_caps.minImageCount, 2), if max_image_count == 0 {
-				// Magic number happens here, on my computer (RTX 3060 Ti), 4 could achieve maximum framerate, greater than 4 is redundant, and less than 4 would cause a lower framerate.
-				4
+				if surf_caps.maxImageCount != 0 {
+					// Limit to the device's max image count
+					surf_caps.maxImageCount
+				} else {
+					// Magic number happens here, on my computer (RTX 3060 Ti), 4 could achieve maximum framerate, greater than 4 is redundant, and less than 4 would cause a lower framerate.
+					4
+				}
 			} else {
 				if surf_caps.maxImageCount != 0 {
 					// Limit to the device's max image count
