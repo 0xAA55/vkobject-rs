@@ -130,6 +130,9 @@ pub struct VulkanContext {
 
 	/// The Vulkan driver
 	pub(crate) vkcore: Arc<VkCore>,
+
+	/// How many scenes could be rendered concurrently?
+	pub cpu_renderer_threads: usize,
 }
 
 unsafe impl Send for VulkanContext {}
@@ -165,7 +168,7 @@ impl VulkanContext {
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, create_info.is_vr, None)?);
+		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, cpu_renderer_threads, create_info.is_vr, None)?);
 		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(cpu_renderer_threads);
 		for _ in 0..cpu_renderer_threads {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
@@ -176,6 +179,7 @@ impl VulkanContext {
 			surface,
 			swapchain,
 			cmdpools,
+			cpu_renderer_threads,
 		};
 		Ok(ret)
 	}
@@ -242,10 +246,15 @@ impl VulkanContext {
 		Self::get_surface_size_(&self.vkcore, &self.device, &self.surface)
 	}
 
+	/// Get the number of CPU renderer threads that supports
+	pub fn get_supported_number_of_cpu_renderer_threads(&self) -> usize {
+		self.cpu_renderer_threads
+	}
+
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, is_vr, Some(self.swapchain.get_vk_swapchain()))?);
+		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, self.cpu_renderer_threads, is_vr, Some(self.swapchain.get_vk_swapchain()))?);
 		Ok(())
 	}
 
