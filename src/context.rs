@@ -101,8 +101,8 @@ pub struct VulkanContextCreateInfo<'a> {
 	/// The surface, the target you want to render to
 	pub surface: VulkanSurfaceInfo<'a>,
 
-	/// VSYNC should be on or off?
-	/// * It's recommended to enable VSYNC for most usage since this could be the smoothest achieve and lower the power consumption, **except** for players who play PVP and want to win with the lowest latency (You are designing these sorts of games)
+	/// V-Sync should be on or off?
+	/// * It's recommended to enable V-Sync for most usage since this could be the smoothest achieve and lower the power consumption, **except** for players who play PVP and want to win with the lowest latency (You are designing these sorts of games)
 	pub present_interval: PresentInterval,
 
 	/// How many scenes could be rendered concurrently?
