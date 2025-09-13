@@ -288,6 +288,11 @@ impl VulkanShader {
 	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Self, VulkanError> {
 		Self::new_from_source(device, code_path.load()?.as_ref(), &code_path.get_filename(), entry_point, level, debug_info, warning_as_error)
 	}
+
+	/// Get the inner
+	pub(crate) fn get_vk_shader(&self) -> VkShaderModule {
+		self.shader
+	}
 }
 
 impl Debug for VulkanShader {
