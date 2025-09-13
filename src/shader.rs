@@ -135,9 +135,6 @@ fn get_name(module: &Module, target_id: Word) -> Option<String> {
 	None
 }
 
-/// The optimization level for shaderc
-#[cfg(feature = "shaderc")]
-pub use shaderc::OptimizationLevel;
 
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
