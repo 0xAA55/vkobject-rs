@@ -112,9 +112,9 @@ impl VulkanShader {
 		Self::new(device, &shader_code)
 	}
 
-	/// Create the `VulkanShader` from source code
+	/// Compile shader code to binary
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Self, VulkanError> {
+	pub fn compile(code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Vec<u32>, VulkanError> {
 		use shaderc::*;
 		use ShaderSource::*;
 		let compiler = Compiler::new()?;
@@ -129,7 +129,13 @@ impl VulkanShader {
 			FragmentShader(source) => compiler.compile_into_spirv(source, ShaderKind::Fragment, filename, entry_point, Some(&options))?,
 			ComputeShader(source) => compiler.compile_into_spirv(source, ShaderKind::Compute, filename, entry_point, Some(&options))?,
 		};
-		Self::new(device, artifact.as_binary())
+		Ok(artifact.as_binary().to_vec())
+	}
+
+	/// Create the `VulkanShader` from source code
+	#[cfg(feature = "shaderc")]
+	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Self, VulkanError> {
+		Self::new(device, &Self::compile(code, filename, entry_point, level, debug_info, warning_as_error))
 	}
 
 	/// Create the `VulkanShader` from source code
