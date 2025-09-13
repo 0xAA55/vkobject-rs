@@ -24,6 +24,7 @@ pub enum VulkanError {
 	NoIdleDeviceQueues,
 	NoSuitableMemoryType,
 	ShaderCompilationError(String),
+	ShaderParseError(Arc<rspirv::binary::ParseState>),
 }
 
 impl From<VkError> for VulkanError {
@@ -35,6 +36,12 @@ impl From<VkError> for VulkanError {
 impl From<io::Error> for VulkanError {
 	fn from(e: io::Error) -> Self {
 		Self::IOError((format!("{e:?}"), e.kind()))
+	}
+}
+
+impl From<rspirv::binary::ParseState> for VulkanError {
+	fn from(s: rspirv::binary::ParseState) -> Self {
+		Self::ShaderParseError(Arc::new(s))
 	}
 }
 
