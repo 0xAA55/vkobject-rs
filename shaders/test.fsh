@@ -14,7 +14,7 @@ uniform vec3 iResolution;
 uniform float iTime;
 
 vec2 fragCoord = gl_FragCoord.xy;
-out vec4 Color;
+layout(location = 0) out vec4 Color;
 
 /* rasterize functions */
 float line(vec2 p, vec2 p0, vec2 p1, float w) {
