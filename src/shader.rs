@@ -24,7 +24,16 @@ pub enum ShaderSource<'a> {
 	VertexShader(&'a str),
 	GeometryShader(&'a str),
 	FragmentShader(&'a str),
-	ComputeShader(&'a str)
+	ComputeShader(&'a str),
+}
+
+/// The shader source
+#[derive(Debug, Clone)]
+pub enum ShaderSourceOwned {
+	VertexShader(String),
+	GeometryShader(String),
+	FragmentShader(String),
+	ComputeShader(String),
 }
 
 /// The shader source path
@@ -33,7 +42,38 @@ pub enum ShaderSourcePath<'a> {
 	VertexShader(&'a Path),
 	GeometryShader(&'a Path),
 	FragmentShader(&'a Path),
-	ComputeShader(&'a Path)
+	ComputeShader(&'a Path),
+}
+
+impl ShaderSourcePath<'_> {
+	pub fn load(&self) -> Result<ShaderSourceOwned, VulkanError> {
+		Ok(match self {
+			Self::VertexShader(path) => {let bytes = read(path)?; ShaderSourceOwned::VertexShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
+			Self::GeometryShader(path) => {let bytes = read(path)?; ShaderSourceOwned::GeometryShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
+			Self::FragmentShader(path) => {let bytes = read(path)?; ShaderSourceOwned::FragmentShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
+			Self::ComputeShader(path) => {let bytes = read(path)?; ShaderSourceOwned::ComputeShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
+		})
+	}
+
+	pub fn get_filename(&self) -> String {
+		match self {
+			Self::VertexShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
+			Self::GeometryShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
+			Self::FragmentShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
+			Self::ComputeShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
+		}
+	}
+}
+
+impl ShaderSourceOwned {
+	pub fn as_ref<'a>(&'a self) -> ShaderSource<'a> {
+		match self {
+			Self::VertexShader(string) => ShaderSource::VertexShader(string),
+			Self::GeometryShader(string) => ShaderSource::GeometryShader(string),
+			Self::FragmentShader(string) => ShaderSource::FragmentShader(string),
+			Self::ComputeShader(string) => ShaderSource::ComputeShader(string),
+		}
+	}
 }
 
 /// The optimization level for shaderc
@@ -95,13 +135,7 @@ impl VulkanShader {
 	/// Create the `VulkanShader` from source code
 	#[cfg(feature = "shaderc")]
 	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Self, VulkanError> {
-		use ShaderSourcePath::*;
-		match code_path {
-			VertexShader(path) =>   {let bytes = read(path)?; let source = unsafe {str::from_utf8_unchecked(&bytes)}; Self::new_from_source(device, ShaderSource::VertexShader(source),   &path.file_name().unwrap().to_string_lossy().to_owned(), entry_point, level, debug_info, warning_as_error)}
-			GeometryShader(path) => {let bytes = read(path)?; let source = unsafe {str::from_utf8_unchecked(&bytes)}; Self::new_from_source(device, ShaderSource::GeometryShader(source), &path.file_name().unwrap().to_string_lossy().to_owned(), entry_point, level, debug_info, warning_as_error)}
-			FragmentShader(path) => {let bytes = read(path)?; let source = unsafe {str::from_utf8_unchecked(&bytes)}; Self::new_from_source(device, ShaderSource::FragmentShader(source), &path.file_name().unwrap().to_string_lossy().to_owned(), entry_point, level, debug_info, warning_as_error)}
-			ComputeShader(path) =>  {let bytes = read(path)?; let source = unsafe {str::from_utf8_unchecked(&bytes)}; Self::new_from_source(device, ShaderSource::ComputeShader(source),  &path.file_name().unwrap().to_string_lossy().to_owned(), entry_point, level, debug_info, warning_as_error)}
-		}
+		Self::new_from_source(device, code_path.load()?.as_ref(), &code_path.get_filename(), entry_point, level, debug_info, warning_as_error)
 	}
 }
 
