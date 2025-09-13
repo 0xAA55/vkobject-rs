@@ -226,6 +226,8 @@ fn get_string_type(module: &Module, type_id: u32) -> Option<String> {
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
 	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32]) -> Result<Self, VulkanError> {
+		let bytes = unsafe {from_raw_parts(shader_code.as_ptr() as *const u8, shader_code.len() * 4)};
+		let vkdevice = device.get_vk_device();
 		let shader_module_ci = VkShaderModuleCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
 			pNext: null(),
@@ -234,7 +236,7 @@ impl VulkanShader {
 			pCode: shader_code.as_ptr(),
 		};
 		let mut shader: VkShaderModule = null();
-		device.vkcore.vkCreateShaderModule(device.get_vk_device(), &shader_module_ci, null(), &mut shader)?;
+		device.vkcore.vkCreateShaderModule(vkdevice, &shader_module_ci, null(), &mut shader)?;
 		Ok(Self {
 			device,
 			shader,
