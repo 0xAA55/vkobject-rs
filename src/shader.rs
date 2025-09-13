@@ -9,6 +9,10 @@ use std::{
 	sync::Arc,
 };
 
+/// The optimization level for shaderc
+#[cfg(feature = "shaderc")]
+pub use shaderc::OptimizationLevel;
+
 /// The wrapper for `VkShaderModule`
 pub struct VulkanShader {
 	/// The associated device
