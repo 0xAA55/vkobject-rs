@@ -19,11 +19,73 @@ use rspirv::{
 	spirv::{Decoration, Op, StorageClass, Word},
 };
 
+/// The struct member type
+#[derive(Debug, Clone)]
+pub struct StructMember {
+	member_type: VariableType,
+	member_name: String,
+}
+
+/// The struct type
+#[derive(Debug, Clone)]
+pub struct StructVariable {
+	name: String,
+	members: Vec<StructMember>,
+}
+
+/// The variable type
+#[derive(Debug, Clone)]
+pub struct VariableArrayType {
+	element_type: VariableType,
+	element_count: usize,
+}
+
+/// The variable type
+#[derive(Debug, Clone)]
+pub enum VariableType {
+	/// Literal variable
+	Literal(String),
+
+	/// Struct
+	Struct(StructVariable),
+
+	/// Array
+	Array(Box<VariableArrayType>),
+}
+
+impl VariableType {
+	/// Unwrap for literal variable
+	pub fn unwrap_literal(&self) -> &String {
+		if let Self::Literal(ret) = self {
+			ret
+		} else {
+			panic!("Expected `VariableType::Literal`, got {self:?}")
+		}
+	}
+
+	/// Unwrap for struct
+	pub fn unwrap_struct(&self) -> &StructVariable {
+		if let Self::Struct(ret) = self {
+			ret
+		} else {
+			panic!("Expected `VariableType::Struct`, got {self:?}")
+		}
+	}
+	/// Unwrap for array
+	pub fn unwrap_array(&self) -> &VariableArrayType {
+		if let Self::Array(ret) = self {
+			ret
+		} else {
+			panic!("Expected `VariableType::Array`, got {self:?}")
+		}
+	}
+}
+
 /// The input and output of the shader
 #[derive(Debug, Clone)]
 pub struct ShaderVariable {
 	/// The type of the variable
-	pub var_type: String,
+	pub var_type: VariableType,
 
 	/// The name of the variable
 	pub var_name: Option<String>,
@@ -130,7 +192,30 @@ impl ShaderSourceOwned {
 fn get_name(module: &Module, target_id: Word) -> Option<String> {
 	for inst in module.debug_names.iter() {
 		if inst.class.opcode == Op::Name && inst.operands[0].unwrap_id_ref() == target_id {
-			return Some(inst.operands[1].unwrap_literal_string().to_string());
+			let ret = inst.operands[1].unwrap_literal_string().to_string();
+			if ret.is_empty() {
+				return None;
+			} else {
+				return Some(ret);
+			}
+		}
+	}
+	None
+}
+
+/// Get the string of a target_id
+fn get_member_name(module: &Module, target_id: Word, member_id: u32) -> Option<String> {
+	for inst in module.debug_names.iter() {
+		if inst.class.opcode == Op::MemberName {
+			if inst.operands[0].unwrap_id_ref() != target_id || inst.operands[1].unwrap_literal_bit32() != member_id {
+				continue;
+			}
+			let ret = inst.operands[2].unwrap_literal_string().to_string();
+			if ret.is_empty() {
+				return None;
+			} else {
+				return Some(ret);
+			}
 		}
 	}
 	None
@@ -150,77 +235,100 @@ fn get_location(module: &Module, target_id: Word) -> Option<u32> {
 
 		let decoration = inst.operands[1].unwrap_decoration();
 		if decoration == Decoration::Location {
-			return Some(inst.operands[2].unwrap_literal_bit32() as u32);
+			return Some(inst.operands[2].unwrap_literal_bit32());
 		}
 	}
 	None
 }
 
 /// Get the string type
-fn get_string_type(module: &Module, type_id: u32) -> Option<String> {
-	for inst in module.global_inst_iter() {
-		if inst.operands[0].unwrap_literal_bit32() == type_id {
-			return Some(match inst.class.opcode {
-				Op::TypeBool => String::from("bool"),
+fn get_type(module: &Module, type_id: u32) -> Result<VariableType, VulkanError> {
+	for inst in &module.types_global_values {
+		if inst.result_id.unwrap() == type_id {
+			return match inst.class.opcode {
+				Op::TypePointer => {
+					get_type(module, inst.operands[1].unwrap_id_ref())
+				}
+				Op::TypeBool => Ok(VariableType::Literal("bool".to_string())),
 				Op::TypeInt => {
 					let signed = inst.operands[1].unwrap_literal_bit32() != 0;
 					let width = inst.operands[0].unwrap_literal_bit32();
-					format!("{}{width}", if signed {"i"} else {"u"})
+					Ok(VariableType::Literal(format!("{}{width}", if signed {"i"} else {"u"})))
 				}
-				Op::TypeFloat => format!("f{}", inst.operands[0].unwrap_literal_bit32()),
+				Op::TypeFloat => Ok(VariableType::Literal(format!("f{}", inst.operands[0].unwrap_literal_bit32()))),
 				Op::TypeVector => {
 					let component_type_id = inst.operands[0].unwrap_id_ref();
 					let component_count = inst.operands[1].unwrap_literal_bit32() as u8;
-					if let Some(component_type) = get_string_type(module, component_type_id) {
-						match component_type.as_str() {
-							"f32" => format!("vec{component_count}"),
-							"f64" => format!("dvec{component_count}"),
-							"i32" => format!("ivec{component_count}"),
-							"u32" => format!("uvec{component_count}"),
-							"bool" => format!("bvec{component_count}"),
-							_ => format!("{inst:?}"),
-						}
-					} else {
-						format!("{inst:?}")
+					let component_type = get_type(module, component_type_id)?;
+					match component_type.unwrap_literal().as_str() {
+						"f32"  => Ok(VariableType::Literal(format!( "vec{component_count}"))),
+						"f64"  => Ok(VariableType::Literal(format!("dvec{component_count}"))),
+						"i32"  => Ok(VariableType::Literal(format!("ivec{component_count}"))),
+						"u32"  => Ok(VariableType::Literal(format!("uvec{component_count}"))),
+						"bool" => Ok(VariableType::Literal(format!("bvec{component_count}"))),
+						_ => Err(VulkanError::ShaderParseIdUnknown),
 					}
 				}
 				Op::TypeMatrix => {
 					let column_type_id = inst.operands[0].unwrap_id_ref();
 					let column_count = inst.operands[1].unwrap_literal_bit32() as u8;
-					if let Some(column_type) = get_string_type(module, column_type_id) {
-						let column_dim = column_type.chars().last().unwrap().to_digit(10).unwrap();
-						match &column_type[..column_type.len() - 1] {
-							"vec" => match (column_dim, column_count) {
-								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("mat{column_dim}"),
-								_ => format!("mat{column_dim}{column_count}"),
-							}
-							"dvec" => match (column_dim, column_count) {
-								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("dmat{column_dim}"),
-								_ => format!("dmat{column_dim}{column_count}"),
-							}
-							"ivec" => match (column_dim, column_count) {
-								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("imat{column_dim}"),
-								_ => format!("imat{column_dim}{column_count}"),
-							}
-							"uvec" => match (column_dim, column_count) {
-								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("umat{column_dim}"),
-								_ => format!("umat{column_dim}{column_count}"),
-							}
-							"bvec" => match (column_dim, column_count) {
-								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("bmat{column_dim}"),
-								_ => format!("bmat{column_dim}{column_count}"),
-							}
-							_ => format!("{inst:?}"),
+					let column_type = get_type(module, column_type_id)?;
+					let column_type_name = column_type.unwrap_literal();
+					let column_dim = column_type_name.chars().last().unwrap().to_digit(10).unwrap();
+					Ok(VariableType::Literal(match &column_type_name[..column_type_name.len() - 1] {
+						"vec" => match (column_dim, column_count) {
+							(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("mat{column_dim}"),
+							_ => format!("mat{column_dim}{column_count}"),
 						}
-					} else {
-						format!("{inst:?}")
-					}
+						"dvec" => match (column_dim, column_count) {
+							(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("dmat{column_dim}"),
+							_ => format!("dmat{column_dim}{column_count}"),
+						}
+						"ivec" => match (column_dim, column_count) {
+							(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("imat{column_dim}"),
+							_ => format!("imat{column_dim}{column_count}"),
+						}
+						"uvec" => match (column_dim, column_count) {
+							(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("umat{column_dim}"),
+							_ => format!("umat{column_dim}{column_count}"),
+						}
+						"bvec" => match (column_dim, column_count) {
+							(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("bmat{column_dim}"),
+							_ => format!("bmat{column_dim}{column_count}"),
+						}
+						_ => format!("{inst:?}"),
+					}))
 				}
-				_ => format!("{inst:?}"),
-			})
+				Op::TypeStruct => {
+					let name = get_name(module, type_id).unwrap();
+					let mut members: Vec<StructMember> = Vec::with_capacity(inst.operands.len());
+					for (i, member) in inst.operands.iter().enumerate() {
+						let id = member.unwrap_id_ref();
+						let member_name = get_member_name(module, type_id, i as u32).unwrap_or(String::from("_"));
+						let member_type = get_type(module, id).unwrap();
+						members.push(StructMember {
+							member_name,
+							member_type,
+						});
+					}
+					Ok(VariableType::Struct(StructVariable {
+						name,
+						members,
+					}))
+				}
+				Op::TypeArray => {
+					let element_type = get_type(module, inst.operands[0].unwrap_id_ref())?;
+					let element_count = inst.operands[1].unwrap_id_ref() as usize;
+					Ok(VariableType::Array(Box::new(VariableArrayType {
+						element_type,
+						element_count,
+					})))
+				}
+				_ => Err(VulkanError::ShaderParseIdUnknown),
+			}
 		}
 	}
-	None
+	Err(VulkanError::ShaderParseIdUnknown)
 }
 
 impl VulkanShader {
@@ -248,17 +356,17 @@ impl VulkanShader {
 		let module = loader.module();
 
 		let mut vars: Vec<ShaderVariable> = Vec::with_capacity(module.types_global_values.len());
-		for inst in &module.types_global_values {
+		for inst in module.global_inst_iter() {
 			if inst.class.opcode != Op::Variable {
 				continue;
 			}
 
 			let var_id = inst.result_id.unwrap();
 			let var_type_id = inst.result_type.unwrap();
-			let storage_class = inst.operands[2].unwrap_storage_class();
+			let storage_class = inst.operands[0].unwrap_storage_class();
 
-			let var_type = get_string_type(&module, var_type_id).unwrap();
-			let var_name = get_name(&module, var_id).map(|s| s.to_string());
+			let var_type = get_type(&module, var_type_id).unwrap();
+			let var_name = get_name(&module, var_id);
 			let location = get_location(&module, var_id);
 
 			vars.push(ShaderVariable {
@@ -328,12 +436,18 @@ impl VulkanShader {
 	pub(crate) fn get_vk_shader(&self) -> VkShaderModule {
 		self.shader
 	}
+
+	/// Get variables
+	pub fn get_vars(&self) -> &[ShaderVariable] {
+		&self.vars
+	}
 }
 
 impl Debug for VulkanShader {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanShader")
 		.field("shader", &self.shader)
+		.field("vars", &self.vars)
 		.finish()
 	}
 }
