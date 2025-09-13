@@ -16,9 +16,16 @@ pub use shaderc::OptimizationLevel;
 /// The input and output of the shader
 #[derive(Debug, Clone)]
 pub struct ShaderVariable {
+	/// The type of the variable
 	pub var_type: String,
+
+	/// The name of the variable
 	pub var_name: Option<String>,
+
+	/// The storage class of the variable
 	pub storage_class: StorageClass,
+
+	/// The location of the variable
 	pub location: Option<u32>,
 }
 
@@ -37,27 +44,48 @@ pub struct VulkanShader {
 /// The shader source
 #[derive(Debug, Clone, Copy)]
 pub enum ShaderSource<'a> {
+	/// Vertex shader source code
 	VertexShader(&'a str),
+
+	/// Geometry shader source code
 	GeometryShader(&'a str),
+
+	/// Fragment shader source code
 	FragmentShader(&'a str),
+
+	/// Compute shader source code
 	ComputeShader(&'a str),
 }
 
 /// The shader source
 #[derive(Debug, Clone)]
 pub enum ShaderSourceOwned {
+	/// Vertex shader source code
 	VertexShader(String),
+
+	/// Geometry shader source code
 	GeometryShader(String),
+
+	/// Fragment shader source code
 	FragmentShader(String),
+
+	/// Compute shader source code
 	ComputeShader(String),
 }
 
 /// The shader source path
 #[derive(Debug, Clone, Copy)]
 pub enum ShaderSourcePath<'a> {
+	/// Vertex shader source code file path
 	VertexShader(&'a Path),
+
+	/// Geometry shader source code file path
 	GeometryShader(&'a Path),
+
+	/// Fragment shader source code file path
 	FragmentShader(&'a Path),
+
+	/// Compute shader source code file path
 	ComputeShader(&'a Path),
 }
 
