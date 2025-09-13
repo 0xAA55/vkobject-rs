@@ -13,6 +13,15 @@ use std::{
 #[cfg(feature = "shaderc")]
 pub use shaderc::OptimizationLevel;
 
+/// The input and output of the shader
+#[derive(Debug, Clone)]
+pub struct ShaderVariable {
+	pub var_type: String,
+	pub var_name: Option<String>,
+	pub storage_class: StorageClass,
+	pub location: Option<u32>,
+}
+
 /// The wrapper for `VkShaderModule`
 pub struct VulkanShader {
 	/// The associated device
@@ -20,6 +29,9 @@ pub struct VulkanShader {
 
 	/// The handle to the shader
 	shader: VkShaderModule,
+
+	/// The parsed variables of the shader
+	vars: Vec<ShaderVariable>,
 }
 
 /// The shader source
