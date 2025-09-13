@@ -259,13 +259,13 @@ impl VulkanShader {
 
 	/// Compile shader code to binary
 	#[cfg(feature = "shaderc")]
-	pub fn compile(code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Vec<u32>, VulkanError> {
+	pub fn compile(device: Arc<VulkanDevice>, code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Vec<u32>, VulkanError> {
 		use shaderc::*;
 		use ShaderSource::*;
 		let compiler = Compiler::new()?;
 		let mut options = CompileOptions::new()?;
 		options.set_optimization_level(level);
-		if debug_info {options.set_generate_debug_info()}
+		options.set_generate_debug_info();
 		if warning_as_error {options.set_warnings_as_errors()}
 		options.set_target_env(TargetEnv::Vulkan, device.vkcore.get_app_info().apiVersion);
 		let artifact = match code {
@@ -279,14 +279,15 @@ impl VulkanShader {
 
 	/// Create the `VulkanShader` from source code
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Self, VulkanError> {
-		Self::new(device, &Self::compile(code, filename, entry_point, level, debug_info, warning_as_error))
+	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
+		let artifact = Self::compile(device.clone(), code, filename, entry_point, level, warning_as_error)?;
+		Self::new(device, &artifact)
 	}
 
-	/// Create the `VulkanShader` from source code
+	/// Create the `VulkanShader` from source code from file
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, entry_point: &str, level: OptimizationLevel, debug_info: bool, warning_as_error: bool) -> Result<Self, VulkanError> {
-		Self::new_from_source(device, code_path.load()?.as_ref(), &code_path.get_filename(), entry_point, level, debug_info, warning_as_error)
+	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
+		Self::new_from_source(device, code_path.load()?.as_ref(), &code_path.get_filename(), entry_point, level, warning_as_error)
 	}
 
 	/// Get the inner
