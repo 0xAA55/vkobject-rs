@@ -135,6 +135,26 @@ fn get_name(module: &Module, target_id: Word) -> Option<String> {
 	None
 }
 
+/// Get the location
+fn get_location(module: &Module, target_id: Word) -> Option<u32> {
+	for inst in module.annotations.iter() {
+		if inst.class.opcode != Op::Decorate {
+			continue;
+		}
+
+		let decorated_id = inst.operands[0].unwrap_id_ref();
+		if decorated_id != target_id {
+			continue;
+		}
+
+		let decoration = inst.operands[1].unwrap_decoration();
+		if decoration == Decoration::Location {
+			return Some(inst.operands[2].unwrap_literal_bit32() as u32);
+		}
+	}
+	None
+}
+
 
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
