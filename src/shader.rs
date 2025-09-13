@@ -237,9 +237,43 @@ impl VulkanShader {
 		};
 		let mut shader: VkShaderModule = null();
 		device.vkcore.vkCreateShaderModule(vkdevice, &shader_module_ci, null(), &mut shader)?;
+		let shader = ResourceGuard::new(shader, |&s|device.vkcore.vkDestroyShaderModule(vkdevice, s, null()).unwrap());
+
+		use rspirv::{
+			dr::Loader,
+			binary::Parser,
+		};
+		let mut loader = Loader::new();
+		Parser::new(bytes, &mut loader).parse()?;
+		let module = loader.module();
+
+		let mut vars: Vec<ShaderVariable> = Vec::with_capacity(module.types_global_values.len());
+		for inst in &module.types_global_values {
+			if inst.class.opcode != Op::Variable {
+				continue;
+			}
+
+			let var_id = inst.result_id.unwrap();
+			let var_type_id = inst.result_type.unwrap();
+			let storage_class = inst.operands[2].unwrap_storage_class();
+
+			let var_type = get_string_type(&module, var_type_id).unwrap();
+			let var_name = get_name(&module, var_id).map(|s| s.to_string());
+			let location = get_location(&module, var_id);
+
+			vars.push(ShaderVariable {
+				var_type,
+				var_name,
+				storage_class,
+				location,
+			});
+		}
+
+		let shader = shader.release();
 		Ok(Self {
 			device,
 			shader,
+			vars,
 		})
 	}
 
