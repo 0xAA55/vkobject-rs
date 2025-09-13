@@ -23,6 +23,7 @@ pub enum VulkanError {
 	NoIdleCommandPools,
 	NoIdleDeviceQueues,
 	NoSuitableMemoryType,
+	ShaderCompilationError(String),
 }
 
 impl From<VkError> for VulkanError {
@@ -37,10 +38,28 @@ impl From<io::Error> for VulkanError {
 	}
 }
 
+#[cfg(feature = "shaderc")]
+impl From<shaderc::Error> for VulkanError {
+	fn from(e: shaderc::Error) -> Self {
+		match e {
+			shaderc::Error::CompilationError(_, desc) => Self::ShaderCompilationError(desc),
+			_ => Self::ShaderCompilationError(format!("{e:?}")),
+		}
+	}
+}
+
 impl VulkanError {
-	pub fn is_vkerror(&self) -> Option<VkError> {
+	pub fn is_vkerror(&self) -> Option<&VkError> {
 		if let Self::VkError(ve) = self {
-			Some(ve.clone())
+			Some(ve)
+		} else {
+			None
+		}
+	}
+
+	pub fn is_shader_error(&self) -> Option<&String> {
+		if let Self::ShaderCompilationError(se) = self {
+			Some(se)
 		} else {
 			None
 		}
