@@ -1,5 +1,5 @@
 // **NOTE** The fragment shader below comes from "https://www.shadertoy.com/view/MsjSzz", The author is TDM.
-#version 330
+#version 460
 
 #define LINEAR_ROTATION
 
@@ -10,8 +10,10 @@ const vec3 BLUE = vec3(0.0,0.8,1.0);
 const vec3 WHITE = vec3(1.0,1.0,0.97);
 const vec3 YELLOW = vec3(1.0,1.0,0.0);
 
-uniform vec3 iResolution;
-uniform float iTime;
+layout(std140, binding = 0) uniform Input {
+	vec3 iResolution;
+	float iTime;
+};
 
 vec2 fragCoord = gl_FragCoord.xy;
 layout(location = 0) out vec4 Color;
