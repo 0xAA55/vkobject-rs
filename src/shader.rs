@@ -13,6 +13,11 @@ use std::{
 #[cfg(feature = "shaderc")]
 pub use shaderc::OptimizationLevel;
 
+use rspirv::{
+	dr::Module,
+	spirv::{Decoration, Op, StorageClass, Word},
+};
+
 /// The input and output of the shader
 #[derive(Debug, Clone)]
 pub struct ShaderVariable {
@@ -118,6 +123,16 @@ impl ShaderSourceOwned {
 			Self::ComputeShader(string) => ShaderSource::ComputeShader(string),
 		}
 	}
+}
+
+/// Get the string of a target_id
+fn get_name(module: &Module, target_id: Word) -> Option<String> {
+	for inst in module.debug_names.iter() {
+		if inst.class.opcode == Op::Name && inst.operands[0].unwrap_id_ref() == target_id {
+			return Some(inst.operands[1].unwrap_literal_string().to_string());
+		}
+	}
+	None
 }
 
 /// The optimization level for shaderc
