@@ -6,6 +6,7 @@ use std::{
 	mem::forget,
 	path::Path,
 	ptr::null,
+	slice::from_raw_parts,
 	sync::Arc,
 };
 
@@ -155,6 +156,72 @@ fn get_location(module: &Module, target_id: Word) -> Option<u32> {
 	None
 }
 
+/// Get the string type
+fn get_string_type(module: &Module, type_id: u32) -> Option<String> {
+	for inst in module.global_inst_iter() {
+		if inst.operands[0].unwrap_literal_bit32() == type_id {
+			return Some(match inst.class.opcode {
+				Op::TypeBool => String::from("bool"),
+				Op::TypeInt => {
+					let signed = inst.operands[1].unwrap_literal_bit32() != 0;
+					let width = inst.operands[0].unwrap_literal_bit32();
+					format!("{}{width}", if signed {"i"} else {"u"})
+				}
+				Op::TypeFloat => format!("f{}", inst.operands[0].unwrap_literal_bit32()),
+				Op::TypeVector => {
+					let component_type_id = inst.operands[0].unwrap_id_ref();
+					let component_count = inst.operands[1].unwrap_literal_bit32() as u8;
+					if let Some(component_type) = get_string_type(module, component_type_id) {
+						match component_type.as_str() {
+							"f32" => format!("vec{component_count}"),
+							"f64" => format!("dvec{component_count}"),
+							"i32" => format!("ivec{component_count}"),
+							"u32" => format!("uvec{component_count}"),
+							"bool" => format!("bvec{component_count}"),
+							_ => format!("{inst:?}"),
+						}
+					} else {
+						format!("{inst:?}")
+					}
+				}
+				Op::TypeMatrix => {
+					let column_type_id = inst.operands[0].unwrap_id_ref();
+					let column_count = inst.operands[1].unwrap_literal_bit32() as u8;
+					if let Some(column_type) = get_string_type(module, column_type_id) {
+						let column_dim = column_type.chars().last().unwrap().to_digit(10).unwrap();
+						match &column_type[..column_type.len() - 1] {
+							"vec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("mat{column_dim}"),
+								_ => format!("mat{column_dim}{column_count}"),
+							}
+							"dvec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("dmat{column_dim}"),
+								_ => format!("dmat{column_dim}{column_count}"),
+							}
+							"ivec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("imat{column_dim}"),
+								_ => format!("imat{column_dim}{column_count}"),
+							}
+							"uvec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("umat{column_dim}"),
+								_ => format!("umat{column_dim}{column_count}"),
+							}
+							"bvec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("bmat{column_dim}"),
+								_ => format!("bmat{column_dim}{column_count}"),
+							}
+							_ => format!("{inst:?}"),
+						}
+					} else {
+						format!("{inst:?}")
+					}
+				}
+				_ => format!("{inst:?}"),
+			})
+		}
+	}
+	None
+}
 
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
