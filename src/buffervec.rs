@@ -181,19 +181,17 @@ where
 					si = i;
 					gap = 0;
 				}
+			} else if is_in {
+				ei = i;
+				is_in = false;
+				gap = 1; // This ensures all regions were flushed including the last one.
 			} else {
-				if is_in {
-					ei = i;
-					is_in = false;
-					gap = 1; // This ensures all regions were flushed including the last one.
-				} else {
-					gap += 1;
-					if gap == MAX_GAP {
-						region.push(BufferRegion {
-							offset: (si * size_of::<T>()) as VkDeviceSize,
-							size: ((ei + 1 - si) * size_of::<T>()) as VkDeviceSize,
-						});
-					}
+				gap += 1;
+				if gap == MAX_GAP {
+					region.push(BufferRegion {
+						offset: (si * size_of::<T>()) as VkDeviceSize,
+						size: ((ei + 1 - si) * size_of::<T>()) as VkDeviceSize,
+					});
 				}
 			}
 		}

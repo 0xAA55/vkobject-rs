@@ -160,14 +160,12 @@ impl VulkanSwapchain {
 					// Magic number happens here, on my computer (RTX 3060 Ti), 4 could achieve maximum framerate, greater than 4 is redundant, and less than 4 would cause a lower framerate.
 					4
 				}
+			} else if surf_caps.maxImageCount != 0 {
+				// Limit to the device's max image count
+				min(max_image_count as u32, surf_caps.maxImageCount)
 			} else {
-				if surf_caps.maxImageCount != 0 {
-					// Limit to the device's max image count
-					min(max_image_count as u32, surf_caps.maxImageCount)
-				} else {
-					// If the device image count is not limited, use the given number of images if it was given.
-					max_image_count as u32
-				}
+				// If the device image count is not limited, use the given number of images if it was given.
+				max_image_count as u32
 			});
 		} else {
 			for mode in present_modes.iter() {
@@ -243,7 +241,7 @@ impl VulkanSwapchain {
 		for vk_image in vk_images.iter() {
 			images.push(Arc::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?));
 		}
-		let mut acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>> = Vec::with_capacity(cpu_renderer_threads as usize);
+		let mut acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>> = Vec::with_capacity(cpu_renderer_threads);
 		for _ in 0..cpu_renderer_threads {
 			acquire_semaphores.push(Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?)));
 		}

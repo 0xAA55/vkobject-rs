@@ -69,11 +69,7 @@ pub enum PresentInterval {
 impl PresentInterval {
 	/// Is V-Sync requested?
 	pub fn is_vsync(&self) -> bool {
-		if let Self::VSync = self {
-			true
-		} else {
-			false
-		}
+		matches!(self, Self::VSync)
 	}
 
 	/// Is minimum-latency tearing `present()` requested?
