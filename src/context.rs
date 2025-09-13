@@ -295,7 +295,7 @@ impl VulkanContext {
 							VkError::VkErrorOutOfDateKhr(_) => {
 								self.on_resize()?;
 							}
-							_ => return Err(VulkanError::VkError(ve)),
+							_ => return Err(VulkanError::VkError(ve.clone())),
 						}
 					} else {
 						return Err(e)
@@ -481,7 +481,7 @@ impl<'a> VulkanContextScene<'a> {
 			Err(e) => if let Some(ve) = e.is_vkerror() {
 				match ve {
 					VkError::VkErrorOutOfDateKhr(_) => Ok(()),
-					_ => Err(VulkanError::VkError(ve)),
+					_ => Err(VulkanError::VkError(ve.clone())),
 				}
 			} else {
 				Err(e)
