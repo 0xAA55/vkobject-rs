@@ -72,16 +72,16 @@ pub mod shader_analyzer {
 	#[derive(Debug, Clone, Copy)]
 	pub enum ImageSampled {
 		RunTimeOnly = 0,
-		RO = 1,
-		RW = 2,
+		ReadOnly = 1,
+		ReadWrite = 2,
 	}
 
 	impl From<u32> for ImageSampled {
 		fn from(val: u32) -> Self {
 			match val {
 				0 => Self::RunTimeOnly,
-				1 => Self::RO,
-				2 => Self::RW,
+				1 => Self::ReadOnly,
+				2 => Self::ReadWrite,
 				_ => panic!("Invalid value for `ImageSampled`"),
 			}
 		}
@@ -504,7 +504,6 @@ impl VulkanShader {
 		let bytes = unsafe {from_raw_parts(shader_code.as_ptr() as *const u8, shader_code.len() * 4)};
 		let analyzer = ShaderAnalyzer::new(bytes)?;
 		let vars = analyzer.get_global_vars()?;
-
 		let vkdevice = device.get_vk_device();
 		let shader_module_ci = VkShaderModuleCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
