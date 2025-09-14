@@ -35,7 +35,7 @@ pub struct StructType {
 
 /// The variable type
 #[derive(Debug, Clone)]
-pub struct VariableArrayType {
+pub struct ArrayType {
 	element_type: VariableType,
 	element_count: usize,
 }
@@ -62,7 +62,7 @@ pub enum VariableType {
 	Struct(StructType),
 
 	/// Array
-	Array(Box<VariableArrayType>),
+	Array(Box<ArrayType>),
 
 	/// Image
 	Image(Box<ImageType>),
@@ -87,7 +87,7 @@ impl VariableType {
 		}
 	}
 	/// Unwrap for array
-	pub fn unwrap_array(&self) -> &VariableArrayType {
+	pub fn unwrap_array(&self) -> &ArrayType {
 		if let Self::Array(ret) = self {
 			ret
 		} else {
@@ -377,7 +377,7 @@ impl ShaderAnalyzer {
 					Op::TypeArray => {
 						let element_type = self.get_type(inst.operands[0].unwrap_id_ref())?;
 						let element_count = inst.operands[1].unwrap_id_ref() as usize;
-						Ok(VariableType::Array(Box::new(VariableArrayType {
+						Ok(VariableType::Array(Box::new(ArrayType {
 							element_type,
 							element_count,
 						})))
