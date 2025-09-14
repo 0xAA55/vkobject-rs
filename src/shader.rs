@@ -548,12 +548,11 @@ impl VulkanShader {
 		if warning_as_error {options.set_warnings_as_errors()}
 		options.set_target_env(TargetEnv::Vulkan, device.vkcore.get_app_info().apiVersion);
 		let source;
-		let kind;
-		match code {
-			VertexShader(ref src) => {source = src; kind = ShaderKind::Vertex}
-			GeometryShader(ref src) => {source = src; kind = ShaderKind::Geometry}
-			FragmentShader(ref src) => {source = src; kind = ShaderKind::Fragment}
-			ComputeShader(ref src) => {source = src; kind = ShaderKind::Compute}
+		let kind = match code {
+			VertexShader(ref src) => {source = src; ShaderKind::Vertex}
+			GeometryShader(ref src) => {source = src; ShaderKind::Geometry}
+			FragmentShader(ref src) => {source = src; ShaderKind::Fragment}
+			ComputeShader(ref src) => {source = src; ShaderKind::Compute}
 		};
 		let artifact = compiler.compile_into_spirv(source, kind, filename, entry_point, Some(&options))?;
 		Ok(artifact.as_binary().to_vec())
