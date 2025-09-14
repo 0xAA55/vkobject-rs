@@ -632,6 +632,7 @@ impl VulkanShader {
 	}
 
 	/// Create the `VulkanShader` from source code
+	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
 	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
 		let artifact = Self::compile(device.clone(), code, filename, entry_point, level, warning_as_error)?;
@@ -639,6 +640,7 @@ impl VulkanShader {
 	}
 
 	/// Create the `VulkanShader` from source code from file
+	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
 	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
 		Self::new_from_source(device, code_path.load()?.as_ref(), &code_path.get_filename(), entry_point, level, warning_as_error)
