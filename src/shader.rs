@@ -294,7 +294,7 @@ pub mod shader_analyzer {
 								"i32"  => Ok(VariableType::Literal(format!("ivec{component_count}"))),
 								"u32"  => Ok(VariableType::Literal(format!("uvec{component_count}"))),
 								"bool" => Ok(VariableType::Literal(format!("bvec{component_count}"))),
-								_ => Err(VulkanError::ShaderParseIdUnknown),
+								others => Err(VulkanError::ShaderParseIdUnknown(others.to_string())),
 							}
 						}
 						Op::TypeMatrix => {
@@ -368,12 +368,12 @@ pub mod shader_analyzer {
 						}
 						_ => {
 							println!("{:#?}", self.module);
-							Err(VulkanError::ShaderParseIdUnknown)
+							Err(VulkanError::ShaderParseIdUnknown(format!("{inst:?}")))
 						}
 					}
 				}
 			}
-			Err(VulkanError::ShaderParseIdUnknown)
+			Err(VulkanError::ShaderParseIdUnknown(format!("Unknown type ID: {type_id}")))
 		}
 
 		pub fn get_global_vars(&self) -> Result<Vec<ShaderVariable>, VulkanError> {

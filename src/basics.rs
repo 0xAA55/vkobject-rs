@@ -24,7 +24,7 @@ pub enum VulkanError {
 	NoIdleDeviceQueues,
 	NoSuitableMemoryType,
 	ShaderCompilationError(String),
-	ShaderParseIdUnknown,
+	ShaderParseIdUnknown(String),
 	ShaderParseError(Arc<rspirv::binary::ParseState>),
 }
 
