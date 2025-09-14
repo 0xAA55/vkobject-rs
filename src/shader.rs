@@ -322,12 +322,12 @@ pub mod shader_analyzer {
 						Op::TypeImage => {
 							Ok(VariableType::Image(Box::new(ImageType {
 								result: self.get_type(inst.operands[0].unwrap_id_ref())?,
-								dim: format!("{:?}", inst.operands[1].unwrap_dim()),
+								dim: inst.operands[1].unwrap_dim(),
 								depth: inst.operands[2].unwrap_literal_bit32(),
-								arrayed: inst.operands[3].unwrap_literal_bit32(),
+								arrayed: inst.operands[3].unwrap_literal_bit32() != 0,
 								multisample: inst.operands[4].unwrap_literal_bit32(),
-								sampled: inst.operands[5].unwrap_literal_bit32(),
-								format: format!("{:?}", inst.operands[6].unwrap_image_format()),
+								sampled: inst.operands[5].unwrap_literal_bit32() != 0,
+								format: inst.operands[6].unwrap_image_format(),
 							})))
 						}
 						_ => {
