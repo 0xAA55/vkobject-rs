@@ -66,8 +66,8 @@ pub mod shader_analyzer {
 		/// Is the image arrayed
 		arrayed: bool,
 
-		/// The MS of the image
-		multisample: u32,
+		/// Is multisample enabled on this image
+		multisample: bool,
 
 		/// Is this image sampled
 		sampled: bool,
@@ -325,7 +325,7 @@ pub mod shader_analyzer {
 								dim: inst.operands[1].unwrap_dim(),
 								depth: inst.operands[2].unwrap_literal_bit32(),
 								arrayed: inst.operands[3].unwrap_literal_bit32() != 0,
-								multisample: inst.operands[4].unwrap_literal_bit32(),
+								multisample: inst.operands[4].unwrap_literal_bit32() != 0,
 								sampled: inst.operands[5].unwrap_literal_bit32() != 0,
 								format: inst.operands[6].unwrap_image_format(),
 							})))
