@@ -110,6 +110,9 @@ pub struct ShaderVariable {
 
 	/// The location of the variable
 	pub location: Option<u32>,
+
+	/// The binding of the variable
+	pub binding: Option<u32>,
 }
 
 /// The wrapper for `VkShaderModule`
@@ -256,6 +259,26 @@ fn get_location(module: &Module, target_id: Word) -> Option<u32> {
 	None
 }
 
+/// Get the binding
+fn get_binding(module: &Module, target_id: Word) -> Option<u32> {
+	for inst in module.annotations.iter() {
+		if inst.class.opcode != Op::Decorate {
+			continue;
+		}
+
+		let decorated_id = inst.operands[0].unwrap_id_ref();
+		if decorated_id != target_id {
+			continue;
+		}
+
+		let decoration = inst.operands[1].unwrap_decoration();
+		if decoration == Decoration::Binding {
+			return Some(inst.operands[2].unwrap_literal_bit32());
+		}
+	}
+	None
+}
+
 /// Get the string type
 fn get_type(module: &Module, type_id: u32) -> Result<VariableType, VulkanError> {
 	for inst in &module.types_global_values {
@@ -273,7 +296,7 @@ fn get_type(module: &Module, type_id: u32) -> Result<VariableType, VulkanError> 
 				Op::TypeFloat => Ok(VariableType::Literal(format!("f{}", inst.operands[0].unwrap_literal_bit32()))),
 				Op::TypeVector => {
 					let component_type_id = inst.operands[0].unwrap_id_ref();
-					let component_count = inst.operands[1].unwrap_literal_bit32() as u8;
+					let component_count = inst.operands[1].unwrap_literal_bit32();
 					let component_type = get_type(module, component_type_id)?;
 					match component_type.unwrap_literal().as_str() {
 						"f32"  => Ok(VariableType::Literal(format!( "vec{component_count}"))),
@@ -286,7 +309,7 @@ fn get_type(module: &Module, type_id: u32) -> Result<VariableType, VulkanError> 
 				}
 				Op::TypeMatrix => {
 					let column_type_id = inst.operands[0].unwrap_id_ref();
-					let column_count = inst.operands[1].unwrap_literal_bit32() as u8;
+					let column_count = inst.operands[1].unwrap_literal_bit32();
 					let column_type = get_type(module, column_type_id)?;
 					let column_type_name = column_type.unwrap_literal();
 					let column_dim = column_type_name.chars().last().unwrap().to_digit(10).unwrap();
@@ -400,12 +423,14 @@ impl VulkanShader {
 			let var_type = get_type(&module, var_type_id).unwrap();
 			let var_name = get_name(&module, var_id);
 			let location = get_location(&module, var_id);
+			let binding = get_binding(&module, var_id);
 
 			vars.push(ShaderVariable {
 				var_type,
 				var_name,
 				storage_class,
 				location,
+				binding,
 			});
 		}
 
