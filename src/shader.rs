@@ -18,7 +18,7 @@ pub mod shader_analyzer {
 	use super::*;
 	use rspirv::{
 		dr::Module,
-		spirv::{Decoration, Op, StorageClass, Word},
+		spirv::*,
 	};
 
 	/// The struct member type
