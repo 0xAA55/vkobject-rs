@@ -14,6 +14,7 @@ layout(std140, binding = 0) uniform Input {
 	vec3 iResolution;
 	float iTime;
 };
+layout(binding = 1) uniform sampler2D tex;
 
 vec2 fragCoord = gl_FragCoord.xy;
 layout(location = 0) out vec4 Color;
@@ -180,5 +181,5 @@ void main() {
 	}
 
 	/* fragment */
-	Color = vec4(c, 1.0);
+	Color = vec4(c, 1.0) + texture(tex, uv);
 }
