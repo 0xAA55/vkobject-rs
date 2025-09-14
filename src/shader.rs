@@ -51,6 +51,42 @@ pub mod shader_analyzer {
 		element_count: usize,
 	}
 
+	#[derive(Debug, Clone, Copy)]
+	pub enum ImageDepth {
+		NoDepth = 0,
+		HasDepth = 1,
+		NotIndicated = 2,
+	}
+
+	impl From<u32> for ImageDepth {
+		fn from(val: u32) -> Self {
+			match val {
+				0 => Self::NoDepth,
+				1 => Self::HasDepth,
+				2 => Self::NotIndicated,
+				_ => panic!("Invalid value for `ImageDepth`"),
+			}
+		}
+	}
+
+	#[derive(Debug, Clone, Copy)]
+	pub enum ImageSampled {
+		RunTimeOnly = 0,
+		RO = 1,
+		RW = 2,
+	}
+
+	impl From<u32> for ImageSampled {
+		fn from(val: u32) -> Self {
+			match val {
+				0 => Self::RunTimeOnly,
+				1 => Self::RO,
+				2 => Self::RW,
+				_ => panic!("Invalid value for `ImageSampled`"),
+			}
+		}
+	}
+
 	/// The image type
 	#[derive(Debug, Clone)]
 	pub struct ImageType {
@@ -61,7 +97,7 @@ pub mod shader_analyzer {
 		dim: Dim,
 
 		/// The depth of the image
-		depth: u32,
+		depth: ImageDepth,
 
 		/// Is the image arrayed
 		arrayed: bool,
@@ -69,8 +105,8 @@ pub mod shader_analyzer {
 		/// Is multisample enabled on this image
 		multisample: bool,
 
-		/// Is this image sampled
-		sampled: bool,
+		/// Is this image could be sampled or written
+		sampled: ImageSampled,
 
 		/// The format of the image
 		format: ImageFormat,
@@ -323,10 +359,10 @@ pub mod shader_analyzer {
 							Ok(VariableType::Image(Box::new(ImageType {
 								result: self.get_type(inst.operands[0].unwrap_id_ref())?,
 								dim: inst.operands[1].unwrap_dim(),
-								depth: inst.operands[2].unwrap_literal_bit32(),
+								depth: inst.operands[2].unwrap_literal_bit32().into(),
 								arrayed: inst.operands[3].unwrap_literal_bit32() != 0,
 								multisample: inst.operands[4].unwrap_literal_bit32() != 0,
-								sampled: inst.operands[5].unwrap_literal_bit32() != 0,
+								sampled: inst.operands[5].unwrap_literal_bit32().into(),
 								format: inst.operands[6].unwrap_image_format(),
 							})))
 						}
