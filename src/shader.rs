@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	collections::HashMap,
 	fmt::{self, Debug, Formatter},
 	fs::read,
 	mem::forget,
@@ -175,10 +176,59 @@ pub mod shader_analyzer {
 		pub binding: Option<u32>,
 	}
 
+	#[derive(Clone, Copy)]
+	pub union ConstantValue {
+		float: f32,
+		double: f64,
+		int: i32,
+		uint: u32,
+	}
+
+	impl ConstantValue {
+		pub fn from_bit32(bit32: u32) -> Self {
+			Self {
+				uint: bit32,
+			}
+		}
+
+		pub fn from_bit64(bit64: u64) -> Self {
+			Self {
+				double: f64::from_bits(bit64),
+			}
+		}
+	}
+
+	impl Debug for ConstantValue {
+		fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+			unsafe {f.debug_struct("ConstantValue")
+			.field("float", &self.float)
+			.field("double", &self.double)
+			.field("int", &self.int)
+			.field("uint", &self.uint)
+			.finish()}
+		}
+	}
+
+	/// The input and output of the shader
+	#[derive(Debug, Clone)]
+	pub struct Constants {
+		/// The type of the constant
+		pub var_type: VariableType,
+
+		/// The name of the constant
+		pub var_name: Option<String>,
+
+		/// The value
+		pub value: ConstantValue,
+	}
+
 	#[derive(Debug, Clone)]
 	pub struct ShaderAnalyzer {
 		/// The analyzed shader module info and tokens and the IL instructions
 		module: Module,
+
+		/// The constant values
+		constants: HashMap<Word, Constants>,
 	}
 
 	impl ShaderAnalyzer {
@@ -191,9 +241,28 @@ pub mod shader_analyzer {
 			let mut loader = Loader::new();
 			Parser::new(bytes, &mut loader).parse()?;
 			let module = loader.module();
-			Ok(Self {
+			let mut ret = Self {
 				module,
-			})
+				constants: HashMap::new(),
+			};
+			for inst in ret.module.global_inst_iter() {
+				if inst.class.opcode == Op::Constant {
+					let id = inst.result_id.unwrap();
+					let var_type = ret.get_type(inst.result_type.unwrap())?;
+					let var_name = ret.get_name(id);
+					let value = match var_type.unwrap_literal().as_str() {
+						"f32" | "i32" | "u32" => ConstantValue::from_bit32(inst.operands[0].unwrap_literal_bit32()),
+						"f64" => ConstantValue::from_bit64(inst.operands[0].unwrap_literal_bit64()),
+						others => return Err(VulkanError::ShaderParseIdUnknown(format!("Unknown type of constant {var_name:?}: {others}"))),
+					};
+					ret.constants.insert(id, Constants {
+						var_type,
+						var_name,
+						value,
+					});
+				}
+			}
+			Ok(ret)
 		}
 
 		/// Get the string of a target_id
@@ -209,6 +278,11 @@ pub mod shader_analyzer {
 				}
 			}
 			None
+		}
+
+		/// Get the constant value
+		pub fn get_constant(&self, target_id: Word) -> Option<&Constants> {
+			self.constants.get(&target_id)
 		}
 
 		/// Get the string of a target_id
@@ -346,7 +420,7 @@ pub mod shader_analyzer {
 						}
 						Op::TypeArray => {
 							let element_type = self.get_type(inst.operands[0].unwrap_id_ref())?;
-							let element_count = inst.operands[1].unwrap_id_ref() as usize;
+							let element_count = unsafe {self.get_constant(inst.operands[1].unwrap_id_ref()).unwrap().value.uint} as usize;
 							Ok(VariableType::Array(Box::new(ArrayType {
 								element_type,
 								element_count,
