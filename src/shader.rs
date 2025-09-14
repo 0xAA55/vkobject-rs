@@ -24,11 +24,11 @@ pub mod shader_analyzer {
 	/// The struct member type
 	#[derive(Debug, Clone)]
 	pub struct StructMember {
-		/// The type of the member
-		pub member_type: VariableType,
-
 		/// The name of the member
 		pub member_name: String,
+
+		/// The type of the member
+		pub member_type: VariableType,
 	}
 
 	/// The struct type
