@@ -40,6 +40,18 @@ pub struct VariableArrayType {
 	element_count: usize,
 }
 
+/// The image type
+#[derive(Debug, Clone)]
+pub struct ImageType {
+	result: VariableType,
+	dim: String,
+	depth: u32,
+	arrayed: u32,
+	multisample: u32,
+	sampled: u32,
+	format: String,
+}
+
 /// The variable type
 #[derive(Debug, Clone)]
 pub enum VariableType {
@@ -51,6 +63,9 @@ pub enum VariableType {
 
 	/// Array
 	Array(Box<VariableArrayType>),
+
+	/// Image
+	Image(Box<ImageType>),
 }
 
 impl VariableType {
@@ -324,7 +339,24 @@ fn get_type(module: &Module, type_id: u32) -> Result<VariableType, VulkanError> 
 						element_count,
 					})))
 				}
-				_ => Err(VulkanError::ShaderParseIdUnknown),
+				Op::TypeSampledImage => {
+					get_type(module, inst.operands[0].unwrap_id_ref())
+				}
+				Op::TypeImage => {
+					Ok(VariableType::Image(Box::new(ImageType {
+						result: get_type(module, inst.operands[0].unwrap_id_ref())?,
+						dim: format!("{:?}", inst.operands[1].unwrap_dim()),
+						depth: inst.operands[2].unwrap_literal_bit32(),
+						arrayed: inst.operands[3].unwrap_literal_bit32(),
+						multisample: inst.operands[4].unwrap_literal_bit32(),
+						sampled: inst.operands[5].unwrap_literal_bit32(),
+						format: format!("{:?}", inst.operands[6].unwrap_image_format()),
+					})))
+				}
+				_ => {
+					println!("{module:#?}");
+					Err(VulkanError::ShaderParseIdUnknown)
+				}
 			}
 		}
 	}
