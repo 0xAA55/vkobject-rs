@@ -25,30 +25,30 @@ pub mod shader_analyzer {
 	#[derive(Debug, Clone)]
 	pub struct StructMember {
 		/// The type of the member
-		member_type: VariableType,
+		pub member_type: VariableType,
 
 		/// The name of the member
-		member_name: String,
+		pub member_name: String,
 	}
 
 	/// The struct type
 	#[derive(Debug, Clone)]
 	pub struct StructType {
 		/// The name of the struct type
-		name: String,
+		pub name: String,
 
 		/// The members of the struct type
-		members: Vec<StructMember>,
+		pub members: Vec<StructMember>,
 	}
 
 	/// The variable type
 	#[derive(Debug, Clone)]
 	pub struct ArrayType {
 		/// The type of the array element
-		element_type: VariableType,
+		pub element_type: VariableType,
 
 		/// The length of the array
-		element_count: usize,
+		pub element_count: usize,
 	}
 
 	#[derive(Debug, Clone, Copy)]
@@ -91,25 +91,25 @@ pub mod shader_analyzer {
 	#[derive(Debug, Clone)]
 	pub struct ImageType {
 		/// The sampled variable type
-		result: VariableType,
+		pub result: VariableType,
 
 		/// The dimension of the image
-		dim: Dim,
+		pub dim: Dim,
 
 		/// The depth of the image
-		depth: ImageDepth,
+		pub depth: ImageDepth,
 
 		/// Is the image arrayed
-		arrayed: bool,
+		pub arrayed: bool,
 
 		/// Is multisample enabled on this image
-		multisample: bool,
+		pub multisample: bool,
 
 		/// Is this image could be sampled or written
-		sampled: ImageSampled,
+		pub sampled: ImageSampled,
 
 		/// The format of the image
-		format: ImageFormat,
+		pub format: ImageFormat,
 	}
 
 	/// The variable type
