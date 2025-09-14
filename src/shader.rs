@@ -28,7 +28,7 @@ pub struct StructMember {
 
 /// The struct type
 #[derive(Debug, Clone)]
-pub struct StructVariable {
+pub struct StructType {
 	name: String,
 	members: Vec<StructMember>,
 }
@@ -47,7 +47,7 @@ pub enum VariableType {
 	Literal(String),
 
 	/// Struct
-	Struct(StructVariable),
+	Struct(StructType),
 
 	/// Array
 	Array(Box<VariableArrayType>),
@@ -64,7 +64,7 @@ impl VariableType {
 	}
 
 	/// Unwrap for struct
-	pub fn unwrap_struct(&self) -> &StructVariable {
+	pub fn unwrap_struct(&self) -> &StructType {
 		if let Self::Struct(ret) = self {
 			ret
 		} else {
@@ -311,7 +311,7 @@ fn get_type(module: &Module, type_id: u32) -> Result<VariableType, VulkanError> 
 							member_type,
 						});
 					}
-					Ok(VariableType::Struct(StructVariable {
+					Ok(VariableType::Struct(StructType {
 						name,
 						members,
 					}))
