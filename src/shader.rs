@@ -24,34 +24,56 @@ pub mod shader_analyzer {
 	/// The struct member type
 	#[derive(Debug, Clone)]
 	pub struct StructMember {
+		/// The type of the member
 		member_type: VariableType,
+
+		/// The name of the member
 		member_name: String,
 	}
 
 	/// The struct type
 	#[derive(Debug, Clone)]
 	pub struct StructType {
+		/// The name of the struct type
 		name: String,
+
+		/// The members of the struct type
 		members: Vec<StructMember>,
 	}
 
 	/// The variable type
 	#[derive(Debug, Clone)]
 	pub struct ArrayType {
+		/// The type of the array element
 		element_type: VariableType,
+
+		/// The length of the array
 		element_count: usize,
 	}
 
 	/// The image type
 	#[derive(Debug, Clone)]
 	pub struct ImageType {
+		/// The sampled variable type
 		result: VariableType,
-		dim: String,
+
+		/// The dimension of the image
+		dim: Dim,
+
+		/// The depth of the image
 		depth: u32,
-		arrayed: u32,
+
+		/// Is the image arrayed
+		arrayed: bool,
+
+		/// The MS of the image
 		multisample: u32,
-		sampled: u32,
-		format: String,
+
+		/// Is this image sampled
+		sampled: bool,
+
+		/// The format of the image
+		format: ImageFormat,
 	}
 
 	/// The variable type
@@ -119,6 +141,7 @@ pub mod shader_analyzer {
 
 	#[derive(Debug, Clone)]
 	pub struct ShaderAnalyzer {
+		/// The analyzed shader module info and tokens and the IL instructions
 		module: Module,
 	}
 
