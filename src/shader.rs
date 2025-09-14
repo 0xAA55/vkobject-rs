@@ -380,23 +380,23 @@ pub mod shader_analyzer {
 							Ok(VariableType::Literal(match &column_type_name[..column_type_name.len() - 1] {
 								"vec" => match (column_dim, column_count) {
 									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("mat{column_dim}"),
-									_ => format!("mat{column_dim}{column_count}"),
+									_ => format!("mat{column_count}x{column_dim}"),
 								}
 								"dvec" => match (column_dim, column_count) {
 									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("dmat{column_dim}"),
-									_ => format!("dmat{column_dim}{column_count}"),
+									_ => format!("dmat{column_count}x{column_dim}"),
 								}
 								"ivec" => match (column_dim, column_count) {
 									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("imat{column_dim}"),
-									_ => format!("imat{column_dim}{column_count}"),
+									_ => format!("imat{column_count}x{column_dim}"),
 								}
 								"uvec" => match (column_dim, column_count) {
 									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("umat{column_dim}"),
-									_ => format!("umat{column_dim}{column_count}"),
+									_ => format!("umat{column_count}x{column_dim}"),
 								}
 								"bvec" => match (column_dim, column_count) {
 									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("bmat{column_dim}"),
-									_ => format!("bmat{column_dim}{column_count}"),
+									_ => format!("bmat{column_count}x{column_dim}"),
 								}
 								_ => format!("{inst:?}"),
 							}))
