@@ -164,7 +164,7 @@ pub mod shader_analyzer {
 		pub var_type: VariableType,
 
 		/// The name of the variable
-		pub var_name: Option<String>,
+		pub var_name: String,
 
 		/// The storage class of the variable
 		pub storage_class: StorageClass,
@@ -216,7 +216,7 @@ pub mod shader_analyzer {
 		pub var_type: VariableType,
 
 		/// The name of the constant
-		pub var_name: Option<String>,
+		pub var_name: String,
 
 		/// The value
 		pub value: ConstantValue,
@@ -266,18 +266,18 @@ pub mod shader_analyzer {
 		}
 
 		/// Get the string of a target_id
-		pub fn get_name(&self, target_id: Word) -> Option<String> {
+		pub fn get_name(&self, target_id: Word) -> String {
 			for inst in self.module.debug_names.iter() {
 				if inst.class.opcode == Op::Name && inst.operands[0].unwrap_id_ref() == target_id {
 					let ret = inst.operands[1].unwrap_literal_string().to_string();
 					if ret.is_empty() {
-						return None;
+						break;
 					} else {
-						return Some(ret);
+						return ret;
 					}
 				}
 			}
-			None
+			format!("id_{target_id}")
 		}
 
 		/// Get the constant value
@@ -286,7 +286,7 @@ pub mod shader_analyzer {
 		}
 
 		/// Get the string of a target_id
-		pub fn get_member_name(&self, target_id: Word, member_id: u32) -> Option<String> {
+		pub fn get_member_name(&self, target_id: Word, member_id: u32) -> String {
 			for inst in self.module.debug_names.iter() {
 				if inst.class.opcode == Op::MemberName {
 					if inst.operands[0].unwrap_id_ref() != target_id || inst.operands[1].unwrap_literal_bit32() != member_id {
@@ -294,13 +294,13 @@ pub mod shader_analyzer {
 					}
 					let ret = inst.operands[2].unwrap_literal_string().to_string();
 					if ret.is_empty() {
-						return None;
+						break;
 					} else {
-						return Some(ret);
+						return ret;
 					}
 				}
 			}
-			None
+			format!("member_{member_id}")
 		}
 
 		/// Get the location
@@ -402,11 +402,11 @@ pub mod shader_analyzer {
 							}))
 						}
 						Op::TypeStruct => {
-							let name = self.get_name(type_id).unwrap();
+							let name = self.get_name(type_id);
 							let mut members: Vec<StructMember> = Vec::with_capacity(inst.operands.len());
 							for (i, member) in inst.operands.iter().enumerate() {
 								let id = member.unwrap_id_ref();
-								let member_name = self.get_member_name(type_id, i as u32).unwrap_or(String::from("_"));
+								let member_name = self.get_member_name(type_id, i as u32);
 								let member_type = self.get_type(id).unwrap();
 								members.push(StructMember {
 									member_name,
