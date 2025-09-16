@@ -145,6 +145,9 @@ pub mod shader_analyzer {
 
 		/// Image
 		Image(Box<ImageType>),
+
+		/// Opaque type
+		Opaque(String),
 	}
 
 	impl VariableType {
@@ -479,6 +482,14 @@ pub mod shader_analyzer {
 					}
 					Op::TypeSampler => {
 						Ok(VariableType::Literal(String::from("sampler")))
+					}
+					Op::TypeOpaque => {
+						let name = if let Some(first_operand) = inst.operands.first() {
+							first_operand.unwrap_literal_string().to_string()
+						} else {
+							format!("type_{type_id}")
+						};
+						Ok(VariableType::Opaque(name))
 					}
 					_ => {
 						println!("{:#?}", self.module);
