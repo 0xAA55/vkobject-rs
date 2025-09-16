@@ -22,6 +22,14 @@ pub mod shader_analyzer {
 		spirv::*,
 	};
 
+	/// The input layout of the variable
+	#[derive(Debug, Clone, Copy)]
+	pub enum VariableLayout {
+		None,
+		Descriptor { set: u32, binding: u32 },
+		Location(u32),
+	}
+
 	/// The struct member type
 	#[derive(Debug, Clone)]
 	pub struct StructMember {
@@ -169,11 +177,8 @@ pub mod shader_analyzer {
 		/// The storage class of the variable
 		pub storage_class: StorageClass,
 
-		/// The location of the variable
-		pub location: Option<u32>,
-
-		/// The binding of the variable
-		pub binding: Option<u32>,
+		/// The layout of the variable
+		pub layout: VariableLayout,
 	}
 
 	#[derive(Clone, Copy)]
@@ -305,44 +310,50 @@ pub mod shader_analyzer {
 			format!("member_{member_id}")
 		}
 
-		/// Get the location
-		pub fn get_location(&self, target_id: Word) -> Option<u32> {
+		/// Get the layout of the variable
+		/// * `member_id`: To retrieve the layout of a struct member, this field should be `Some`
+		/// * If you want to retrieve the layout of a variable rather than a struct member, this field should be `None`
+		pub fn get_layout(&self, target_id: Word, member_id: Option<u32>) -> VariableLayout {
+			let mut set = None;
+			let mut binding = None;
 			for inst in self.module.annotations.iter() {
-				if inst.class.opcode != Op::Decorate {
+				if inst.class.opcode != Op::Decorate || inst.operands[0].unwrap_id_ref() != target_id {
 					continue;
 				}
 
-				let decorated_id = inst.operands[0].unwrap_id_ref();
-				if decorated_id != target_id {
-					continue;
+				let decoration;
+				let value;
+				if let Some(member_id) = member_id {
+					if member_id != inst.operands[1].unwrap_literal_bit32() {
+						continue;
+					}
+					decoration = inst.operands[2].unwrap_decoration();
+					value = inst.operands[3].unwrap_literal_bit32();
+				} else {
+					decoration = inst.operands[1].unwrap_decoration();
+					value = inst.operands[2].unwrap_literal_bit32();
 				}
-
-				let decoration = inst.operands[1].unwrap_decoration();
-				if decoration == Decoration::Location {
-					return Some(inst.operands[2].unwrap_literal_bit32());
+				match decoration {
+					Decoration::Location => {
+						return VariableLayout::Location(value);
+					}
+					Decoration::DescriptorSet => {
+						set = Some(value);
+					}
+					Decoration::Binding => {
+						binding = Some(value);
+					}
+					_ => {}
+				}
+				if set.is_some() && binding.is_some() {
+					return VariableLayout::Descriptor{set: set.unwrap(), binding: binding.unwrap()};
 				}
 			}
-			None
-		}
-
-		/// Get the binding
-		pub fn get_binding(&self, target_id: Word) -> Option<u32> {
-			for inst in self.module.annotations.iter() {
-				if inst.class.opcode != Op::Decorate {
-					continue;
-				}
-
-				let decorated_id = inst.operands[0].unwrap_id_ref();
-				if decorated_id != target_id {
-					continue;
-				}
-
-				let decoration = inst.operands[1].unwrap_decoration();
-				if decoration == Decoration::Binding {
-					return Some(inst.operands[2].unwrap_literal_bit32());
-				}
+			if set.is_some() || binding.is_some() {
+				VariableLayout::Descriptor{set: set.unwrap_or(0), binding: binding.unwrap_or(0)}
+			} else {
+				VariableLayout::None
 			}
-			None
 		}
 
 		/// Get the string type
@@ -475,15 +486,13 @@ pub mod shader_analyzer {
 
 				let var_type = self.get_type(var_type_id).unwrap();
 				let var_name = self.get_name(var_id);
-				let location = self.get_location(var_id);
-				let binding =  self.get_binding(var_id);
+				let layout = self.get_layout(var_id, None);
 
 				vars.push(ShaderVariable {
 					var_type,
 					var_name,
 					storage_class,
-					location,
-					binding,
+					layout,
 				});
 			}
 			Ok(vars)
