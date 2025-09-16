@@ -185,12 +185,14 @@ pub mod shader_analyzer {
 	}
 
 	impl ConstantValue {
+		/// Assign from an `u32`
 		pub fn from_bit32(bit32: u32) -> Self {
 			Self {
 				uint: bit32,
 			}
 		}
 
+		/// Assign from a `u64` bitvise, the fact is that the data is a `double` variable, but it was provided as a `u64` value.
 		pub fn from_bit64(bit64: u64) -> Self {
 			Self {
 				double: f64::from_bits(bit64),
@@ -450,6 +452,7 @@ pub mod shader_analyzer {
 			Err(VulkanError::ShaderParseIdUnknown(format!("Unknown type ID: {type_id}")))
 		}
 
+		/// Get the global variables that may contain the uniform inputs, attribute inputs, and outputs of the shader.
 		pub fn get_global_vars(&self) -> Result<Vec<ShaderVariable>, VulkanError> {
 			let mut vars: Vec<ShaderVariable> = Vec::with_capacity(self.module.types_global_values.len());
 			for inst in self.module.global_inst_iter() {
