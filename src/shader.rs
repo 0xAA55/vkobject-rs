@@ -448,6 +448,9 @@ pub mod shader_analyzer {
 							format: inst.operands[6].unwrap_image_format(),
 						})))
 					}
+					Op::TypeSampler => {
+						Ok(VariableType::Literal(format!("sampler")))
+					}
 					_ => {
 						println!("{:#?}", self.module);
 						Err(VulkanError::ShaderParseTypeUnknown(format!("{inst:?}")))
