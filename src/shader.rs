@@ -347,109 +347,115 @@ pub mod shader_analyzer {
 
 		/// Get the string type
 		pub fn get_type(&self, type_id: u32) -> Result<VariableType, VulkanError> {
-			for inst in self.module.types_global_values.iter() {
-				if inst.result_id.unwrap() == type_id {
-					return match inst.class.opcode {
-						Op::TypePointer => {
-							self.get_type(inst.operands[1].unwrap_id_ref())
-						}
-						Op::TypeBool => Ok(VariableType::Literal("bool".to_string())),
-						Op::TypeInt => {
-							let signed = inst.operands[1].unwrap_literal_bit32() != 0;
-							let width = inst.operands[0].unwrap_literal_bit32();
-							Ok(VariableType::Literal(format!("{}{width}", if signed {"i"} else {"u"})))
-						}
-						Op::TypeFloat => Ok(VariableType::Literal(format!("f{}", inst.operands[0].unwrap_literal_bit32()))),
-						Op::TypeVector => {
-							let component_type_id = inst.operands[0].unwrap_id_ref();
-							let component_count = inst.operands[1].unwrap_literal_bit32();
-							let component_type = self.get_type(component_type_id)?;
-							match component_type.unwrap_literal().as_str() {
-								"f32"  => Ok(VariableType::Literal(format!( "vec{component_count}"))),
-								"f64"  => Ok(VariableType::Literal(format!("dvec{component_count}"))),
-								"i32"  => Ok(VariableType::Literal(format!("ivec{component_count}"))),
-								"u32"  => Ok(VariableType::Literal(format!("uvec{component_count}"))),
-								"bool" => Ok(VariableType::Literal(format!("bvec{component_count}"))),
-								others => Err(VulkanError::ShaderParseIdUnknown(others.to_string())),
-							}
-						}
-						Op::TypeMatrix => {
-							let column_type_id = inst.operands[0].unwrap_id_ref();
-							let column_count = inst.operands[1].unwrap_literal_bit32();
-							let column_type = self.get_type(column_type_id)?;
-							let column_type_name = column_type.unwrap_literal();
-							let column_dim = column_type_name.chars().last().unwrap().to_digit(10).unwrap();
-							Ok(VariableType::Literal(match &column_type_name[..column_type_name.len() - 1] {
-								"vec" => match (column_dim, column_count) {
-									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("mat{column_dim}"),
-									_ => format!("mat{column_count}x{column_dim}"),
-								}
-								"dvec" => match (column_dim, column_count) {
-									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("dmat{column_dim}"),
-									_ => format!("dmat{column_count}x{column_dim}"),
-								}
-								"ivec" => match (column_dim, column_count) {
-									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("imat{column_dim}"),
-									_ => format!("imat{column_count}x{column_dim}"),
-								}
-								"uvec" => match (column_dim, column_count) {
-									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("umat{column_dim}"),
-									_ => format!("umat{column_count}x{column_dim}"),
-								}
-								"bvec" => match (column_dim, column_count) {
-									(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("bmat{column_dim}"),
-									_ => format!("bmat{column_count}x{column_dim}"),
-								}
-								_ => format!("{inst:?}"),
-							}))
-						}
-						Op::TypeStruct => {
-							let name = self.get_name(type_id);
-							let mut members: Vec<StructMember> = Vec::with_capacity(inst.operands.len());
-							for (i, member) in inst.operands.iter().enumerate() {
-								let id = member.unwrap_id_ref();
-								let member_name = self.get_member_name(type_id, i as u32);
-								let member_type = self.get_type(id).unwrap();
-								members.push(StructMember {
-									member_name,
-									member_type,
-								});
-							}
-							Ok(VariableType::Struct(StructType {
-								name,
-								members,
-							}))
-						}
-						Op::TypeArray => {
-							let element_type = self.get_type(inst.operands[0].unwrap_id_ref())?;
-							let element_count = unsafe {self.get_constant(inst.operands[1].unwrap_id_ref()).unwrap().value.uint} as usize;
-							Ok(VariableType::Array(Box::new(ArrayType {
-								element_type,
-								element_count,
-							})))
-						}
-						Op::TypeSampledImage => {
-							self.get_type(inst.operands[0].unwrap_id_ref())
-						}
-						Op::TypeImage => {
-							Ok(VariableType::Image(Box::new(ImageType {
-								result: self.get_type(inst.operands[0].unwrap_id_ref())?,
-								dim: inst.operands[1].unwrap_dim(),
-								depth: inst.operands[2].unwrap_literal_bit32().into(),
-								arrayed: inst.operands[3].unwrap_literal_bit32() != 0,
-								multisample: inst.operands[4].unwrap_literal_bit32() != 0,
-								sampled: inst.operands[5].unwrap_literal_bit32().into(),
-								format: inst.operands[6].unwrap_image_format(),
-							})))
-						}
-						_ => {
-							println!("{:#?}", self.module);
-							Err(VulkanError::ShaderParseIdUnknown(format!("{inst:?}")))
-						}
-					}
+			let mut inst = None;
+			for i in self.module.types_global_values.iter() {
+				if i.result_id.unwrap() == type_id {
+					inst = Some(i);
+					break;
 				}
 			}
-			Err(VulkanError::ShaderParseIdUnknown(format!("Unknown type ID: {type_id}")))
+			if let Some(inst) = inst {
+				match inst.class.opcode {
+					Op::TypePointer => {
+						self.get_type(inst.operands[1].unwrap_id_ref())
+					}
+					Op::TypeBool => Ok(VariableType::Literal("bool".to_string())),
+					Op::TypeInt => {
+						let signed = inst.operands[1].unwrap_literal_bit32() != 0;
+						let width = inst.operands[0].unwrap_literal_bit32();
+						Ok(VariableType::Literal(format!("{}{width}", if signed {"i"} else {"u"})))
+					}
+					Op::TypeFloat => Ok(VariableType::Literal(format!("f{}", inst.operands[0].unwrap_literal_bit32()))),
+					Op::TypeVector => {
+						let component_type_id = inst.operands[0].unwrap_id_ref();
+						let component_count = inst.operands[1].unwrap_literal_bit32();
+						let component_type = self.get_type(component_type_id)?;
+						match component_type.unwrap_literal().as_str() {
+							"f32"  => Ok(VariableType::Literal(format!( "vec{component_count}"))),
+							"f64"  => Ok(VariableType::Literal(format!("dvec{component_count}"))),
+							"i32"  => Ok(VariableType::Literal(format!("ivec{component_count}"))),
+							"u32"  => Ok(VariableType::Literal(format!("uvec{component_count}"))),
+							"bool" => Ok(VariableType::Literal(format!("bvec{component_count}"))),
+							others => Err(VulkanError::ShaderParseIdUnknown(others.to_string())),
+						}
+					}
+					Op::TypeMatrix => {
+						let column_type_id = inst.operands[0].unwrap_id_ref();
+						let column_count = inst.operands[1].unwrap_literal_bit32();
+						let column_type = self.get_type(column_type_id)?;
+						let column_type_name = column_type.unwrap_literal();
+						let column_dim = column_type_name.chars().last().unwrap().to_digit(10).unwrap();
+						Ok(VariableType::Literal(match &column_type_name[..column_type_name.len() - 1] {
+							"vec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("mat{column_dim}"),
+								_ => format!("mat{column_count}x{column_dim}"),
+							}
+							"dvec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("dmat{column_dim}"),
+								_ => format!("dmat{column_count}x{column_dim}"),
+							}
+							"ivec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("imat{column_dim}"),
+								_ => format!("imat{column_count}x{column_dim}"),
+							}
+							"uvec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("umat{column_dim}"),
+								_ => format!("umat{column_count}x{column_dim}"),
+							}
+							"bvec" => match (column_dim, column_count) {
+								(1, 1) | (2, 2) | (3, 3) | (4, 4) => format!("bmat{column_dim}"),
+								_ => format!("bmat{column_count}x{column_dim}"),
+							}
+							_ => format!("{inst:?}"),
+						}))
+					}
+					Op::TypeStruct => {
+						let name = self.get_name(type_id);
+						let mut members: Vec<StructMember> = Vec::with_capacity(inst.operands.len());
+						for (i, member) in inst.operands.iter().enumerate() {
+							let id = member.unwrap_id_ref();
+							let member_name = self.get_member_name(type_id, i as u32);
+							let member_type = self.get_type(id).unwrap();
+							members.push(StructMember {
+								member_name,
+								member_type,
+							});
+						}
+						Ok(VariableType::Struct(StructType {
+							name,
+							members,
+						}))
+					}
+					Op::TypeArray => {
+						let element_type = self.get_type(inst.operands[0].unwrap_id_ref())?;
+						let element_count = unsafe {self.get_constant(inst.operands[1].unwrap_id_ref()).unwrap().value.uint} as usize;
+						Ok(VariableType::Array(Box::new(ArrayType {
+							element_type,
+							element_count,
+						})))
+					}
+					Op::TypeSampledImage => {
+						self.get_type(inst.operands[0].unwrap_id_ref())
+					}
+					Op::TypeImage => {
+						Ok(VariableType::Image(Box::new(ImageType {
+							result: self.get_type(inst.operands[0].unwrap_id_ref())?,
+							dim: inst.operands[1].unwrap_dim(),
+							depth: inst.operands[2].unwrap_literal_bit32().into(),
+							arrayed: inst.operands[3].unwrap_literal_bit32() != 0,
+							multisample: inst.operands[4].unwrap_literal_bit32() != 0,
+							sampled: inst.operands[5].unwrap_literal_bit32().into(),
+							format: inst.operands[6].unwrap_image_format(),
+						})))
+					}
+					_ => {
+						println!("{:#?}", self.module);
+						Err(VulkanError::ShaderParseIdUnknown(format!("{inst:?}")))
+					}
+				}
+			} else {
+				Err(VulkanError::ShaderParseIdUnknown(format!("Unknown type ID: {type_id}")))
+			}
 		}
 
 		/// Get the global variables that may contain the uniform inputs, attribute inputs, and outputs of the shader.
