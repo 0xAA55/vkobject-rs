@@ -26,7 +26,7 @@ pub mod shader_analyzer {
 	#[derive(Debug, Clone, Copy)]
 	pub enum VariableLayout {
 		None,
-		Descriptor { set: u32, binding: u32 },
+		Descriptor{ set: u32, binding: u32 },
 		Location(u32),
 	}
 
@@ -483,7 +483,7 @@ pub mod shader_analyzer {
 						})))
 					}
 					Op::TypeSampler => {
-						Ok(VariableType::Literal(format!("sampler")))
+						Ok(VariableType::Literal(String::from("sampler")))
 					}
 					_ => {
 						println!("{:#?}", self.module);
