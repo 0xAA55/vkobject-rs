@@ -60,6 +60,16 @@ pub mod shader_analyzer {
 		pub element_count: usize,
 	}
 
+	/// The variable type
+	#[derive(Debug, Clone)]
+	pub struct RuntimeArrayType {
+		/// The type of the array element
+		pub element_type: VariableType,
+
+		/// The type of the array index
+		pub element_index_type: VariableType,
+	}
+
 	#[derive(Debug, Clone, Copy)]
 	pub enum ImageDepth {
 		NoDepth = 0,
@@ -132,6 +142,9 @@ pub mod shader_analyzer {
 
 		/// Array
 		Array(Box<ArrayType>),
+
+		/// RuntimeArray
+		RuntimeArray(Box<RuntimeArrayType>),
 
 		/// Image
 		Image(Box<ImageType>),
@@ -445,6 +458,14 @@ pub mod shader_analyzer {
 						Ok(VariableType::Array(Box::new(ArrayType {
 							element_type,
 							element_count,
+						})))
+					}
+					Op::TypeRuntimeArray => {
+						let element_type = self.get_type(inst.operands[0].unwrap_id_ref())?;
+						let element_index_type = self.get_type(inst.operands[1].unwrap_id_ref())?;
+						Ok(VariableType::RuntimeArray(Box::new(RuntimeArrayType {
+							element_type,
+							element_index_type,
 						})))
 					}
 					Op::TypeSampledImage => {
