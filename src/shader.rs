@@ -255,7 +255,7 @@ pub mod shader_analyzer {
 					let value = match var_type.unwrap_literal().as_str() {
 						"f32" | "i32" | "u32" => ConstantValue::from_bit32(inst.operands[0].unwrap_literal_bit32()),
 						"f64" => ConstantValue::from_bit64(inst.operands[0].unwrap_literal_bit64()),
-						others => return Err(VulkanError::ShaderParseIdUnknown(format!("Unknown type of constant {var_name:?}: {others}"))),
+						others => return Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown type of constant {var_name:?}: {others}"))),
 					};
 					ret.constants.insert(id, Constants {
 						var_type,
@@ -376,7 +376,7 @@ pub mod shader_analyzer {
 							"i32"  => Ok(VariableType::Literal(format!("ivec{component_count}"))),
 							"u32"  => Ok(VariableType::Literal(format!("uvec{component_count}"))),
 							"bool" => Ok(VariableType::Literal(format!("bvec{component_count}"))),
-							others => Err(VulkanError::ShaderParseIdUnknown(others.to_string())),
+							others => Err(VulkanError::ShaderParseTypeUnknown(others.to_string())),
 						}
 					}
 					Op::TypeMatrix => {
@@ -450,7 +450,7 @@ pub mod shader_analyzer {
 					}
 					_ => {
 						println!("{:#?}", self.module);
-						Err(VulkanError::ShaderParseIdUnknown(format!("{inst:?}")))
+						Err(VulkanError::ShaderParseTypeUnknown(format!("{inst:?}")))
 					}
 				}
 			} else {
