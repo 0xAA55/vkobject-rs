@@ -355,7 +355,7 @@ pub mod shader_analyzer {
 					Decoration::Binding => {
 						binding = Some(value.unwrap_literal_bit32());
 					}
-					_ => {}
+					_ => continue,
 				}
 				if let Some(set) = set && let Some(binding) = binding {
 					return VariableLayout::Descriptor{set, binding};
