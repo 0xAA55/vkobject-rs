@@ -360,8 +360,8 @@ pub mod shader_analyzer {
 					}
 					_ => {}
 				}
-				if set.is_some() && binding.is_some() {
-					return VariableLayout::Descriptor{set: set.unwrap(), binding: binding.unwrap()};
+				if let Some(set) = set && let Some(binding) = binding {
+					return VariableLayout::Descriptor{set, binding};
 				}
 			}
 			if set.is_some() || binding.is_some() {
