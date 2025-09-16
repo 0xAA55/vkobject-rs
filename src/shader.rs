@@ -65,9 +65,6 @@ pub mod shader_analyzer {
 	pub struct RuntimeArrayType {
 		/// The type of the array element
 		pub element_type: VariableType,
-
-		/// The type of the array index
-		pub element_index_type: VariableType,
 	}
 
 	#[derive(Debug, Clone, Copy)]
@@ -462,10 +459,8 @@ pub mod shader_analyzer {
 					}
 					Op::TypeRuntimeArray => {
 						let element_type = self.get_type(inst.operands[0].unwrap_id_ref())?;
-						let element_index_type = self.get_type(inst.operands[1].unwrap_id_ref())?;
 						Ok(VariableType::RuntimeArray(Box::new(RuntimeArrayType {
 							element_type,
-							element_index_type,
 						})))
 					}
 					Op::TypeSampledImage => {
