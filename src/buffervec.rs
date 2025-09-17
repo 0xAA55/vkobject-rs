@@ -4,6 +4,7 @@ use bitvec::vec::BitVec;
 use std::{
 	cmp::max,
 	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	marker::PhantomData,
 	mem::size_of,
 	ops::{Index, IndexMut, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive},
@@ -207,6 +208,22 @@ where
 		}
 		self.cache_modified = false;
 		Ok(())
+	}
+}
+
+
+impl<T> Debug for BufferVec<T>
+where
+	T: BufferVecItem {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("BufferVec")
+		.field("buffer", &self.buffer)
+		.field("staging_buffer_data_address", &self.staging_buffer_data_address)
+		.field("num_items", &self.num_items)
+		.field("capacity", &self.capacity)
+		.field("cache_modified_bitmap", &self.cache_modified_bitmap)
+		.field("cache_modified", &self.cache_modified)
+		.finish()
 	}
 }
 
