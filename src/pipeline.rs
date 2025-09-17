@@ -17,3 +17,8 @@ macro_rules! derive_vertex_type {
 	};
 }
 
+#[derive(Debug, Clone, Copy)]
+pub struct Pipeline {
+	/// The pipeline
+	pipeline: VkPipeline,
+}
