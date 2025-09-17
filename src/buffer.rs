@@ -151,6 +151,12 @@ impl Buffer {
 	}
 }
 
+impl Clone for Buffer {
+	fn clone(&self) -> Self {
+		Self::new(self.device.clone(), self.get_size(), self.staging_buffer.as_ref().map(|b|b.get_address() as *const _), self.usage).unwrap()
+	}
+}
+
 impl Debug for Buffer {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("Buffer")
