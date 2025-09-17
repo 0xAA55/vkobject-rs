@@ -101,6 +101,14 @@ where
 	}
 
 	/// Change the length
+	/// Forces the length of the vector to new_len.
+	///
+	/// This is a low-level operation that maintains none of the normal invariants of the type.
+	///
+	/// # Safety
+	///
+	/// `new_len` must be less than or equal to `capacity()`.
+	/// The elements at `old_len..new_len` must be initialized.
 	pub unsafe fn set_len(&mut self, new_len: usize) {
 		if new_len > self.num_items {
 			for i in self.num_items..new_len {
