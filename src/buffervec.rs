@@ -102,6 +102,11 @@ where
 
 	/// Change the length
 	pub unsafe fn set_len(&mut self, new_len: usize) {
+		if new_len > self.num_items {
+			for i in self.num_items..new_len {
+				self.cache_modified_bitmap.set(i, true);
+			}
+		}
 		self.num_items = new_len;
 	}
 
