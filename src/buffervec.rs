@@ -79,7 +79,8 @@ where
 	}
 
 	/// Change the capacity
-	pub unsafe fn change_capacity(&mut self, new_capacity: usize) -> Result<(), VulkanError> {
+	/// * If the capacity is less than the current items, the number of items will be reduced to the new capacity.
+	pub fn change_capacity(&mut self, new_capacity: usize) -> Result<(), VulkanError> {
 		let mut new_buffer = Buffer::new(self.buffer.device.clone(), new_capacity as VkDeviceSize, None, self.buffer.get_usage())?;
 		if new_capacity != 0 {
 			let new_address = new_buffer.get_staging_buffer_address()? as *mut T;
@@ -130,7 +131,7 @@ where
 		if new_capacity < self.num_items {
 			new_capacity = self.num_items;
 		}
-		unsafe {self.change_capacity(new_capacity)}
+		self.change_capacity(new_capacity)
 	}
 
 	/// Push data to the buffer
@@ -162,7 +163,7 @@ where
 		}
 		self.cache_modified = true;
 		if self.capacity < new_len {
-			unsafe {self.change_capacity(new_len)?}
+			self.change_capacity(new_len)?;
 		}
 		if new_len > self.num_items {
 			self.cache_modified = true;
@@ -198,7 +199,7 @@ where
 
 	/// Shrink to fit
 	pub fn shrink_to_fit(&mut self) -> Result<(), VulkanError> {
-		unsafe {self.change_capacity(self.num_items)}
+		self.change_capacity(self.num_items)
 	}
 
 	/// Flush the staging buffer to the device memory
