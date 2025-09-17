@@ -140,7 +140,26 @@ where
 	}
 }
 
+#[derive(Debug, Clone)]
+pub struct Mesh<BV, V, BE, E, BI, I, BC, C>
+where
+	BV: BufferForDraw<V>,
+	BE: BufferForDraw<E>,
+	BI: BufferForDraw<I>,
+	BC: BufferForDraw<C>,
+	V: BufferVecItem,
+	E: BufferVecItem,
+	I: BufferVecItem,
+	C: BufferVecItem {
 	pub primitive_type: VkPrimitiveTopology,
+	pub vertices: BV,
+	pub indices: Option<BE>,
+	pub instances: Option<BI>,
+	pub commands: Option<BC>,
+	_vertex_type: PhantomData<V>,
+	_element_type: PhantomData<E>,
+	_instance_type: PhantomData<I>,
+	_command_type: PhantomData<C>,
 }
 
 #[derive(Default, Debug, Clone, Copy, Iterable)]
@@ -152,19 +171,35 @@ pub fn buffer_unused() -> Option<UnusedBufferType> {
 	None
 }
 
+impl<BV, V, BE, E, BI, I, BC, C> Mesh<BV, V, BE, E, BI, I, BC, C>
 where
+	BV: BufferForDraw<V>,
+	BE: BufferForDraw<E>,
+	BI: BufferForDraw<I>,
+	BC: BufferForDraw<C>,
 	V: BufferVecItem,
 	E: BufferVecItem,
 	I: BufferVecItem,
 	C: BufferVecItem {
+	pub fn new(primitive_type: VkPrimitiveTopology, vertices: BV, indices: Option<BE>, instances: Option<BI>, commands: Option<BC>) -> Self {
 		Self {
 			primitive_type,
 			vertices,
 			indices,
 			instances,
 			commands,
+			_vertex_type: PhantomData,
+			_element_type: PhantomData,
+			_instance_type: PhantomData,
+			_command_type: PhantomData,
 		}
 	}
 
+	pub fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.vertices.flush(cmdbuf)?;
+		if let Some(ref mut indices) = self.indices {indices.flush(cmdbuf)?;}
+		if let Some(ref mut instances) = self.instances {instances.flush(cmdbuf)?;}
+		if let Some(ref mut commands) = self.commands {commands.flush(cmdbuf)?;}
+		Ok(())
 	}
 }
