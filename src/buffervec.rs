@@ -168,6 +168,27 @@ where
 		unsafe {*self.staging_buffer_data_address.wrapping_add(self.num_items)}
 	}
 
+	/// Removes and returns the element at position index within the vector, shifting all elements after it to the left.
+	///
+	/// Note: Because this shifts over the remaining elements, it has a worst-case performance of O(n). If you don’t need the order of elements to be preserved, use `swap_remove` instead.
+	///
+	/// # Panics
+	/// Panics if `index` is out of bounds.
+	pub fn remove(&mut self, index: usize) -> T {
+		let ret = self[index];
+		let from_index = index + 1;
+		unsafe {copy(
+			self.staging_buffer_data_address.wrapping_add(from_index),
+			self.staging_buffer_data_address.wrapping_add(index),
+			self.num_items - from_index)
+		};
+		self.num_items -= 1;
+		for i in index..self.num_items {
+			self.cache_modified_bitmap.set(i, true);
+		}
+		self.cache_modified_bitmap.pop();
+		ret
+	}
 	/// Resize the buffer
 	pub fn resize(&mut self, new_len: usize, new_data: T) -> Result<(), VulkanError> {
 		if self.num_items == new_len && self.capacity >= self.num_items {
