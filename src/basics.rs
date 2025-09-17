@@ -634,6 +634,11 @@ impl StagingBuffer {
 		self.memory.get_vk_memory()
 	}
 
+	/// Get the size of the staging buffer
+	pub fn get_size(&self) -> VkDeviceSize {
+		self.memory.get_size()
+	}
+
 	/// Get the address of the memory data
 	pub fn get_address(&self) -> *mut c_void {
 		self.address
