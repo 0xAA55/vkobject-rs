@@ -50,6 +50,9 @@ pub mod texture;
 /// The mesh object
 pub mod mesh;
 
+/// The pipeline object to wiring up buffers from a mesh, shaders, rendertargets together.
+pub mod pipeline;
+
 extern crate nalgebra_glm as glm;
 
 /// The common things for you to use
@@ -73,6 +76,7 @@ pub mod prelude {
 	pub use crate::buffervec::*;
 	pub use crate::texture::*;
 	pub use crate::mesh::*;
+	pub use crate::pipeline::*;
 }
 
 #[cfg(test)]
