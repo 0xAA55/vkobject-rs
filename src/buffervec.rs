@@ -115,16 +115,23 @@ where
 		self.buffer
 	}
 
-	/// From raw parts
-	pub unsafe fn from_raw_parts(mut buffer: Buffer, len: usize, cap: usize) -> Result<Self, VulkanError> {
+	/// Creates a `BufferVec<T>` directly from a buffer, a length, and a capacity.
+	///
+	/// # Safety
+	///
+	/// This is highly unsafe, just like the Rust official `Vec<T>::from_raw_parts()`
+	/// * Unlike the Rust official `Vec<T>::from_raw_parts()`, capacity is not needed to be provided since it was calculated by `buffer.get_size() / size_of::<T>()`
+	/// * `length` must be less than the calculated capacity.
+	pub unsafe fn from_raw_parts(mut buffer: Buffer, length: usize) -> Result<Self, VulkanError> {
+		let capacity = buffer.get_size() as usize / size_of::<T>();
 		buffer.ensure_staging_buffer()?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
 		Ok(Self {
 			buffer,
 			staging_buffer_data_address,
-			num_items: len,
-			capacity: cap,
-			cache_modified_bitmap: BitVec::with_capacity(cap),
+			num_items: length,
+			capacity,
+			cache_modified_bitmap: BitVec::with_capacity(capacity),
 			cache_modified: true,
 			_phantom: PhantomData,
 		})
