@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use std::{
 	ffi::c_void,
+	fmt::Debug,
 	marker::PhantomData,
 	mem::size_of,
 };
@@ -75,6 +76,25 @@ where
 	pub fn into_inner(self) -> Buffer {
 		self.buffer
 	}
+}
+
+/// The trait for the mesh to hold buffers
+pub trait BufferForDraw<T>: Debug + Clone
+where
+	T: BufferVecItem {
+	/// Must be able to get the `VkBuffer` handle
+	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Must be able to flush
+	fn flush(&mut self, _cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		Ok(())
+	}
+
+	/// Convert to `BufferVec<T>`
+	fn convert_to_buffer_vec(self) -> BufferVec<T>;
+
+	/// Convert to `BufferWithType<T>`
+	fn convert_to_buffer_with_type(self) -> BufferWithType<T>;
 }
 
 	pub primitive_type: VkPrimitiveTopology,
