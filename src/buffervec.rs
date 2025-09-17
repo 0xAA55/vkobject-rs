@@ -99,6 +99,11 @@ where
 		Ok(())
 	}
 
+	/// Change the length
+	pub unsafe fn set_len(&mut self, new_len: usize) {
+		self.num_items = new_len;
+	}
+
 	/// Enlarge the capacity of the `BufferVec<T>`
 	fn grow(&mut self) -> Result<(), VulkanError> {
 		let mut new_capacity = ((self.capacity * 3) >> 1) + 1;
