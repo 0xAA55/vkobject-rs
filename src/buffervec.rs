@@ -189,6 +189,35 @@ where
 		self.cache_modified_bitmap.pop();
 		ret
 	}
+
+	/// Removes an element from the vector and returns it.
+	///
+	/// The removed element is replaced by the last element of the vector.
+	///
+	/// This does not preserve ordering of the remaining elements, but is O(1). If you need to preserve the element order, use `remove` instead.
+	///
+	/// # Panics
+	/// Panics if `index` is out of bounds.
+	pub fn swap_remove(&mut self, index: usize) -> T {
+		if self.num_items > 1 {
+			let last_index = self.num_items - 1;
+			let last_item = unsafe {&mut *self.staging_buffer_data_address.wrapping_add(self.num_items)};
+			let swap_item = &mut self[index];
+			let ret = *swap_item;
+			if last_index != index {
+				*swap_item = *last_item;
+			}
+			self.num_items -= 1;
+			self.cache_modified_bitmap.pop();
+			ret
+		} else {
+			if index != 0 {
+				panic!("Index {index} out of bounds (len() == {})", self.len());
+			}
+			self.pop()
+		}
+	}
+
 	/// Resize the buffer
 	pub fn resize(&mut self, new_len: usize, new_data: T) -> Result<(), VulkanError> {
 		if self.num_items == new_len && self.capacity >= self.num_items {
