@@ -3,7 +3,6 @@ use crate::prelude::*;
 use bitvec::vec::BitVec;
 use std::{
 	cmp::max,
-	fmt::Debug,
 	fmt::{self, Debug, Formatter},
 	marker::PhantomData,
 	mem::size_of,
@@ -211,6 +210,23 @@ where
 	}
 }
 
+impl<T> Clone for BufferVec<T>
+where
+	T: BufferVecItem {
+	fn clone(&self) -> Self {
+		let mut buffer = self.buffer.clone();
+		let staging_buffer_data_address = buffer.get_staging_buffer_address().unwrap() as *mut T;
+		Self {
+			buffer,
+			staging_buffer_data_address,
+			num_items: self.num_items,
+			capacity: self.capacity,
+			cache_modified_bitmap: self.cache_modified_bitmap.clone(),
+			cache_modified: self.cache_modified,
+			_phantom: self._phantom,
+		}
+	}
+}
 
 impl<T> Debug for BufferVec<T>
 where
