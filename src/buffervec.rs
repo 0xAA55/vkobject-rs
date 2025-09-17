@@ -159,13 +159,13 @@ where
 	}
 
 	/// Pop data from the buffer
-	pub fn pop(&mut self) -> Result<T, VulkanError> {
+	pub fn pop(&mut self) -> T {
 		if self.num_items == 0 {
 			panic!("`BufferVec::<T>::pop()` called on an empty `BufferVec<T>`.");
 		}
 		self.num_items -= 1;
 		self.cache_modified_bitmap.pop();
-		Ok(unsafe {*self.staging_buffer_data_address.wrapping_add(self.num_items)})
+		unsafe {*self.staging_buffer_data_address.wrapping_add(self.num_items)}
 	}
 
 	/// Resize the buffer
