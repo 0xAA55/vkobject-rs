@@ -104,6 +104,26 @@ where
 		self.num_items = new_len;
 	}
 
+	/// Get the inner buffer
+	pub fn into_inner(self) -> Buffer {
+		self.buffer
+	}
+
+	/// From raw parts
+	pub unsafe fn from_raw_parts(mut buffer: Buffer, len: usize, cap: usize) -> Result<Self, VulkanError> {
+		buffer.ensure_staging_buffer()?;
+		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
+		Ok(Self {
+			buffer,
+			staging_buffer_data_address,
+			num_items: len,
+			capacity: cap,
+			cache_modified_bitmap: BitVec::with_capacity(cap),
+			cache_modified: true,
+			_phantom: PhantomData,
+		})
+	}
+
 	/// Enlarge the capacity of the `BufferVec<T>`
 	fn grow(&mut self) -> Result<(), VulkanError> {
 		let mut new_capacity = ((self.capacity * 3) >> 1) + 1;
