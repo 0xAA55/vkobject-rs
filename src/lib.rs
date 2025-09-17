@@ -47,6 +47,9 @@ pub mod buffervec;
 /// The texture object
 pub mod texture;
 
+/// The mesh object
+pub mod mesh;
+
 extern crate nalgebra_glm as glm;
 
 /// The common things for you to use
@@ -69,6 +72,7 @@ pub mod prelude {
 	pub use crate::buffer::*;
 	pub use crate::buffervec::*;
 	pub use crate::texture::*;
+	pub use crate::mesh::*;
 }
 
 #[cfg(test)]
