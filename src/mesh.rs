@@ -97,6 +97,49 @@ where
 	fn convert_to_buffer_with_type(self) -> BufferWithType<T>;
 }
 
+impl<T> BufferForDraw<T> for BufferVec<T>
+where
+	T: BufferVecItem {
+	fn get_vk_buffer(&self) -> VkBuffer {
+		self.get_vk_buffer()
+	}
+
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.flush(cmdbuf)
+	}
+
+	fn convert_to_buffer_vec(self) -> BufferVec<T> {
+		self
+	}
+
+	fn convert_to_buffer_with_type(self) -> BufferWithType<T> {
+		BufferWithType::new(self.into_inner())
+	}
+}
+
+impl<T> BufferForDraw<T> for BufferWithType<T>
+where
+	T: BufferVecItem {
+	fn get_vk_buffer(&self) -> VkBuffer {
+		self.buffer.get_vk_buffer()
+	}
+
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.upload_staging_buffer(cmdbuf)?;
+		self.discard_staging_buffer();
+		Ok(())
+	}
+
+	fn convert_to_buffer_vec(self) -> BufferVec<T> {
+		let len = self.len();
+		unsafe {BufferVec::from_raw_parts(self.into_inner(), len).unwrap()}
+	}
+
+	fn convert_to_buffer_with_type(self) -> BufferWithType<T> {
+		self
+	}
+}
+
 	pub primitive_type: VkPrimitiveTopology,
 }
 
