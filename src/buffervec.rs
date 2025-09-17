@@ -2,12 +2,12 @@
 use crate::prelude::*;
 use bitvec::vec::BitVec;
 use std::{
-	cmp::max,
+	cmp::min,
 	fmt::{self, Debug, Formatter},
 	marker::PhantomData,
 	mem::size_of,
 	ops::{Index, IndexMut, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive},
-	ptr::copy,
+	ptr::{copy, null_mut},
 	slice::{from_raw_parts, from_raw_parts_mut},
 	sync::Arc,
 };
@@ -45,7 +45,16 @@ where
 	T: BufferVecItem {
 	/// Create the `BufferVec<T>`
 	pub fn new(device: Arc<VulkanDevice>, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
-		Self::with_capacity(device, 16, usage)
+		let buffer = Buffer::new(device, 0, None, usage)?;
+		Ok(Self {
+			buffer,
+			staging_buffer_data_address: null_mut(),
+			num_items: 0,
+			capacity: 0,
+			cache_modified_bitmap: BitVec::new(),
+			cache_modified: false,
+			_phantom: PhantomData,
+		})
 	}
 
 	/// Get the VkBuffer
@@ -72,13 +81,21 @@ where
 	/// Change the capacity
 	fn change_capacity(&mut self, new_capacity: usize) -> Result<(), VulkanError> {
 		let mut new_buffer = Buffer::new(self.buffer.device.clone(), new_capacity as VkDeviceSize, None, self.buffer.get_usage())?;
-		let new_address = new_buffer.get_staging_buffer_address()? as *mut T;
-		unsafe {copy(self.staging_buffer_data_address as *const T, new_address, self.capacity)};
+		if new_capacity != 0 {
+			let new_address = new_buffer.get_staging_buffer_address()? as *mut T;
+			unsafe {copy(self.staging_buffer_data_address as *const T, new_address, self.capacity)}
+			self.staging_buffer_data_address = new_address;
+			self.cache_modified = true;
+			self.cache_modified_bitmap.resize(new_capacity, false);
+		} else {
+			self.staging_buffer_data_address = null_mut();
+			self.cache_modified = false;
+			self.cache_modified_bitmap.clear();
+			self.cache_modified_bitmap.shrink_to_fit();
+		}
 		self.buffer = new_buffer;
 		self.capacity = new_capacity;
-		self.staging_buffer_data_address = new_address;
-		self.cache_modified = true;
-		self.cache_modified_bitmap.resize(new_capacity, false);
+		self.num_items = min(self.num_items, new_capacity);
 		Ok(())
 	}
 
