@@ -2,6 +2,8 @@
 use crate::prelude::*;
 use std::{
 	fmt::Debug,
+	ptr::null,
+	sync::{Arc, Mutex},
 };
 use struct_iterable::Iterable;
 
@@ -17,8 +19,49 @@ macro_rules! derive_vertex_type {
 	};
 }
 
-#[derive(Debug, Clone, Copy)]
+/// The shaders to use
+#[derive(Debug, Clone)]
+pub struct DrawShaders {
+	/// The vertex shader cannot be absent
+	vertex_shader: Arc<VulkanShader>,
+
+	/// The optional geometry shader
+	geometry_shader: Option<Arc<VulkanShader>>,
+
+	/// The fragment shader cannot be absent
+	fragment_shader: Arc<VulkanShader>,
+}
+
+#[derive(Debug, Clone)]
 pub struct Pipeline {
 	/// The pipeline
 	pipeline: VkPipeline,
+
+	/// The mesh to draw
+	mesh: Arc<Mutex<GenericMeshWithMaterial>>,
+
+	/// The shaders to use
+	shaders: Arc<DrawShaders>,
+}
+
+impl DrawShaders {
+	/// Create the `DrawShaders`
+	pub fn new(vertex_shader: Arc<VulkanShader>, geometry_shader: Option<Arc<VulkanShader>>, fragment_shader: Arc<VulkanShader>) -> Self {
+		Self {
+			vertex_shader,
+			geometry_shader,
+			fragment_shader,
+		}
+	}
+}
+
+impl Pipeline {
+	/// Create the `Pipeline`
+	pub fn new(mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>) -> Result<Self, VulkanError> {
+		Ok(Self {
+			pipeline: null(),
+			mesh,
+			shaders,
+		})
+	}
 }
