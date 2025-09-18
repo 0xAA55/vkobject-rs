@@ -243,6 +243,12 @@ impl VulkanTexture {
 		Ok(mem_reqs.size)
 	}
 
+	/// Get the pitch, the bytes per row of the texture
+	pub fn get_pitch(&self) -> Result<usize, VulkanError> {
+		let extent = self.type_size.get_extent();
+		Ok(self.get_size()? as usize / extent.depth as usize / extent.height as usize)
+	}
+
 	/// Create the staging buffer if it not exists
 	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
 		if self.staging_buffer.is_none() {
