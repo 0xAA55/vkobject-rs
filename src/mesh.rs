@@ -162,11 +162,14 @@ where
 	_command_type: PhantomData<C>,
 }
 
+/// If a buffer you don't need, use this for your buffer item type
 #[derive(Default, Debug, Clone, Copy, Iterable)]
 pub struct UnusedBufferItem {}
 
+/// If a buffer you don't need, use this for your buffer type
 pub type UnusedBufferType = BufferVec<UnusedBufferItem>;
 
+/// Use this function to create an unused buffer type
 pub fn buffer_unused() -> Option<UnusedBufferType> {
 	None
 }
