@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	any::TypeId,
 	cmp::max,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
@@ -239,6 +240,138 @@ impl VulkanTexture {
 			memory: None,
 			staging_buffer: None,
 		})
+	}
+
+	/// Create a texture from image right away
+	pub fn new_from_image<P, Container>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, image: &ImageBuffer<P, Container>, channel_is_normalized: bool, with_mipmap: bool, usage: VkImageUsageFlags) -> Result<Self, VulkanError>
+	where
+		P: Pixel,
+		Container: Deref<Target = [P::Subpixel]>,
+		<P as Pixel>::Subpixel: 'static {
+		let (width, height) = image.dimensions();
+		let extent = VkExtent2D {
+			width,
+			height,
+		};
+		let is_signed;
+		let is_float;
+		let bits;
+		if TypeId::of::<P::Subpixel>() == TypeId::of::<i8>() {
+			is_signed = true;
+			is_float = false;
+			bits = 8;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<u8>() {
+			is_signed = false;
+			is_float = false;
+			bits = 8;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<i16>() {
+			is_signed = true;
+			is_float = false;
+			bits = 16;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<u16>() {
+			is_signed = false;
+			is_float = false;
+			bits = 16;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<i32>() {
+			is_signed = true;
+			is_float = false;
+			bits = 32;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<u32>() {
+			is_signed = false;
+			is_float = false;
+			bits = 32;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<f32>() {
+			is_signed = true;
+			is_float = true;
+			bits = 32;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<i64>() {
+			is_signed = true;
+			is_float = false;
+			bits = 64;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<u64>() {
+			is_signed = false;
+			is_float = false;
+			bits = 64;
+		} else if TypeId::of::<P::Subpixel>() == TypeId::of::<f64>() {
+			is_signed = true;
+			is_float = true;
+			bits = 64;
+		} else {
+			return Err(VulkanError::ImagePixelFormatNotSupported);
+		}
+		let format = match (P::CHANNEL_COUNT, bits, is_signed, channel_is_normalized, is_float) {
+			(1, 8, true,  false, false) => VkFormat::VK_FORMAT_R8_SINT,
+			(1, 8, true,  true,  false) => VkFormat::VK_FORMAT_R8_SNORM,
+			(1, 8, false, false, false) => VkFormat::VK_FORMAT_R8_UINT,
+			(1, 8, false, true,  false) => VkFormat::VK_FORMAT_R8_UNORM,
+			(2, 8, true,  false, false) => VkFormat::VK_FORMAT_R8G8_SINT,
+			(2, 8, true,  true,  false) => VkFormat::VK_FORMAT_R8G8_SNORM,
+			(2, 8, false, false, false) => VkFormat::VK_FORMAT_R8G8_UINT,
+			(2, 8, false, true,  false) => VkFormat::VK_FORMAT_R8G8_UNORM,
+			(3, 8, true,  false, false) => VkFormat::VK_FORMAT_R8G8B8_SINT,
+			(3, 8, true,  true,  false) => VkFormat::VK_FORMAT_R8G8B8_SNORM,
+			(3, 8, false, false, false) => VkFormat::VK_FORMAT_R8G8B8_UINT,
+			(3, 8, false, true,  false) => VkFormat::VK_FORMAT_R8G8B8_UNORM,
+			(4, 8, true,  false, false) => VkFormat::VK_FORMAT_R8G8B8A8_SINT,
+			(4, 8, true,  true,  false) => VkFormat::VK_FORMAT_R8G8B8A8_SNORM,
+			(4, 8, false, false, false) => VkFormat::VK_FORMAT_R8G8B8A8_UINT,
+			(4, 8, false, true,  false) => VkFormat::VK_FORMAT_R8G8B8A8_UNORM,
+			(1, 16, true,  false, false) => VkFormat::VK_FORMAT_R16_SINT,
+			(1, 16, true,  true,  false) => VkFormat::VK_FORMAT_R16_SNORM,
+			(1, 16, false, false, false) => VkFormat::VK_FORMAT_R16_UINT,
+			(1, 16, false, true,  false) => VkFormat::VK_FORMAT_R16_UNORM,
+			(2, 16, true,  false, false) => VkFormat::VK_FORMAT_R16G16_SINT,
+			(2, 16, true,  true,  false) => VkFormat::VK_FORMAT_R16G16_SNORM,
+			(2, 16, false, false, false) => VkFormat::VK_FORMAT_R16G16_UINT,
+			(2, 16, false, true,  false) => VkFormat::VK_FORMAT_R16G16_UNORM,
+			(3, 16, true,  false, false) => VkFormat::VK_FORMAT_R16G16B16_SINT,
+			(3, 16, true,  true,  false) => VkFormat::VK_FORMAT_R16G16B16_SNORM,
+			(3, 16, false, false, false) => VkFormat::VK_FORMAT_R16G16B16_UINT,
+			(3, 16, false, true,  false) => VkFormat::VK_FORMAT_R16G16B16_UNORM,
+			(4, 16, true,  false, false) => VkFormat::VK_FORMAT_R16G16B16A16_SINT,
+			(4, 16, true,  true,  false) => VkFormat::VK_FORMAT_R16G16B16A16_SNORM,
+			(4, 16, false, false, false) => VkFormat::VK_FORMAT_R16G16B16A16_UINT,
+			(4, 16, false, true,  false) => VkFormat::VK_FORMAT_R16G16B16A16_UNORM,
+			(1, 32, true,  false, false) => VkFormat::VK_FORMAT_R32_SINT,
+			(1, 32, false, false, false) => VkFormat::VK_FORMAT_R32_UINT,
+			(2, 32, true,  false, false) => VkFormat::VK_FORMAT_R32G32_SINT,
+			(2, 32, false, false, false) => VkFormat::VK_FORMAT_R32G32_UINT,
+			(3, 32, true,  false, false) => VkFormat::VK_FORMAT_R32G32B32_SINT,
+			(3, 32, false, false, false) => VkFormat::VK_FORMAT_R32G32B32_UINT,
+			(4, 32, true,  false, false) => VkFormat::VK_FORMAT_R32G32B32A32_SINT,
+			(4, 32, false, false, false) => VkFormat::VK_FORMAT_R32G32B32A32_UINT,
+			(1, 64, true,  false, false) => VkFormat::VK_FORMAT_R64_SINT,
+			(1, 64, false, false, false) => VkFormat::VK_FORMAT_R64_UINT,
+			(2, 64, true,  false, false) => VkFormat::VK_FORMAT_R64G64_SINT,
+			(2, 64, false, false, false) => VkFormat::VK_FORMAT_R64G64_UINT,
+			(3, 64, true,  false, false) => VkFormat::VK_FORMAT_R64G64B64_SINT,
+			(3, 64, false, false, false) => VkFormat::VK_FORMAT_R64G64B64_UINT,
+			(4, 64, true,  false, false) => VkFormat::VK_FORMAT_R64G64B64A64_SINT,
+			(4, 64, false, false, false) => VkFormat::VK_FORMAT_R64G64B64A64_UINT,
+			(1, 32, true, false, true) => VkFormat::VK_FORMAT_R32_SFLOAT,
+			(2, 32, true, false, true) => VkFormat::VK_FORMAT_R32G32_SFLOAT,
+			(3, 32, true, false, true) => VkFormat::VK_FORMAT_R32G32B32_SFLOAT,
+			(4, 32, true, false, true) => VkFormat::VK_FORMAT_R32G32B32A32_SFLOAT,
+			(1, 64, true, false, true) => VkFormat::VK_FORMAT_R64_SFLOAT,
+			(2, 64, true, false, true) => VkFormat::VK_FORMAT_R64G64_SFLOAT,
+			(3, 64, true, false, true) => VkFormat::VK_FORMAT_R64G64B64_SFLOAT,
+			(4, 64, true, false, true) => VkFormat::VK_FORMAT_R64G64B64A64_SFLOAT,
+			_ => return Err(VulkanError::ImagePixelFormatNotSupported),
+		};
+		let mut ret = Self::new(device, VulkanTextureType::T2d(extent), with_mipmap, format, usage)?;
+		unsafe {ret.set_staging_data_from_compact_pixels(0, image.as_ptr() as *const c_void, (bits / 8 * P::CHANNEL_COUNT) as usize * width as usize, height)?};
+		let offset = VkOffset3D {
+			x: 0,
+			y: 0,
+			z: 0,
+		};
+		let update_extent = VkExtent3D {
+			width,
+			height,
+			depth: 1,
+		};
+		ret.upload_staging_buffer(cmdbuf, &offset, &update_extent)?;
+		Ok(ret)
 	}
 
 	/// Get the size of the image
