@@ -206,3 +206,66 @@ where
 		Ok(())
 	}
 }
+
+/// The trait for a mesh
+pub trait GenericMesh: Debug {
+	/// Get the vertex buffer
+	fn get_vk_vertex_buffer(&self) -> VkBuffer;
+
+	/// Get the index buffer
+	fn get_vk_index_buffer(&self) -> Option<VkBuffer>;
+
+	/// Get the instance buffer
+	fn get_vk_instance_buffer(&self) -> Option<VkBuffer>;
+
+	/// Get the command buffer
+	fn get_vk_command_buffer(&self) -> Option<VkBuffer>;
+}
+
+impl<BV, V, BE, E, BI, I, BC, C> GenericMesh for Mesh<BV, V, BE, E, BI, I, BC, C>
+where
+	BV: BufferForDraw<V>,
+	BE: BufferForDraw<E>,
+	BI: BufferForDraw<I>,
+	BC: BufferForDraw<C>,
+	V: BufferVecItem,
+	E: BufferVecItem,
+	I: BufferVecItem,
+	C: BufferVecItem {
+	fn get_vk_vertex_buffer(&self) -> VkBuffer {
+		self.vertices.get_vk_buffer()
+	}
+
+	fn get_vk_index_buffer(&self) -> Option<VkBuffer> {
+		self.indices.as_ref().map(|b|b.get_vk_buffer())
+	}
+
+	fn get_vk_instance_buffer(&self) -> Option<VkBuffer> {
+		self.instances.as_ref().map(|b|b.get_vk_buffer())
+	}
+
+	fn get_vk_command_buffer(&self) -> Option<VkBuffer> {
+		self.commands.as_ref().map(|b|b.get_vk_buffer())
+	}
+}
+
+/// A Mesh with a material
+#[derive(Debug)]
+pub struct GenericMeshWithMaterial {
+	/// The mesh
+	pub mesh: Box<dyn GenericMesh>,
+
+	/// The material
+	pub material: Box<dyn Material>,
+}
+
+impl GenericMeshWithMaterial {
+	/// Create an instance for the `GenericMeshWithMaterial`
+	pub fn new(mesh: Box<dyn GenericMesh>, material: Box<dyn Material>) -> Self {
+		Self {
+			mesh,
+			material,
+		}
+	}
+}
+
