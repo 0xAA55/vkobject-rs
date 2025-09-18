@@ -47,6 +47,9 @@ pub mod buffervec;
 /// The texture object
 pub mod texture;
 
+/// The material object
+pub mod material;
+
 /// The mesh object
 pub mod mesh;
 
@@ -75,6 +78,7 @@ pub mod prelude {
 	pub use crate::buffer::*;
 	pub use crate::buffervec::*;
 	pub use crate::texture::*;
+	pub use crate::material::*;
 	pub use crate::mesh::*;
 	pub use crate::pipeline::*;
 }
