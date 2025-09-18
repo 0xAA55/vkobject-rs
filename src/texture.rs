@@ -257,6 +257,12 @@ impl VulkanTexture {
 		Ok(())
 	}
 
+	/// Get the data pointer of the staging buffer
+	pub fn get_staging_buffer_address(&mut self) -> Result<*mut c_void, VulkanError> {
+		self.ensure_staging_buffer()?;
+		Ok(self.staging_buffer.as_ref().unwrap().address)
+	}
+
 	/// Discard the staging buffer to save memory
 	pub fn discard_staging_buffer(&mut self) {
 		self.staging_buffer = None;
