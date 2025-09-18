@@ -243,11 +243,22 @@ impl VulkanTexture {
 		Ok(mem_reqs.size)
 	}
 
-	/// Update new data to the staging buffer
-	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	/// Create the staging buffer if it not exists
+	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
 		if self.staging_buffer.is_none() {
 			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.get_size()?)?);
 		}
+		Ok(())
+	}
+
+	/// Discard the staging buffer to save memory
+	pub fn discard_staging_buffer(&mut self) {
+		self.staging_buffer = None;
+	}
+
+	/// Update new data to the staging buffer
+	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+		self.ensure_staging_buffer()?;
 		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
 		Ok(())
 	}
@@ -335,11 +346,6 @@ impl VulkanTexture {
 	/// Get the extent of the image
 	pub fn get_extent(&self) -> VkExtent3D {
 		self.type_size.get_extent()
-	}
-
-	/// Discard the staging buffer to save memory
-	pub fn discard_staging_buffer(&mut self) {
-		self.staging_buffer = None;
 	}
 }
 
