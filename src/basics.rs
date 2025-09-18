@@ -23,6 +23,7 @@ pub enum VulkanError {
 	NoIdleCommandPools,
 	NoIdleDeviceQueues,
 	NoSuitableMemoryType,
+	ImageTypeSizeNotMatch(String),
 	ShaderCompilationError(String),
 	ShaderParseIdUnknown(String),
 	ShaderParseTypeUnknown(String),

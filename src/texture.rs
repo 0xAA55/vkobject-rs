@@ -4,9 +4,14 @@ use std::{
 	cmp::max,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
-	mem::MaybeUninit,
+	mem::{MaybeUninit, size_of},
+	ops::Deref,
 	ptr::{copy, null},
 	sync::Arc,
+};
+use image::{
+	ImageBuffer,
+	Pixel,
 };
 
 /// The offset and extent of a piece of the texture
@@ -297,6 +302,35 @@ impl VulkanTexture {
 			}
 		}
 		Ok(())
+	}
+
+	/// Update new data to the staging buffer from a `RgbImage`
+	pub fn set_staging_data_from_image<P, Container>(&mut self, image: &ImageBuffer<P, Container>, z_layer: u32) -> Result<(), VulkanError>
+	where
+		P: Pixel,
+		Container: Deref<Target = [P::Subpixel]> {
+		let (width, height) = image.dimensions();
+		let extent = self.type_size.get_extent();
+		let layer_size = self.get_size()? as usize / extent.depth as usize;
+		let row_byte_count = size_of::<P>() * width as usize;
+		let image_size = row_byte_count * height as usize;
+		if width != extent.width || height != extent.height {
+			return Err(VulkanError::ImageTypeSizeNotMatch(format!("The size of the texture is {extent:?}, but the size of the image is {width}x_{height}. The size doesn't match.")));
+		}
+		if layer_size != image_size {
+			return Err(VulkanError::ImageTypeSizeNotMatch(format!("The layer size of the texture is {layer_size}, but the size of the image is {image_size}. The size doesn't match.")));
+		}
+		if z_layer >= extent.depth {
+			panic!("The given `z_layer` is {z_layer}, but the depth of the texture is {}, the `z_layer` is out of bound", extent.depth);
+		}
+		let layer_offset = z_layer as usize * image_size as usize;
+		let image_address = image.as_ptr() as *const c_void;
+		let texture_pitch = layer_size / height as usize;
+		if row_byte_count == texture_pitch {
+			self.set_staging_data(image_address, layer_offset as u64, image_size)
+		} else {
+			unsafe {self.set_staging_data_from_compact_pixels(layer_offset, image_address, row_byte_count, height)}
+		}
 	}
 
 	/// Upload the staging buffer data to the texture
