@@ -5,7 +5,7 @@ use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
-	ptr::null,
+	ptr::{copy, null},
 	sync::Arc,
 };
 
@@ -272,6 +272,30 @@ impl VulkanTexture {
 	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.ensure_staging_buffer()?;
 		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
+		Ok(())
+	}
+
+	/// Copy image data from a compactly packed pixels to the 32-bit aligned staging buffer
+	///
+	/// # Safety
+	///
+	/// This function is unsafe due to these factors:
+	/// * The purpose of `offset` is for modifying each layer of the 3D texture, and is unchecked.
+	/// * The `src_stride` is unchecked. The caller calculates the stride.
+	/// * The `num_rows` is unchecked.
+	pub unsafe fn set_staging_data_from_compact_pixels(&mut self, offset: usize, src_ptr: *const c_void, src_stride: usize, num_rows: u32) -> Result<(), VulkanError> {
+		let pitch = self.get_pitch()?;
+		let target_address = (self.get_staging_buffer_address()? as *mut u8).wrapping_add(offset);
+		let source_address = src_ptr as *const u8;
+		if pitch == src_stride {
+			unsafe {copy(source_address, target_address, src_stride * num_rows as usize)};
+		} else {
+			for y in 0..num_rows {
+				let src_offset = y as usize * src_stride;
+				let dst_offset = y as usize * pitch;
+				unsafe {copy(source_address.wrapping_add(src_offset), target_address.wrapping_add(dst_offset), src_stride)};
+			}
+		}
 		Ok(())
 	}
 
