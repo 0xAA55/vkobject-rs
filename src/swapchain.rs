@@ -26,7 +26,7 @@ pub struct VulkanSwapchainImage {
 impl VulkanSwapchainImage {
 	/// Create the `VulkanSwapchainImage`
 	pub(crate) fn new(device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
-		let image = Arc::new(VulkanTexture::new_from_image(device.clone(), image, VulkanTextureType::T2d(*extent), surface_format.format)?);
+		let image = Arc::new(VulkanTexture::new_from_existing_image(device.clone(), image, VulkanTextureType::T2d(*extent), surface_format.format)?);
 		let depth_stencil = Arc::new(VulkanTexture::new(
 			device.clone(),
 			VulkanTextureType::DepthStencil(*extent),

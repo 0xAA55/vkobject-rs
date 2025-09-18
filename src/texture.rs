@@ -178,14 +178,14 @@ impl VulkanTexture {
 		vkcore.vkGetImageMemoryRequirements(vkdevice, *image, &mut mem_reqs)?;
 		let memory = VulkanMemory::new(device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		memory.bind_vk_image(*image)?;
-		let mut ret = Self::new_from_image(device, *image, type_size, format)?;
+		let mut ret = Self::new_from_existing_image(device, *image, type_size, format)?;
 		ret.memory = Some(memory);
 		image.release();
 		Ok(ret)
 	}
 
 	/// Create the `VulkanTexture` from a image that's not owned (e.g. from a swapchain image)
-	pub(crate) fn new_from_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
+	pub(crate) fn new_from_existing_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let image_view_ci = VkImageViewCreateInfo {
