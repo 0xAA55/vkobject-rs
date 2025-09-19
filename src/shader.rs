@@ -488,8 +488,8 @@ pub mod shader_analyzer {
 		}
 
 		/// Get the global variables that may contain the uniform inputs, attribute inputs, and outputs of the shader.
-		pub fn get_global_vars(&self) -> Result<Vec<ShaderVariable>, VulkanError> {
-			let mut vars: Vec<ShaderVariable> = Vec::with_capacity(self.module.types_global_values.len());
+		pub fn get_global_vars(&self) -> Result<Vec<Arc<ShaderVariable>>, VulkanError> {
+			let mut vars: Vec<Arc<ShaderVariable>> = Vec::with_capacity(self.module.types_global_values.len());
 			for inst in self.module.global_inst_iter() {
 				if inst.class.opcode != Op::Variable {
 					continue;
@@ -503,12 +503,12 @@ pub mod shader_analyzer {
 				let var_name = self.get_name(var_id);
 				let layout = self.get_layout(var_id, None);
 
-				vars.push(ShaderVariable {
+				vars.push(Arc::new(ShaderVariable {
 					var_type,
 					var_name,
 					storage_class,
 					layout,
-				});
+				}));
 			}
 			Ok(vars)
 		}
@@ -526,7 +526,7 @@ pub struct VulkanShader {
 	shader: VkShaderModule,
 
 	/// The parsed variables of the shader
-	vars: Vec<ShaderVariable>,
+	vars: Vec<Arc<ShaderVariable>>,
 }
 
 /// The shader source
@@ -689,7 +689,7 @@ impl VulkanShader {
 	}
 
 	/// Get variables
-	pub fn get_vars(&self) -> &[ShaderVariable] {
+	pub fn get_vars(&self) -> &[Arc<ShaderVariable>] {
 		&self.vars
 	}
 }
