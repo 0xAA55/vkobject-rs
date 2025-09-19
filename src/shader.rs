@@ -535,6 +535,12 @@ pub enum ShaderSource<'a> {
 	/// Vertex shader source code
 	VertexShader(&'a str),
 
+	/// Tessellation control shader source code
+	TessellationControlShader(&'a str),
+
+	/// Tessellation evaluation shader source code
+	TessellationEvaluationShader(&'a str),
+
 	/// Geometry shader source code
 	GeometryShader(&'a str),
 
@@ -550,6 +556,12 @@ pub enum ShaderSource<'a> {
 pub enum ShaderSourceOwned {
 	/// Vertex shader source code
 	VertexShader(String),
+
+	/// Tessellation control shader source code
+	TessellationControlShader(String),
+
+	/// Tessellation evaluation shader source code
+	TessellationEvaluationShader(String),
 
 	/// Geometry shader source code
 	GeometryShader(String),
@@ -567,6 +579,12 @@ pub enum ShaderSourcePath<'a> {
 	/// Vertex shader source code file path
 	VertexShader(&'a Path),
 
+	/// Tessellation control shader file path
+	TessellationControlShader(&'a Path),
+
+	/// Tessellation evaluation shader file path
+	TessellationEvaluationShader(&'a Path),
+
 	/// Geometry shader source code file path
 	GeometryShader(&'a Path),
 
@@ -581,6 +599,8 @@ impl ShaderSourcePath<'_> {
 	pub fn load(&self) -> Result<ShaderSourceOwned, VulkanError> {
 		Ok(match self {
 			Self::VertexShader(path) => {let bytes = read(path)?; ShaderSourceOwned::VertexShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
+			Self::TessellationControlShader(path) => {let bytes = read(path)?; ShaderSourceOwned::TessellationControlShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
+			Self::TessellationEvaluationShader(path) => {let bytes = read(path)?; ShaderSourceOwned::TessellationEvaluationShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
 			Self::GeometryShader(path) => {let bytes = read(path)?; ShaderSourceOwned::GeometryShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
 			Self::FragmentShader(path) => {let bytes = read(path)?; ShaderSourceOwned::FragmentShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
 			Self::ComputeShader(path) => {let bytes = read(path)?; ShaderSourceOwned::ComputeShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
@@ -590,6 +610,8 @@ impl ShaderSourcePath<'_> {
 	pub fn get_filename(&self) -> String {
 		match self {
 			Self::VertexShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
+			Self::TessellationControlShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
+			Self::TessellationEvaluationShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
 			Self::GeometryShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
 			Self::FragmentShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
 			Self::ComputeShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
@@ -601,6 +623,8 @@ impl ShaderSourceOwned {
 	pub fn as_ref<'a>(&'a self) -> ShaderSource<'a> {
 		match self {
 			Self::VertexShader(string) => ShaderSource::VertexShader(string),
+			Self::TessellationControlShader(string) => ShaderSource::TessellationControlShader(string),
+			Self::TessellationEvaluationShader(string) => ShaderSource::TessellationEvaluationShader(string),
 			Self::GeometryShader(string) => ShaderSource::GeometryShader(string),
 			Self::FragmentShader(string) => ShaderSource::FragmentShader(string),
 			Self::ComputeShader(string) => ShaderSource::ComputeShader(string),
@@ -660,6 +684,8 @@ impl VulkanShader {
 		let source;
 		let kind = match code {
 			VertexShader(ref src) => {source = src; ShaderKind::Vertex}
+			TessellationControlShader(ref src) => {source = src; ShaderKind::TessControl}
+			TessellationEvaluationShader(ref src) => {source = src; ShaderKind::TessEvaluation}
 			GeometryShader(ref src) => {source = src; ShaderKind::Geometry}
 			FragmentShader(ref src) => {source = src; ShaderKind::Fragment}
 			ComputeShader(ref src) => {source = src; ShaderKind::Compute}

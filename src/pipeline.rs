@@ -25,6 +25,12 @@ pub struct DrawShaders {
 	/// The vertex shader cannot be absent
 	vertex_shader: Arc<VulkanShader>,
 
+	/// The optional tessellation control shader
+	tessellation_control_shader: Option<Arc<VulkanShader>>,
+
+	/// The optional tessellation evaluation shader
+	tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
+
 	/// The optional geometry shader
 	geometry_shader: Option<Arc<VulkanShader>>,
 
