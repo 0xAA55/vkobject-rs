@@ -38,18 +38,6 @@ pub struct DrawShaders {
 	fragment_shader: Arc<VulkanShader>,
 }
 
-#[derive(Debug, Clone)]
-pub struct Pipeline {
-	/// The pipeline
-	pipeline: VkPipeline,
-
-	/// The mesh to draw
-	mesh: Arc<Mutex<GenericMeshWithMaterial>>,
-
-	/// The shaders to use
-	shaders: Arc<DrawShaders>,
-}
-
 impl DrawShaders {
 	/// Create the `DrawShaders`
 	pub fn new(vertex_shader: Arc<VulkanShader>, geometry_shader: Option<Arc<VulkanShader>>, fragment_shader: Arc<VulkanShader>) -> Self {
@@ -59,6 +47,23 @@ impl DrawShaders {
 			fragment_shader,
 		}
 	}
+
+#[derive(Debug)]
+pub struct Pipeline {
+	/// The associated device
+	pub device: Arc<VulkanDevice>,
+
+	/// The pipeline
+	pipeline: VkPipeline,
+
+	/// The descriptor set layouts of the shaders
+	descriptor_set_layouts: Vec<DescriptorSetLayout>,
+
+	/// The mesh to draw
+	pub mesh: Arc<Mutex<GenericMeshWithMaterial>>,
+
+	/// The shaders to use
+	pub shaders: Arc<DrawShaders>,
 }
 
 impl Pipeline {
