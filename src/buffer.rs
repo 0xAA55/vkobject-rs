@@ -219,6 +219,9 @@ pub trait GenericUniformBuffer: Debug {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
+	/// Get the address of the staging buffer
+	fn get_staging_buffer_address(&self) -> *mut c_void;
+
 	/// Upload to GPU
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
 }
@@ -228,6 +231,10 @@ where
 	U: UniformStructType {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
+	}
+
+	fn get_staging_buffer_address(&self) -> *mut c_void {
+		self.buffer.staging_buffer.as_ref().unwrap().get_address()
 	}
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
