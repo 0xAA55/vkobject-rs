@@ -679,3 +679,42 @@ impl Drop for StagingBuffer {
 		self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()).unwrap();
 	}
 }
+
+pub struct VulkanSampler {
+	/// The device holds all of the resource
+	pub device: Arc<VulkanDevice>,
+
+	/// The sampler
+	sampler: VkSampler,
+}
+
+impl VulkanSampler {
+	/// Create the `VulkanSampler`
+	pub fn new(device: Arc<VulkanDevice>, sampler_ci: &VkSamplerCreateInfo) -> Result<Self, VulkanError> {
+		let mut sampler = null();
+		device.vkcore.vkCreateSampler(device.get_vk_device(), sampler_ci, null(), &mut sampler)?;
+		Ok(Self {
+			device,
+			sampler,
+		})
+	}
+
+	/// Get the `VkSampler`
+	pub fn get_vk_sampler(&self) -> VkSampler {
+		self.sampler
+	}
+}
+
+impl Debug for VulkanSampler {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanSampler")
+		.field("sampler", &self.sampler)
+		.finish()
+	}
+}
+
+impl Drop for VulkanSampler {
+	fn drop(&mut self) {
+		self.device.vkcore.vkDestroySampler(self.device.get_vk_device(), self.sampler, null()).unwrap();
+	}
+}

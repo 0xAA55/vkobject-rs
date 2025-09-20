@@ -580,34 +580,3 @@ impl Drop for VulkanTexture {
 		}
 	}
 }
-
-pub struct VulkanSampler {
-	/// The device holds all of the resource
-	pub device: Arc<VulkanDevice>,
-
-	/// The sampler
-	sampler: VkSampler,
-}
-
-impl VulkanSampler {
-	/// Create the `VulkanSampler`
-	pub fn new(device: Arc<VulkanDevice>, sampler_ci: &VkSamplerCreateInfo) -> Result<Self, VulkanError> {
-		let mut sampler = null();
-		device.vkcore.vkCreateSampler(device, sampler_ci, null(), &mut sampler)?;
-		Ok(Self {
-			device,
-			sampler,
-		})
-	}
-
-	/// Get the `VkSampler`
-	pub fn get_vk_sampler(&self) -> VkSampler {
-		self.sampler
-	}
-}
-
-impl Drop for VulkanSampler {
-	fn drop(&mut self) {
-		self.device.vkcore.vkDestroySampler(self.device.get_vk_device(), self.sampler, null()).unwrap();
-	}
-}
