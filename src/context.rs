@@ -105,6 +105,9 @@ pub struct VulkanContextCreateInfo<'a> {
 	/// **NOTE** You could create a multi-threaded rendering engine, recording draw commands concurrently, and the GPU could render multiple scenes concurrently.
 	pub cpu_renderer_threads: usize,
 
+	/// The size for the descriptor pool
+	pub desc_pool_size: DescriptorPoolSize,
+
 	/// Is this a VR project?
 	pub is_vr: bool,
 }
@@ -114,6 +117,9 @@ pub struct VulkanContextCreateInfo<'a> {
 pub struct VulkanContext {
 	/// The swapchain
 	pub(crate) swapchain: Arc<VulkanSwapchain>,
+
+	/// The descriptor pool here is normally for a global usage
+	pub desc_pool: Arc<DescriptorPool>,
 
 	/// The command pools
 	pub(crate) cmdpools: Vec<VulkanCommandPool>,
@@ -163,16 +169,18 @@ impl VulkanContext {
 		#[cfg(feature = "xcb_khr")]
 		let surface = Arc::new(VulkanSurface::new(vkcore.clone(), &device, surface.connection, surface.window)?);
 
-		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, cpu_renderer_threads, create_info.is_vr, None)?);
 		let mut cmdpools: Vec<VulkanCommandPool> = Vec::with_capacity(cpu_renderer_threads);
 		for _ in 0..cpu_renderer_threads {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
 		}
+		let desc_pool = Arc::new(DescriptorPool::new(device.clone(), create_info.desc_pool_size)?);
+		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
+		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, cpu_renderer_threads, create_info.is_vr, None)?);
 		let ret = Self {
 			vkcore,
 			device,
 			surface,
+			desc_pool,
 			swapchain,
 			cmdpools,
 			cpu_renderer_threads,

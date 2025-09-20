@@ -43,6 +43,7 @@ pub mod init_from_glfw {
 			surface,
 			present_interval,
 			cpu_renderer_threads,
+			desc_pool_size: DescriptorPoolSize::default(),
 			is_vr,
 		};
 		VulkanContext::new(context_ci)
