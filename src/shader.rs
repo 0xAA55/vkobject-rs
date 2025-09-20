@@ -565,6 +565,9 @@ pub struct VulkanShader {
 
 	/// The parsed variables of the shader
 	vars: Vec<Arc<ShaderVariable>>,
+
+	/// The properties of the shader descriptor sets
+	desc_props: HashMap<String, DescriptorProp>
 }
 
 /// The shader source
@@ -672,7 +675,7 @@ impl ShaderSourceOwned {
 
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
-	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32]) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32], desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
 		let bytes = unsafe {from_raw_parts(shader_code.as_ptr() as *const u8, shader_code.len() * 4)};
 		let analyzer = ShaderAnalyzer::new(bytes)?;
 		let vars = analyzer.get_global_vars()?;
@@ -690,11 +693,12 @@ impl VulkanShader {
 			device,
 			shader,
 			vars,
+			desc_props,
 		})
 	}
 
 	/// Create the `VulkanShader` from file
-	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &Path) -> Result<Self, VulkanError> {
+	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &Path, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
 		let mut shader_bytes = read(shader_file)?;
 		shader_bytes.resize(((shader_bytes.len() - 1) / 4 + 1) * 4, 0);
 		let shader_code = unsafe {
@@ -704,7 +708,7 @@ impl VulkanShader {
 			forget(shader_bytes);
 			Vec::from_raw_parts(ptr, len, cap)
 		};
-		Self::new(device, &shader_code)
+		Self::new(device, &shader_code, desc_props)
 	}
 
 	/// Compile shader code to binary
@@ -735,16 +739,16 @@ impl VulkanShader {
 	/// Create the `VulkanShader` from source code
 	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, is_hlsl: bool, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
+	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, is_hlsl: bool, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
 		let artifact = Self::compile(device.clone(), code, is_hlsl, filename, entry_point, level, warning_as_error)?;
-		Self::new(device, &artifact)
+		Self::new(device, &artifact, desc_props)
 	}
 
 	/// Create the `VulkanShader` from source code from file
 	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
-		Self::new_from_source(device, code_path.load()?.as_ref(), is_hlsl, &code_path.get_filename(), entry_point, level, warning_as_error)
+	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+		Self::new_from_source(device, code_path.load()?.as_ref(), is_hlsl, &code_path.get_filename(), entry_point, level, warning_as_error, desc_props)
 	}
 
 	/// Get the inner
@@ -756,6 +760,11 @@ impl VulkanShader {
 	pub fn get_vars(&self) -> &[Arc<ShaderVariable>] {
 		&self.vars
 	}
+
+	/// Get the desc props
+	pub fn get_desc_props(&self) -> &HashMap<String, DescriptorProp> {
+		&self.desc_props
+	}
 }
 
 impl Debug for VulkanShader {
@@ -763,6 +772,7 @@ impl Debug for VulkanShader {
 		f.debug_struct("VulkanShader")
 		.field("shader", &self.shader)
 		.field("vars", &self.vars)
+		.field("desc_props", &self.desc_props)
 		.finish()
 	}
 }
