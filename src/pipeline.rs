@@ -40,13 +40,36 @@ pub struct DrawShaders {
 
 impl DrawShaders {
 	/// Create the `DrawShaders`
-	pub fn new(vertex_shader: Arc<VulkanShader>, geometry_shader: Option<Arc<VulkanShader>>, fragment_shader: Arc<VulkanShader>) -> Self {
+	pub fn new(
+		vertex_shader: Arc<VulkanShader>,
+		tessellation_control_shader: Option<Arc<VulkanShader>>,
+		tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
+		geometry_shader: Option<Arc<VulkanShader>>,
+		fragment_shader: Arc<VulkanShader>) -> Self {
 		Self {
 			vertex_shader,
+			tessellation_control_shader,
+			tessellation_evaluation_shader,
 			geometry_shader,
 			fragment_shader,
 		}
 	}
+
+	/// Create an iterator that iterates through all of the shaders variables
+	pub fn iter_vars(&self) -> impl Iterator<Item = &Arc<ShaderVariable>> {
+		self.vertex_shader.get_vars().iter().chain(
+		if let Some(geometry_shader) = &self.geometry_shader {
+			geometry_shader.get_vars().iter()
+		} else {
+			[].iter()
+		}).chain(
+			self.fragment_shader.get_vars().iter()
+		)
+	}
+}
+
+unsafe impl Send for DrawShaders {}
+unsafe impl Sync for DrawShaders {}
 
 #[derive(Debug)]
 pub struct Pipeline {
