@@ -152,7 +152,7 @@ pub mod shader_analyzer {
 
 	impl VariableType {
 		/// Unwrap for literal variable
-		pub fn unwrap_literal(&self) -> &String {
+		pub fn unwrap_literal(&self) -> &str {
 			if let Self::Literal(ret) = self {
 				ret
 			} else {
@@ -168,12 +168,40 @@ pub mod shader_analyzer {
 				panic!("Expected `VariableType::Struct`, got {self:?}")
 			}
 		}
+
 		/// Unwrap for array
 		pub fn unwrap_array(&self) -> &ArrayType {
 			if let Self::Array(ret) = self {
 				ret
 			} else {
 				panic!("Expected `VariableType::Array`, got {self:?}")
+			}
+		}
+
+		/// Unwrap for runtime array
+		pub fn unwrap_runtime_array(&self) -> &RuntimeArrayType {
+			if let Self::RuntimeArray(ret) = self {
+				ret
+			} else {
+				panic!("Expected `VariableType::RuntimeArray`, got {self:?}")
+			}
+		}
+
+		/// Unwrap for image
+		pub fn unwrap_image(&self) -> &ImageType {
+			if let Self::Image(ret) = self {
+				ret
+			} else {
+				panic!("Expected `VariableType::Image`, got {self:?}")
+			}
+		}
+
+		/// Unwrap for opaque variable
+		pub fn unwrap_opaque(&self) -> &str {
+			if let Self::Opaque(ret) = self {
+				ret
+			} else {
+				panic!("Expected `VariableType::Opaque`, got {self:?}")
 			}
 		}
 	}
@@ -270,7 +298,7 @@ pub mod shader_analyzer {
 					let id = inst.result_id.unwrap();
 					let var_type = ret.get_type(inst.result_type.unwrap())?;
 					let var_name = ret.get_name(id);
-					let value = match var_type.unwrap_literal().as_str() {
+					let value = match var_type.unwrap_literal() {
 						"f32" | "i32" | "u32" => ConstantValue::from_bit32(inst.operands[0].unwrap_literal_bit32()),
 						"f64" => ConstantValue::from_bit64(inst.operands[0].unwrap_literal_bit64()),
 						others => return Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown type of constant {var_name:?}: {others}"))),
@@ -396,7 +424,7 @@ pub mod shader_analyzer {
 						let component_type_id = inst.operands[0].unwrap_id_ref();
 						let component_count = inst.operands[1].unwrap_literal_bit32();
 						let component_type = self.get_type(component_type_id)?;
-						match component_type.unwrap_literal().as_str() {
+						match component_type.unwrap_literal() {
 							"f32"  => Ok(VariableType::Literal(format!( "vec{component_count}"))),
 							"f64"  => Ok(VariableType::Literal(format!("dvec{component_count}"))),
 							"i32"  => Ok(VariableType::Literal(format!("ivec{component_count}"))),
