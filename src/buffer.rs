@@ -3,8 +3,11 @@ use crate::prelude::*;
 use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
+	marker::PhantomData,
+	mem::size_of,
 	sync::Arc,
 };
+use struct_iterable::Iterable;
 
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
 pub struct Buffer {
@@ -167,3 +170,47 @@ impl Debug for Buffer {
 		.finish()
 	}
 }
+
+/// The trait that the struct of uniform must implement
+pub trait UniformStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
+impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+
+/// The uniform buffer
+#[derive(Debug, Clone)]
+pub struct UniformBuffer<U>
+where
+	U: UniformStructType {
+	/// The buffer
+	pub buffer: Buffer,
+
+	/// The phantom data that holds the uniform struct type
+	_phantom: PhantomData<U>,
+}
+
+impl<U> UniformBuffer<U>
+where
+	U: UniformStructType {
+	/// Create the `UniformBuffer`
+	pub fn new(device: Arc<VulkanDevice>) -> Result<Self, VulkanError> {
+		let def = U::default();
+		let buffer = Buffer::new(device.clone(), size_of::<U>() as VkDeviceSize, Some(&def as *const U as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT as VkBufferUsageFlags)?;
+		Ok(Self {
+			buffer,
+			_phantom: PhantomData,
+		})
+	}
+
+	/// Get a reference to the data
+	pub fn as_ref(&self) -> &U {
+		unsafe{&*(self.buffer.staging_buffer.as_ref().unwrap().get_address() as *const U)}
+	}
+
+	/// Get a mutable reference to the data
+	pub fn as_mut(&mut self) -> &mut U {
+		unsafe{&mut *(self.buffer.staging_buffer.as_ref().unwrap().get_address() as *mut U)}
+	}
+}
+
+unsafe impl<U> Send for UniformBuffer<U> where U: UniformStructType {}
+unsafe impl<U> Sync for UniformBuffer<U> where U: UniformStructType {}
+
