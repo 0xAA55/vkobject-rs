@@ -545,6 +545,16 @@ pub mod shader_analyzer {
 
 use shader_analyzer::*;
 
+/// The properties for the descriptor set
+#[derive(Debug)]
+pub enum DescriptorProp {
+	/// The props for the samplers
+	Samplers(Vec<VulkanSampler>),
+
+	/// The props for the uniform buffers
+	UniformBuffers(Vec<Box<dyn GenericUniformBuffer>>),
+}
+
 /// The wrapper for `VkShaderModule`
 pub struct VulkanShader {
 	/// The associated device
