@@ -214,3 +214,23 @@ where
 unsafe impl<U> Send for UniformBuffer<U> where U: UniformStructType {}
 unsafe impl<U> Sync for UniformBuffer<U> where U: UniformStructType {}
 
+/// The trait for the `UniformBuffer` to be able to wrap into an object
+pub trait GenericUniformBuffer: Debug {
+	/// Get the `VkBuffer`
+	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Upload to GPU
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+}
+
+impl<U> GenericUniformBuffer for UniformBuffer<U>
+where
+	U: UniformStructType {
+	fn get_vk_buffer(&self) -> VkBuffer {
+		self.buffer.get_vk_buffer()
+	}
+
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.buffer.upload_staging_buffer(cmdbuf, 0, size_of::<U>() as VkDeviceSize)
+	}
+}
