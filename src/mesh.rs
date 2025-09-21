@@ -213,6 +213,12 @@ where
 	}
 }
 
+/// The most typical static mesh type: use `BufferWithType` for vertices and elements(indices), use `BufferVec` for instances and draw commands
+pub type StaticMesh<V, E, I, C> = Mesh<BufferWithType<V>, V, BufferWithType<E>, E, BufferVec<I>, I, BufferVec<C>, C>;
+
+/// The dynamic mesh type: use `BufferVec` for all buffers
+pub type DynamicMesh<V, E, I, C> = Mesh<BufferVec<V>, V, BufferVec<E>, E, BufferVec<I>, I, BufferVec<C>, C>;
+
 /// The trait for a mesh
 pub trait GenericMesh: Debug {
 	/// Get the vertex buffer
