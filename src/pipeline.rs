@@ -3,6 +3,7 @@ use crate::prelude::*;
 use std::{
 	collections::{BTreeMap, HashMap},
 	fmt::Debug,
+	iter,
 	ptr::null,
 	sync::{Arc, Mutex},
 };
@@ -293,6 +294,13 @@ impl DrawShaders {
 		).chain(self.fragment_shader.get_vars().iter().map(|v| (VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT, v)))
 	}
 
+	/// Create an iterator that iterates through all of the shaders
+	pub fn iter_shaders(&self) -> impl Iterator<Item = (VkShaderStageFlagBits, &Arc<VulkanShader>)> {
+        iter::once((VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT, &self.vertex_shader))
+		.chain(self.tessellation_control_shader.as_ref().map(|shader| (VkShaderStageFlagBits::VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, shader)))
+		.chain(self.tessellation_evaluation_shader.as_ref().map(|shader| (VkShaderStageFlagBits::VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, shader)))
+		.chain(self.geometry_shader.as_ref().map(|shader| (VkShaderStageFlagBits::VK_SHADER_STAGE_GEOMETRY_BIT, shader)))
+		.chain(iter::once((VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT, &self.fragment_shader)))
 	}
 }
 
