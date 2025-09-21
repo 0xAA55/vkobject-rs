@@ -172,3 +172,6 @@ impl Drop for DescriptorPool {
 		self.device.vkcore.vkDestroyDescriptorPool(self.device.get_vk_device(), self.pool, null()).unwrap();
 	}
 }
+
+unsafe impl Send for DescriptorPool {}
+unsafe impl Sync for DescriptorPool {}
