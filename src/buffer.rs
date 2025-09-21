@@ -199,14 +199,20 @@ where
 			_phantom: PhantomData,
 		})
 	}
+}
 
-	/// Get a reference to the data
-	pub fn as_ref(&self) -> &U {
+impl<U> AsRef<U> for UniformBuffer<U>
+where
+	U: UniformStructType {
+	fn as_ref(&self) -> &U {
 		unsafe{&*(self.buffer.staging_buffer.as_ref().unwrap().get_address() as *const U)}
 	}
+}
 
-	/// Get a mutable reference to the data
-	pub fn as_mut(&mut self) -> &mut U {
+impl<U> AsMut<U> for UniformBuffer<U>
+where
+	U: UniformStructType {
+	fn as_mut(&mut self) -> &mut U {
 		unsafe{&mut *(self.buffer.staging_buffer.as_ref().unwrap().get_address() as *mut U)}
 	}
 }
