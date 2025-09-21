@@ -1,10 +1,12 @@
 
 use crate::prelude::*;
 use std::{
+	any::{Any, TypeId},
 	ffi::c_void,
 	fmt::Debug,
 	marker::PhantomData,
 	mem::size_of,
+	vec::IntoIter,
 };
 use struct_iterable::Iterable;
 
@@ -151,19 +153,19 @@ where
 	BE: BufferForDraw<E>,
 	BI: BufferForDraw<I>,
 	BC: BufferForDraw<C>,
-	V: BufferVecItem,
-	E: BufferVecItem,
-	I: BufferVecItem,
-	C: BufferVecItem {
+	V: BufferVecStructItem,
+	E: BufferVecItem + 'static,
+	I: BufferVecStructItem,
+	C: BufferVecStructItem {
 	pub primitive_type: VkPrimitiveTopology,
 	pub vertices: BV,
 	pub indices: Option<BE>,
 	pub instances: Option<BI>,
 	pub commands: Option<BC>,
-	_vertex_type: PhantomData<V>,
-	_element_type: PhantomData<E>,
-	_instance_type: PhantomData<I>,
-	_command_type: PhantomData<C>,
+	vertex_type: V,
+	element_type: E,
+	instance_type: I,
+	command_type: C,
 }
 
 /// If a buffer you don't need, use this for your buffer item type
@@ -184,10 +186,10 @@ where
 	BE: BufferForDraw<E>,
 	BI: BufferForDraw<I>,
 	BC: BufferForDraw<C>,
-	V: BufferVecItem,
-	E: BufferVecItem,
-	I: BufferVecItem,
-	C: BufferVecItem {
+	V: BufferVecStructItem,
+	E: BufferVecItem + 'static,
+	I: BufferVecStructItem,
+	C: BufferVecStructItem {
 	pub fn new(primitive_type: VkPrimitiveTopology, vertices: BV, indices: Option<BE>, instances: Option<BI>, commands: Option<BC>) -> Self {
 		Self {
 			primitive_type,
@@ -195,10 +197,10 @@ where
 			indices,
 			instances,
 			commands,
-			_vertex_type: PhantomData,
-			_element_type: PhantomData,
-			_instance_type: PhantomData,
-			_command_type: PhantomData,
+			vertex_type: V::default(),
+			element_type: E::default(),
+			instance_type: I::default(),
+			command_type: C::default(),
 		}
 	}
 
@@ -224,6 +226,21 @@ pub trait GenericMesh: Debug {
 
 	/// Get the command buffer
 	fn get_vk_command_buffer(&self) -> Option<VkBuffer>;
+
+	/// Get the primitive type
+	fn get_primitive_type(&self) -> VkPrimitiveTopology;
+
+	/// Get the iterator for the vertex buffer item structure
+	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any + 'static))>;
+
+	/// Get the TypeId of the index buffer item
+	fn get_index_type_id(&self) -> Option<TypeId>;
+
+	/// Get the iterator for the vertex buffer item structure
+	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>>;
+
+	/// Get the iterator for the vertex buffer item structure
+	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>>;
 }
 
 impl<BV, V, BE, E, BI, I, BC, C> GenericMesh for Mesh<BV, V, BE, E, BI, I, BC, C>
@@ -232,10 +249,10 @@ where
 	BE: BufferForDraw<E>,
 	BI: BufferForDraw<I>,
 	BC: BufferForDraw<C>,
-	V: BufferVecItem,
-	E: BufferVecItem,
-	I: BufferVecItem,
-	C: BufferVecItem {
+	V: BufferVecStructItem,
+	E: BufferVecItem + 'static,
+	I: BufferVecStructItem,
+	C: BufferVecStructItem {
 	fn get_vk_vertex_buffer(&self) -> VkBuffer {
 		self.vertices.get_vk_buffer()
 	}
@@ -250,6 +267,26 @@ where
 
 	fn get_vk_command_buffer(&self) -> Option<VkBuffer> {
 		self.commands.as_ref().map(|b|b.get_vk_buffer())
+	}
+
+	fn get_primitive_type(&self) -> VkPrimitiveTopology {
+		self.primitive_type
+	}
+
+	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any + 'static))> {
+		self.vertex_type.iter()
+	}
+
+	fn get_index_type_id(&self) -> Option<TypeId> {
+		self.indices.as_ref().map(|_|self.element_type.type_id())
+	}
+
+	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>> {
+		self.instances.as_ref().map(|_|self.instance_type.iter())
+	}
+
+	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>> {
+		self.commands.as_ref().map(|_|self.command_type.iter())
 	}
 }
 
