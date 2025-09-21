@@ -40,6 +40,12 @@ pub mod shader_analyzer {
 		pub member_type: VariableType,
 	}
 
+	impl StructMember {
+		pub fn size_of(&self) -> Result<usize, VulkanError> {
+			self.member_type.size_of()
+		}
+	}
+
 	/// The struct type
 	#[derive(Debug, Clone)]
 	pub struct StructType {
@@ -48,6 +54,17 @@ pub mod shader_analyzer {
 
 		/// The members of the struct type
 		pub members: Vec<StructMember>,
+	}
+
+	impl StructType {
+		/// Get the size of this type
+		pub fn size_of(&self) -> Result<usize, VulkanError> {
+			let mut ret = 0;
+			for m in self.members.iter() {
+				ret += m.size_of()?;
+			}
+			Ok(ret)
+		}
 	}
 
 	/// The variable type
@@ -60,11 +77,25 @@ pub mod shader_analyzer {
 		pub element_count: usize,
 	}
 
+	impl ArrayType {
+		/// Get the size of this type
+		pub fn size_of(&self) -> Result<usize, VulkanError> {
+			Ok(self.element_type.size_of()? * self.element_count)
+		}
+	}
+
 	/// The variable type
 	#[derive(Debug, Clone)]
 	pub struct RuntimeArrayType {
 		/// The type of the array element
 		pub element_type: VariableType,
+	}
+
+	impl RuntimeArrayType {
+		/// Get the size of this type
+		pub fn size_of(&self) -> Result<usize, VulkanError> {
+			Ok(0)
+		}
 	}
 
 	#[derive(Debug, Clone, Copy)]
@@ -204,6 +235,60 @@ pub mod shader_analyzer {
 				panic!("Expected `VariableType::Opaque`, got {self:?}")
 			}
 		}
+
+		/// Get the size of this type
+		pub fn size_of(&self) -> Result<usize, VulkanError> {
+			match self {
+				VariableType::Literal(literal) => match literal.as_str() {
+					"i8" | "u8" => Ok(1),
+					"f16" | "i16" | "u16" => Ok(2),
+					"f32" | "i32" | "u32" | "bool" => Ok(4),
+					"f64" | "i64" | "u64" => Ok(8),
+					_ => if let Some(index) = literal.find("vec") {
+						let prefix = &literal[0..index];
+						let suffix = &literal[index + 3..];
+						let suffix_num = suffix.parse::<usize>().map_err(|_|VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?;
+						Ok(match prefix {
+							"" | "i" | "u" | "b" => 4,
+							"d" => 8,
+							_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?,
+						} * suffix_num)
+					} else if let Some(index) = literal.find("mat") {
+						let prefix = &literal[0..index];
+						let suffix = &literal[index + 3..];
+						let (num_row, num_col);
+						match suffix.len() {
+							1 => {
+								num_row = suffix.parse::<usize>().map_err(|_|VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?;
+								num_col = num_row;
+							}
+							3 => {
+								num_row = (suffix[..1]).parse::<usize>().map_err(|_|VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?;
+								num_col = (suffix[2..]).parse::<usize>().map_err(|_|VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?;
+							}
+							_ => return Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}"))),
+						}
+						Ok(match prefix {
+							"" | "i" | "u" | "b" => 4,
+							"d" => 8,
+							_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?,
+						} * num_row * num_col)
+					} else {
+						Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))
+					}
+				}
+				VariableType::Struct(st) => {
+					st.size_of()
+				}
+				VariableType::Array(arr) => {
+					arr.size_of()
+				}
+				VariableType::RuntimeArray(rtarr) => {
+					rtarr.size_of()
+				}
+				_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unable to evaluate the size of the type {self:?}")))
+			}
+		}
 	}
 
 	/// The input and output of the shader
@@ -220,6 +305,12 @@ pub mod shader_analyzer {
 
 		/// The layout of the variable
 		pub layout: VariableLayout,
+	}
+
+	impl ShaderVariable {
+		pub fn size_of(&self) -> Result<usize, VulkanError> {
+			self.var_type.size_of()
+		}
 	}
 
 	#[derive(Clone, Copy)]
