@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{
 	collections::{BTreeMap, HashMap},
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	iter,
 	ptr::null,
 	sync::{Arc, Mutex},
@@ -306,6 +306,100 @@ impl DrawShaders {
 
 unsafe impl Send for DrawShaders {}
 unsafe impl Sync for DrawShaders {}
+
+pub struct PipelineBuilder {
+	/// The associated device
+	pub device: Arc<VulkanDevice>,
+
+	/// The meshes to draw
+	pub mesh: Arc<Mutex<GenericMeshWithMaterial>>,
+
+	/// The shaders to use
+	pub shaders: Arc<DrawShaders>,
+
+	/// The pool
+	pub desc_pool: Arc<DescriptorPool>,
+
+	/// The descriptor sets
+	pub descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets>,
+
+	/// The pipeline layout was created by providing descriptor layout there.
+	pipeline_layout: VkPipelineLayout,
+}
+
+impl PipelineBuilder {
+	/// Create the `PipelineBuilder`
+	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
+		let mut descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets> = HashMap::new();
+		let mut desc_set_layouts: Vec<VkDescriptorSetLayout> = Vec::with_capacity(5);
+		let mut push_constant_ranges: Vec<VkPushConstantRange> = Vec::with_capacity(5);
+		let mut cur_offset: u32 = 0;
+		for (stage, shader) in shaders.iter_shaders() {
+			let ds = DescriptorSets::new(device.clone(), shader.clone(), stage as VkShaderStageFlags, desc_pool.clone())?;
+			for (_, dsl) in ds.get_descriptor_set_layouts().iter() {
+				desc_set_layouts.push(dsl.descriptor_set_layout);
+			}
+			descriptor_sets.insert(stage, ds);
+			for var in shader.get_vars() {
+				if let StorageClass::PushConstant = var.storage_class {
+					let cur_size = (((var.size_of()? - 1) / 4 + 1) * 4) as u32;
+					push_constant_ranges.push(VkPushConstantRange {
+						stageFlags: stage as VkShaderStageFlags,
+						offset: cur_offset,
+						size: cur_size,
+					});
+					cur_offset += cur_size;
+				}
+			}
+		}
+		let pipeline_layout_ci = VkPipelineLayoutCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			setLayoutCount: desc_set_layouts.len() as u32,
+			pSetLayouts: desc_set_layouts.as_ptr(),
+			pushConstantRangeCount: push_constant_ranges.len() as u32,
+			pPushConstantRanges: push_constant_ranges.as_ptr(),
+		};
+		let mut pipeline_layout = null();
+		device.vkcore.vkCreatePipelineLayout(device.get_vk_device(), &pipeline_layout_ci, null(), &mut pipeline_layout)?;
+		Ok(Self {
+			device,
+			mesh,
+			shaders,
+			desc_pool,
+			descriptor_sets,
+			pipeline_layout,
+		})
+	}
+
+	pub(crate) fn get_vk_pipeline_layout_once(mut self) -> VkPipelineLayout {
+		let ret = self.pipeline_layout;
+		self.pipeline_layout = null();
+		ret
+	}
+}
+
+impl Debug for PipelineBuilder {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("PipelineBuilder")
+		.field("mesh", &self.mesh)
+		.field("shaders", &self.shaders)
+		.field("desc_pool", &self.desc_pool)
+		.field("descriptor_sets", &self.descriptor_sets)
+		.field("pipeline_layout", &self.pipeline_layout)
+		.finish()
+	}
+}
+
+impl Drop for PipelineBuilder {
+	fn drop(&mut self) {
+		if !self.pipeline_layout.is_null() {
+			self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()).unwrap();
+		}
+	}
+}
+
 #[derive(Debug)]
 pub struct Pipeline {
 	/// The associated device
