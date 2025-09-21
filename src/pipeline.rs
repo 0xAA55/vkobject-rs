@@ -194,7 +194,7 @@ impl DescriptorSets {
 			};
 			descriptor_set_layouts.insert(*key, DescriptorSetLayout::new(device.clone(), &layout_ci)?);
 		}
-		let layout_array: Vec<VkDescriptorSetLayout> = descriptor_set_layouts.iter().map(|(_, v)|v.descriptor_set_layout).collect();
+		let layout_array: Vec<VkDescriptorSetLayout> = descriptor_set_layouts.values().map(|v|v.descriptor_set_layout).collect();
 		let desc_sets_ai = VkDescriptorSetAllocateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
 			pNext: null(),
