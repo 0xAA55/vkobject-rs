@@ -79,7 +79,7 @@ pub struct DescriptorPool {
 impl DescriptorPool {
 	/// Create a pool
 	pub fn new(device: Arc<VulkanDevice>, capacity: DescriptorPoolSize) -> Result<Self, VulkanError> {
-		let pool_sizes: Vec<VkDescriptorPoolSize> = capacity.typed_capacity.iter().map(|(&type_, &descriptorCount)| VkDescriptorPoolSize {type_, descriptorCount}).collect();
+		let pool_sizes: Vec<VkDescriptorPoolSize> = capacity.typed_capacity.iter().map(|(&type_, &count)| VkDescriptorPoolSize {type_, descriptorCount: count}).collect();
 		let pool_capacity: Arc<HashMap<VkDescriptorType, u32>> = Arc::new(capacity.typed_capacity.iter().map(|(&t, &c)|(t, c)).collect());
 		let pool_usage: Arc<HashMap<VkDescriptorType, AtomicU32>> = Arc::new(capacity.typed_capacity.iter().map(|(&type_, _)|(type_, AtomicU32::new(0))).collect());
 		let pool_ci = VkDescriptorPoolCreateInfo {
