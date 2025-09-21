@@ -456,7 +456,7 @@ impl VulkanTexture {
 		if z_layer >= extent.depth {
 			panic!("The given `z_layer` is {z_layer}, but the depth of the texture is {}, the `z_layer` is out of bound", extent.depth);
 		}
-		let layer_offset = z_layer as usize * image_size as usize;
+		let layer_offset = z_layer as usize * image_size;
 		let image_address = image.as_ptr() as *const c_void;
 		let texture_pitch = layer_size / height as usize;
 		if row_byte_count == texture_pitch {
