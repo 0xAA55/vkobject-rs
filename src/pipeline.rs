@@ -78,103 +78,97 @@ impl DescriptorSets {
 		let mut layout_bindings: HashMap<u32, HashMap<u32, VkDescriptorSetLayoutBinding>> = HashMap::new();
 		let desc_props = shader.get_desc_props();
 		for var in shader.get_vars() {
-			match var.layout {
-				VariableLayout::Descriptor{set, binding} => {
-					let set_binding = if let Some(set_binding) = layout_bindings.get_mut(&set) {
-						set_binding
-					} else {
-						layout_bindings.insert(set, HashMap::new());
-						layout_bindings.get_mut(&set).unwrap()
-					};
-					match var.storage_class {
-						StorageClass::UniformConstant => {
-							let samplers: Vec<VkSampler> = if let Some(props) = desc_props.get(&var.var_name) {
-								if let DescriptorProp::Samplers(samplers) = props {
-									samplers.iter().map(|s|s.get_vk_sampler()).collect()
-								} else {
-									Vec::new()
-								}
-							} else {
-								Vec::new()
-							};
-							match &var.var_type {
-								VariableType::Literal(literal_type) => {
-									assert_eq!(1, samplers.len());
-									if literal_type == "sampler" {
-										set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-											binding,
-											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
-											descriptorCount: 1,
-											stageFlags: shader_stage,
-											pImmutableSamplers: samplers.as_ptr(),
-										});
-									}
-								}
-								VariableType::Image(_) => {
-									assert_eq!(1, samplers.len());
+			if let VariableLayout::Descriptor{set, binding, input_attachment_index: _} = var.layout {
+				let set_binding = if let Some(set_binding) = layout_bindings.get_mut(&set) {
+					set_binding
+				} else {
+					layout_bindings.insert(set, HashMap::new());
+					layout_bindings.get_mut(&set).unwrap()
+				};
+				match var.storage_class {
+					StorageClass::UniformConstant => {
+						let samplers: Vec<VkSampler> = if let Some(props) = desc_props.get(&var.var_name) && let DescriptorProp::Samplers(samplers) = props {
+							samplers.iter().map(|s|s.get_vk_sampler()).collect()
+						} else {
+							Vec::new()
+						};
+						match &var.var_type {
+							VariableType::Literal(literal_type) => {
+								assert_eq!(1, samplers.len());
+								if literal_type == "sampler" {
 									set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 										binding,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
 										descriptorCount: 1,
 										stageFlags: shader_stage,
 										pImmutableSamplers: samplers.as_ptr(),
 									});
 								}
-								VariableType::Array(array_info) => {
-									assert_eq!(array_info.element_count, samplers.len());
-									match &array_info.element_type {
-										VariableType::Literal(literal_type) => {
-											if literal_type == "sampler" {
-												set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-													binding,
-													descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
-													descriptorCount: array_info.element_count as u32,
-													stageFlags: shader_stage,
-													pImmutableSamplers: samplers.as_ptr(),
-												});
-											}
-										}
-										VariableType::Image(_) => {
+							}
+							VariableType::Image(_) => {
+								assert_eq!(1, samplers.len());
+								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+									descriptorCount: 1,
+									stageFlags: shader_stage,
+									pImmutableSamplers: samplers.as_ptr(),
+								});
+							}
+							VariableType::Array(array_info) => {
+								assert_eq!(array_info.element_count, samplers.len());
+								match &array_info.element_type {
+									VariableType::Literal(literal_type) => {
+										if literal_type == "sampler" {
 											set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 												binding,
-												descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+												descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
 												descriptorCount: array_info.element_count as u32,
 												stageFlags: shader_stage,
 												pImmutableSamplers: samplers.as_ptr(),
 											});
 										}
-										_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {:?}", var.var_name, var.var_type),
 									}
-								}
-								others => eprintln!("[WARN] Unknown type of uniform constant {}: {others:?}", var.var_name),
-							}
-						}
-						StorageClass::Uniform => {
-							match &var.var_type {
-								VariableType::Array(array_info) => {
-									set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-										binding,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-										descriptorCount: array_info.element_count as u32,
-										stageFlags: shader_stage,
-										pImmutableSamplers: null(),
-									});
-								}
-								_ => {
-									set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-										binding,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-										descriptorCount: 1,
-										stageFlags: shader_stage,
-										pImmutableSamplers: null(),
-									});
+									VariableType::Image(_) => {
+										set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+											binding,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+											descriptorCount: array_info.element_count as u32,
+											stageFlags: shader_stage,
+											pImmutableSamplers: samplers.as_ptr(),
+										});
+									}
+									_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {:?}", var.var_name, var.var_type),
 								}
 							}
+							others => eprintln!("[WARN] Unknown type of uniform constant {}: {others:?}", var.var_name),
 						}
-						_ => {}
 					}
+					StorageClass::Uniform => {
+						match &var.var_type {
+							VariableType::Array(array_info) => {
+								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+									descriptorCount: array_info.element_count as u32,
+									stageFlags: shader_stage,
+									pImmutableSamplers: null(),
+								});
+							}
+							_ => {
+								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+									descriptorCount: 1,
+									stageFlags: shader_stage,
+									pImmutableSamplers: null(),
+								});
+							}
+						}
+					}
+					// Ignore other storage classes
+					_ => {}
 				}
-				_ => {}
 			}
 		}
 		let mut bindings_of_set: BTreeMap<u32, Vec<VkDescriptorSetLayoutBinding>> = BTreeMap::new();
