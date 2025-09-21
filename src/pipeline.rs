@@ -22,58 +22,6 @@ macro_rules! derive_vertex_type {
 	};
 }
 
-/// The shaders to use
-#[derive(Debug, Clone)]
-pub struct DrawShaders {
-	/// The vertex shader cannot be absent
-	vertex_shader: Arc<VulkanShader>,
-
-	/// The optional tessellation control shader
-	tessellation_control_shader: Option<Arc<VulkanShader>>,
-
-	/// The optional tessellation evaluation shader
-	tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
-
-	/// The optional geometry shader
-	geometry_shader: Option<Arc<VulkanShader>>,
-
-	/// The fragment shader cannot be absent
-	fragment_shader: Arc<VulkanShader>,
-}
-
-impl DrawShaders {
-	/// Create the `DrawShaders`
-	pub fn new(
-		vertex_shader: Arc<VulkanShader>,
-		tessellation_control_shader: Option<Arc<VulkanShader>>,
-		tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
-		geometry_shader: Option<Arc<VulkanShader>>,
-		fragment_shader: Arc<VulkanShader>) -> Self {
-		Self {
-			vertex_shader,
-			tessellation_control_shader,
-			tessellation_evaluation_shader,
-			geometry_shader,
-			fragment_shader,
-		}
-	}
-
-	/// Create an iterator that iterates through all of the shaders variables
-	pub fn iter_vars(&self) -> impl Iterator<Item = &Arc<ShaderVariable>> {
-		self.vertex_shader.get_vars().iter().chain(
-		if let Some(geometry_shader) = &self.geometry_shader {
-			geometry_shader.get_vars().iter()
-		} else {
-			[].iter()
-		}).chain(
-			self.fragment_shader.get_vars().iter()
-		)
-	}
-}
-
-unsafe impl Send for DrawShaders {}
-unsafe impl Sync for DrawShaders {}
-
 /// The descriptor set layout object
 #[derive(Debug)]
 pub struct DescriptorSetLayout {
@@ -292,6 +240,57 @@ impl Clone for DescriptorSets {
 unsafe impl Send for DescriptorSets {}
 unsafe impl Sync for DescriptorSets {}
 
+/// The shaders to use
+#[derive(Debug, Clone)]
+pub struct DrawShaders {
+	/// The vertex shader cannot be absent
+	vertex_shader: Arc<VulkanShader>,
+
+	/// The optional tessellation control shader
+	tessellation_control_shader: Option<Arc<VulkanShader>>,
+
+	/// The optional tessellation evaluation shader
+	tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
+
+	/// The optional geometry shader
+	geometry_shader: Option<Arc<VulkanShader>>,
+
+	/// The fragment shader cannot be absent
+	fragment_shader: Arc<VulkanShader>,
+}
+
+impl DrawShaders {
+	/// Create the `DrawShaders`
+	pub fn new(
+		vertex_shader: Arc<VulkanShader>,
+		tessellation_control_shader: Option<Arc<VulkanShader>>,
+		tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
+		geometry_shader: Option<Arc<VulkanShader>>,
+		fragment_shader: Arc<VulkanShader>) -> Self {
+		Self {
+			vertex_shader,
+			tessellation_control_shader,
+			tessellation_evaluation_shader,
+			geometry_shader,
+			fragment_shader,
+		}
+	}
+
+	/// Create an iterator that iterates through all of the shaders variables
+	pub fn iter_vars(&self) -> impl Iterator<Item = &Arc<ShaderVariable>> {
+		self.vertex_shader.get_vars().iter().chain(
+		if let Some(geometry_shader) = &self.geometry_shader {
+			geometry_shader.get_vars().iter()
+		} else {
+			[].iter()
+		}).chain(
+			self.fragment_shader.get_vars().iter()
+		)
+	}
+}
+
+unsafe impl Send for DrawShaders {}
+unsafe impl Sync for DrawShaders {}
 #[derive(Debug)]
 pub struct Pipeline {
 	/// The associated device
