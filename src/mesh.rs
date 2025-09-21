@@ -8,6 +8,10 @@ use std::{
 };
 use struct_iterable::Iterable;
 
+/// The type that could be the item of the `BufferVec`
+pub trait BufferVecStructItem: Copy + Clone + Sized + Default + Debug + Iterable {}
+impl<T> BufferVecStructItem for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
 pub struct BufferWithType<T>
