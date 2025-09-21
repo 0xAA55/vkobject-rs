@@ -406,7 +406,7 @@ pub struct Pipeline {
 	pub device: Arc<VulkanDevice>,
 
 	/// The meshes to draw
-	pub meshes: Arc<HashMap<String, Arc<Mutex<GenericMeshWithMaterial>>>>,
+	pub mesh: Arc<Mutex<GenericMeshWithMaterial>>,
 
 	/// The shaders to use
 	pub shaders: Arc<DrawShaders>,
@@ -420,10 +420,10 @@ pub struct Pipeline {
 
 impl Pipeline {
 	/// Create the `Pipeline`
-	pub fn new(device: Arc<VulkanDevice>, meshes: Arc<HashMap<String, Arc<Mutex<GenericMeshWithMaterial>>>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
 		Ok(Self {
 			device,
-			meshes,
+			mesh,
 			shaders,
 			desc_pool,
 		})
