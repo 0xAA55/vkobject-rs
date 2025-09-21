@@ -26,7 +26,7 @@ pub mod shader_analyzer {
 	#[derive(Debug, Clone, Copy)]
 	pub enum VariableLayout {
 		None,
-		Descriptor{set: u32, binding: u32},
+		Descriptor{set: u32, binding: u32, input_attachment_index: Option<u32>},
 		Location(u32),
 	}
 
@@ -357,6 +357,7 @@ pub mod shader_analyzer {
 		pub fn get_layout(&self, target_id: Word, member_id: Option<u32>) -> VariableLayout {
 			let mut set = None;
 			let mut binding = None;
+			let mut input_attachment_index = None;
 			for inst in self.module.annotations.iter() {
 				if inst.class.opcode != Op::Decorate {
 					continue;
@@ -386,14 +387,17 @@ pub mod shader_analyzer {
 					Decoration::Binding => {
 						binding = Some(value.unwrap_literal_bit32());
 					}
+					Decoration::InputAttachmentIndex => {
+						input_attachment_index = Some(value.unwrap_literal_bit32());
+					}
 					_ => continue,
 				}
-				if let Some(set) = set && let Some(binding) = binding {
-					return VariableLayout::Descriptor{set, binding};
+				if let Some(set) = set && let Some(binding) = binding && input_attachment_index.is_some() {
+					return VariableLayout::Descriptor{set, binding, input_attachment_index};
 				}
 			}
 			if set.is_some() || binding.is_some() {
-				VariableLayout::Descriptor{set: set.unwrap_or(0), binding: binding.unwrap_or(0)}
+				VariableLayout::Descriptor{set: set.unwrap_or(0), binding: binding.unwrap_or(0), input_attachment_index}
 			} else {
 				VariableLayout::None
 			}
