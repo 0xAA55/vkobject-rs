@@ -247,6 +247,18 @@ pub trait GenericMesh: Debug {
 
 	/// Get the iterator for the vertex buffer item structure
 	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>>;
+
+	/// Get the stride of the vertex buffer
+	fn get_vertex_stride(&self) -> usize;
+
+	/// Get the stride of the index buffer
+	fn get_index_stride(&self) -> usize;
+
+	/// Get the stride of the instance buffer
+	fn get_instance_stride(&self) -> usize;
+
+	/// Get the stride of the command buffer
+	fn get_command_stride(&self) -> usize;
 }
 
 impl<BV, V, BE, E, BI, I, BC, C> GenericMesh for Mesh<BV, V, BE, E, BI, I, BC, C>
@@ -293,6 +305,22 @@ where
 
 	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>> {
 		self.commands.as_ref().map(|_|self.command_type.iter())
+	}
+
+	fn get_vertex_stride(&self) -> usize {
+		size_of::<V>()
+	}
+
+	fn get_index_stride(&self) -> usize {
+		size_of::<E>()
+	}
+
+	fn get_instance_stride(&self) -> usize {
+		size_of::<I>()
+	}
+
+	fn get_command_stride(&self) -> usize {
+		size_of::<C>()
 	}
 }
 
