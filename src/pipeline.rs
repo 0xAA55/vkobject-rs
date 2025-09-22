@@ -329,6 +329,9 @@ pub struct PipelineBuilder {
 	/// The pipeline cache
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
 
+	/// The rasterization state create info
+	rasterization_state_ci: VkPipelineRasterizationStateCreateInfo,
+
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
 }
@@ -358,6 +361,21 @@ impl PipelineBuilder {
 				}
 			}
 		}
+		let rasterization_state_ci = VkPipelineRasterizationStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			depthClampEnable: 0,
+			rasterizerDiscardEnable: 0,
+			polygonMode: VkPolygonMode::VK_POLYGON_MODE_FILL,
+			cullMode: VkCullModeFlags::VK_CULL_MODE_BACK_BIT,
+			frontFace: VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE,
+			depthBiasEnable: 0,
+			depthBiasConstantFactor: 0.0,
+			depthBiasClamp: 0.0,
+			depthBiasSlopeFactor: 1.0,
+			lineWidth: 1.0,
+		};
 		let pipeline_layout_ci = VkPipelineLayoutCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			pNext: null(),
@@ -377,15 +395,60 @@ impl PipelineBuilder {
 			descriptor_sets,
 			rt_props,
 			pipeline_cache,
+			rasterization_state_ci,
 			pipeline_layout,
 		})
 	}
 
-	/// **TEMP** This function will be removed later.
-	pub(crate) fn get_vk_pipeline_layout_once(mut self) -> VkPipelineLayout {
-		let ret = self.pipeline_layout;
-		self.pipeline_layout = null();
-		ret
+	/// Set depth clamp enabled/disabled
+	pub fn set_depth_clamp_mode(mut self, enabled: bool) -> Self {
+		self.rasterization_state_ci.depthClampEnable = if enabled {1} else {0};
+		self
+	}
+
+	/// Set depth clamp enabled/disabled
+	pub fn set_disable_fragment_stage(mut self, disabled: bool) -> Self {
+		self.rasterization_state_ci.rasterizerDiscardEnable = if disabled {1} else {0};
+		self
+	}
+
+	/// Set polygon mode
+	pub fn set_polygon_mode(mut self, mode: VkPolygonMode) -> Self {
+		self.rasterization_state_ci.polygonMode = mode;
+		self
+	}
+
+	/// Set cull mode
+	pub fn set_cull_mode(mut self, mode: VkCullModeFlagBits) -> Self {
+		self.rasterization_state_ci.cullMode = mode;
+		self
+	}
+
+	/// Set front face
+	pub fn set_front_face(mut self, front_face: VkFrontFace) -> Self {
+		self.rasterization_state_ci.frontFace = front_face;
+		self
+	}
+
+	/// Set enable depth bias mode
+	pub fn enable_depth_bias(mut self, constant: f32, slope_scale: f32, clamp: f32) -> Self {
+		self.rasterization_state_ci.depthBiasEnable = 1;
+		self.rasterization_state_ci.depthBiasConstantFactor = constant;
+		self.rasterization_state_ci.depthBiasClamp = clamp;
+		self.rasterization_state_ci.depthBiasSlopeFactor= slope_scale;
+		self
+	}
+
+	/// Set disable depth bias mode
+	pub fn disable_depth_bias(mut self) -> Self {
+		self.rasterization_state_ci.depthBiasEnable = 0;
+		self
+	}
+
+	/// Set line width
+	pub fn set_line_width(mut self, line_width: f32) -> Self {
+		self.rasterization_state_ci.lineWidth = line_width;
+		self
 	}
 
 	/// Generate the pipeline
