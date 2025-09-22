@@ -942,7 +942,7 @@ impl TypeInfo {
 
 	/// Get a map use a `TypeId` as the key to retrieve the info of the type
 	pub fn get_map_of_type_id_to_info() -> &'static HashMap<TypeId, Self> {
-		static RET: OnceLock<HashMap<TypeId, Self>> = OnceLock::new();
+		static RET: OnceLock<HashMap<TypeId, TypeInfo>> = OnceLock::new();
 		use VkFormat::*;
 		RET.get_or_init(|| {
 			[
