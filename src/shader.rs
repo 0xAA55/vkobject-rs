@@ -289,6 +289,40 @@ pub mod shader_analyzer {
 				_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unable to evaluate the size of the type {self:?}")))
 			}
 		}
+
+		/// Get the type name
+		pub fn base_type_name(&self) -> String {
+			match self {
+				VariableType::Literal(literal) => literal.clone(),
+				VariableType::Struct(st) => st.name.clone(),
+				VariableType::Array(arr) => arr.element_type.base_type_name(),
+				VariableType::RuntimeArray(arr) => arr.element_type.base_type_name(),
+				VariableType::Image(img) => {
+					let dim = match img.dim {
+						Dim::Dim1D => "1D".to_string(),
+						Dim::Dim2D => "2D".to_string(),
+						Dim::Dim3D => "3D".to_string(),
+						Dim::DimCube => "Cube".to_string(),
+						Dim::DimRect => "Rect".to_string(),
+						Dim::DimBuffer => "Buffer".to_string(),
+						Dim::DimSubpassData => "subpassInput".to_string(),
+						others => format!("{others:?}"),
+					};
+					let ms = if img.multisample {
+						"MS"
+					} else {
+						""
+					};
+					let array = if img.arrayed {
+						"Array"
+					} else {
+						""
+					};
+					format!("sampler{dim}{ms}{array}")
+				}
+				VariableType::Opaque(opaque) => opaque.clone(),
+			}
+		}
 	}
 
 	/// The input and output of the shader
