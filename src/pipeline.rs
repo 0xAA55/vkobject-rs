@@ -373,6 +373,7 @@ impl PipelineBuilder {
 		})
 	}
 
+	/// **TEMP** This function will be removed later.
 	pub(crate) fn get_vk_pipeline_layout_once(mut self) -> VkPipelineLayout {
 		let ret = self.pipeline_layout;
 		self.pipeline_layout = null();
@@ -426,6 +427,7 @@ impl Pipeline {
 			mesh,
 			shaders,
 			desc_pool,
+			pipeline: null(),
 		})
 	}
 
