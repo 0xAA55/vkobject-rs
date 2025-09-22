@@ -371,7 +371,7 @@ impl PipelineBuilder {
 			depthClampEnable: 0,
 			rasterizerDiscardEnable: 0,
 			polygonMode: VkPolygonMode::VK_POLYGON_MODE_FILL,
-			cullMode: VkCullModeFlags::VK_CULL_MODE_BACK_BIT,
+			cullMode: VkCullModeFlagBits::VK_CULL_MODE_BACK_BIT as VkCullModeFlags,
 			frontFace: VkFrontFace::VK_FRONT_FACE_COUNTER_CLOCKWISE,
 			depthBiasEnable: 0,
 			depthBiasConstantFactor: 0.0,
@@ -380,7 +380,7 @@ impl PipelineBuilder {
 			lineWidth: 1.0,
 		};
 		let msaa_state_ci = VkPipelineMultisampleStateCreateInfo {
-			sType: VkStructureType,
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 			rasterizationSamples: VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
@@ -434,7 +434,7 @@ impl PipelineBuilder {
 	}
 
 	/// Set cull mode
-	pub fn set_cull_mode(mut self, mode: VkCullModeFlagBits) -> Self {
+	pub fn set_cull_mode(mut self, mode: VkCullModeFlags) -> Self {
 		self.rasterization_state_ci.cullMode = mode;
 		self
 	}
