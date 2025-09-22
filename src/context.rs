@@ -118,6 +118,9 @@ pub struct VulkanContext {
 	/// The swapchain
 	pub(crate) swapchain: Arc<VulkanSwapchain>,
 
+	/// The pipeline cache here for a global usage
+	pub pipeline_cache: Arc<VulkanPipelineCache>,
+
 	/// The descriptor pool here is normally for a global usage
 	pub desc_pool: Arc<DescriptorPool>,
 
@@ -138,6 +141,7 @@ pub struct VulkanContext {
 }
 
 unsafe impl Send for VulkanContext {}
+unsafe impl Sync for VulkanContext {}
 
 impl VulkanContext {
 	/// Create a new `VulkanContext`
@@ -174,15 +178,17 @@ impl VulkanContext {
 			cmdpools.push(VulkanCommandPool::new(device.clone(), 2)?);
 		}
 		let desc_pool = Arc::new(DescriptorPool::new(device.clone(), create_info.desc_pool_size)?);
+		let pipeline_cache = Arc::new(VulkanPipelineCache::new(device.clone(), Some(&load_cache("global_pipeline_cache", None).unwrap_or(Vec::new())))?);
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
 		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, cpu_renderer_threads, create_info.is_vr, None)?);
 		let ret = Self {
 			vkcore,
 			device,
 			surface,
-			desc_pool,
 			swapchain,
 			cmdpools,
+			desc_pool,
+			pipeline_cache,
 			cpu_renderer_threads,
 		};
 		Ok(ret)
@@ -309,6 +315,17 @@ impl VulkanContext {
 			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(present_image_index.unwrap()).rt_props.clone())?
 		};
 		VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)
+	}
+}
+
+impl Drop for VulkanContext {
+	fn drop(&mut self) {
+		match self.pipeline_cache.dump_cache() {
+			Ok(cache_data) => if let Err(reason) = save_cache("global_pipeline_cache", None, &cache_data) {
+				eprintln!("Save pipeline cache data failed: {reason:?}");
+			}
+			Err(reason) => eprintln!("Dump pipeline cache data failed: {reason:?}"),
+		}
 	}
 }
 
