@@ -332,6 +332,9 @@ pub struct PipelineBuilder {
 	/// The rasterization state create info
 	rasterization_state_ci: VkPipelineRasterizationStateCreateInfo,
 
+	/// The MSAA state create info
+	msaa_state_ci: VkPipelineMultisampleStateCreateInfo,
+
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
 }
@@ -376,6 +379,17 @@ impl PipelineBuilder {
 			depthBiasSlopeFactor: 1.0,
 			lineWidth: 1.0,
 		};
+		let msaa_state_ci = VkPipelineMultisampleStateCreateInfo {
+			sType: VkStructureType,
+			pNext: null(),
+			flags: 0,
+			rasterizationSamples: VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
+			sampleShadingEnable: 0,
+			minSampleShading: 0.0,
+			pSampleMask: null(),
+			alphaToCoverageEnable: 0,
+			alphaToOneEnable: 0,
+		};
 		let pipeline_layout_ci = VkPipelineLayoutCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			pNext: null(),
@@ -396,6 +410,7 @@ impl PipelineBuilder {
 			rt_props,
 			pipeline_cache,
 			rasterization_state_ci,
+			msaa_state_ci,
 			pipeline_layout,
 		})
 	}
@@ -448,6 +463,25 @@ impl PipelineBuilder {
 	/// Set line width
 	pub fn set_line_width(mut self, line_width: f32) -> Self {
 		self.rasterization_state_ci.lineWidth = line_width;
+		self
+	}
+
+	/// Set MSAA sample cound
+	pub fn set_msaa_samples(mut self, msaa_samples: VkSampleCountFlagBits) -> Self {
+		self.msaa_state_ci.rasterizationSamples = msaa_samples;
+		self
+	}
+
+	/// Set use dithering to handle MSAA alpha
+	pub fn set_msaa_alpha_to_coverage(mut self, enabled: bool) -> Self {
+		self.msaa_state_ci.alphaToCoverageEnable = if enabled {1} else {0};
+		self
+	}
+
+	/// Set MSAA supersampling state
+	pub fn set_msaa_super_sampling(mut self, enabled: bool, quality: f32) -> Self {
+		self.msaa_state_ci.sampleShadingEnable = if enabled {1} else {0};
+		self.msaa_state_ci.minSampleShading = quality;
 		self
 	}
 
