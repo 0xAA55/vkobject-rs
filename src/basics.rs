@@ -7,7 +7,7 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	io::{self, ErrorKind},
 	mem::MaybeUninit,
-	ptr::{null, null_mut, copy},
+	ptr::{copy, null, null_mut},
 	sync::Arc,
 };
 
@@ -74,6 +74,73 @@ impl VulkanError {
 		} else {
 			None
 		}
+	}
+}
+
+/// The wrapper for the `VkPipelineCache`
+pub struct VulkanPipelineCache {
+	/// The `VulkanDevice` is the associated device
+	pub device: Arc<VulkanDevice>,
+
+	/// The `VkPipelineCache`
+	pipeline_cache: VkPipelineCache,
+}
+
+impl VulkanPipelineCache {
+	/// Create the `VulkanPipelineCache`
+	pub fn new(device: Arc<VulkanDevice>, initial_data: Option<&[u8]>) -> Result<Self, VulkanError> {
+		let (data_size, data_ptr) = if let Some(data) = initial_data {
+			(data.len(), data.as_ptr())
+		} else {
+			(0, null())
+		};
+		let pipeline_cache_ci = VkPipelineCacheCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_CACHE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			initialDataSize: data_size,
+			pInitialData: data_ptr as *const c_void,
+		};
+		let mut pipeline_cache = null();
+		device.vkcore.vkCreatePipelineCache(device.get_vk_device(), &pipeline_cache_ci, null(), &mut pipeline_cache)?;
+		Ok(Self {
+			device,
+			pipeline_cache,
+		})
+	}
+
+	/// Dump the pipeline cache to binary. The binary could be used for the next creation of the `VulkanPipelineCache` for faster pipeline creation
+	pub fn dump_cache(&self) -> Result<Vec<u8>, VulkanError> {
+		let vkdevice = self.device.get_vk_device();
+		let mut size = 0;
+		self.device.vkcore.vkGetPipelineCacheData(vkdevice, self.pipeline_cache, &mut size, null_mut())?;
+		if size == 0 {
+			Ok(Vec::new())
+		} else {
+			let mut data: Vec<u8> = Vec::with_capacity(size);
+			self.device.vkcore.vkGetPipelineCacheData(vkdevice, self.pipeline_cache, &mut size, data.as_mut_ptr() as *mut c_void)?;
+			unsafe {data.set_len(size)};
+			Ok(data)
+		}
+	}
+
+	/// Get the `VkPipelineCache`
+	pub(crate) fn get_vk_pipeline_cache(&self) -> VkPipelineCache {
+		self.pipeline_cache
+	}
+}
+
+impl Debug for VulkanPipelineCache {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanPipelineCache")
+		.field("pipeline_cache", &self.pipeline_cache)
+		.finish()
+	}
+}
+
+impl Drop for VulkanPipelineCache {
+	fn drop(&mut self) {
+		self.device.vkcore.vkDestroyPipelineCache(self.device.get_vk_device(), self.pipeline_cache, null()).unwrap()
 	}
 }
 
