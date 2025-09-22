@@ -479,9 +479,13 @@ impl PipelineBuilder {
 	}
 
 	/// Set MSAA supersampling state
-	pub fn set_msaa_super_sampling(mut self, enabled: bool, quality: f32) -> Self {
-		self.msaa_state_ci.sampleShadingEnable = if enabled {1} else {0};
-		self.msaa_state_ci.minSampleShading = quality;
+	pub fn set_msaa_super_sampling(mut self, quality: Option<f32>) -> Self {
+		if let Some(quality) = quality {
+			self.msaa_state_ci.sampleShadingEnable = 1;
+			self.msaa_state_ci.minSampleShading = quality;
+		} else {
+			self.msaa_state_ci.sampleShadingEnable = 0;
+		}
 		self
 	}
 
