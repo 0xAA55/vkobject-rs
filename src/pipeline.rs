@@ -323,13 +323,19 @@ pub struct PipelineBuilder {
 	/// The descriptor sets
 	pub descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets>,
 
+	/// The render target props
+	pub rt_props: Arc<RenderTargetProps>,
+
+	/// The pipeline cache
+	pub pipeline_cache: Arc<VulkanPipelineCache>,
+
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
 }
 
 impl PipelineBuilder {
 	/// Create the `PipelineBuilder`
-	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, rt_props: Arc<RenderTargetProps>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
 		let mut descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets> = HashMap::new();
 		let mut desc_set_layouts: Vec<VkDescriptorSetLayout> = Vec::with_capacity(5);
 		let mut push_constant_ranges: Vec<VkPushConstantRange> = Vec::with_capacity(5);
@@ -369,6 +375,8 @@ impl PipelineBuilder {
 			shaders,
 			desc_pool,
 			descriptor_sets,
+			rt_props,
+			pipeline_cache,
 			pipeline_layout,
 		})
 	}
@@ -379,6 +387,11 @@ impl PipelineBuilder {
 		self.pipeline_layout = null();
 		ret
 	}
+
+	/// Generate the pipeline
+	pub fn create_pipeline(self) -> Result<Pipeline, VulkanError> {
+		Pipeline::new(self)
+	}
 }
 
 impl Debug for PipelineBuilder {
@@ -388,6 +401,8 @@ impl Debug for PipelineBuilder {
 		.field("shaders", &self.shaders)
 		.field("desc_pool", &self.desc_pool)
 		.field("descriptor_sets", &self.descriptor_sets)
+		.field("rt_props", &self.rt_props)
+		.field("pipeline_cache", &self.pipeline_cache)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.finish()
 	}
