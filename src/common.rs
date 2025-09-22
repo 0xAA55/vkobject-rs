@@ -1,9 +1,17 @@
 
 use std::{
+	collections::hash_map::DefaultHasher,
+	env,
 	ffi::CString,
 	fmt::Debug,
+	fs::{read, write},
+	hash::{Hash, Hasher},
+	io,
 	iter::FromIterator,
+	mem::{forget, size_of},
 	ops::{Deref, DerefMut},
+	slice,
+	path::PathBuf,
 	thread::sleep,
 	time::Duration,
 };
@@ -146,4 +154,39 @@ impl<R, D: Fn(&R)> Drop for ResourceGuard<R, D> {
 			(self.destroyer)(resource);
 		}
 	}
+}
+
+/// Generate a temp file path for cache, the filename is hashed
+pub fn get_hashed_cache_file_path(cache_usage: &str, extension: Option<&str>) -> PathBuf {
+	let exe_path = env::current_exe().unwrap_or(PathBuf::from(env!("CARGO_PKG_NAME")));
+	let mut hasher = DefaultHasher::new();
+	exe_path.to_string_lossy().to_string().hash(&mut hasher);
+	cache_usage.hash(&mut hasher);
+	let hash = hasher.finish();
+	let mut path = std::env::temp_dir();
+	path.push(format!("{hash}"));
+	path.set_extension(extension.unwrap_or("tmp"));
+	path
+}
+
+pub fn load_cache<T: Clone + Copy + Sized>(cache_usage: &str, extension: Option<&str>) -> io::Result<Vec<T>> {
+	let path = get_hashed_cache_file_path(cache_usage, extension);
+	let mut data = read(&path)?;
+	let item_size = size_of::<T>();
+	let ptr = data.as_mut_ptr();
+	let len = data.len() / item_size;
+	let capacity = data.capacity() / item_size;
+	unsafe {
+		forget(data);
+		Ok(Vec::from_raw_parts(ptr as *mut T, len, capacity))
+	}
+}
+
+pub fn save_cache<T: Clone + Copy + Sized>(cache_usage: &str, extension: Option<&str>, data: &[T]) -> io::Result<()> {
+	let path = get_hashed_cache_file_path(cache_usage, extension);
+	let item_size = size_of::<T>();
+	let ptr = data.as_ptr() as *const u8;
+	let len = data.len() * item_size;
+	let data: &[u8] = unsafe {slice::from_raw_parts(ptr, len)};
+	write(&path, data)
 }
