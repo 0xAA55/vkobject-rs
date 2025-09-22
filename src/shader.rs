@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	any::TypeId,
 	collections::HashMap,
 	fmt::{self, Debug, Formatter},
 	fs::read,
@@ -8,7 +9,7 @@ use std::{
 	path::Path,
 	ptr::null,
 	slice::from_raw_parts,
-	sync::Arc,
+	sync::{Arc, OnceLock},
 };
 
 /// The optimization level for shaderc
@@ -909,5 +910,88 @@ impl Debug for VulkanShader {
 impl Drop for VulkanShader {
 	fn drop(&mut self) {
 		self.device.vkcore.vkDestroyShaderModule(self.device.get_vk_device(), self.shader, null()).unwrap();
+	}
+}
+
+/// The type info of CPU bound variable for the shader inputs
+#[derive(Debug, Clone)]
+pub struct TypeInfo {
+	/// Name of the type
+	pub type_name: &'static str,
+
+	/// Format for one row
+	pub row_format: VkFormat,
+
+	/// Number of rows
+	pub num_rows: u32,
+
+	/// Size of the type
+	pub size: usize,
+}
+
+impl TypeInfo {
+	/// Create the `TypeInfo`
+	pub fn new(type_name: &'static str, row_format: VkFormat, num_rows: u32, size: usize) -> Self {
+		Self {
+			type_name,
+			row_format,
+			num_rows,
+			size,
+		}
+	}
+
+	/// Get a map use a `TypeId` as the key to retrieve the info of the type
+	pub fn get_map_of_type_id_to_info() -> &'static HashMap<TypeId, Self> {
+		static RET: OnceLock<HashMap<TypeId, Self>> = OnceLock::new();
+		use VkFormat::*;
+		RET.get_or_init(|| {
+			[
+				(TypeId::of::<i8>(), Self::new("i8", VK_FORMAT_R8_SINT, 1, size_of::<i8>())),
+				(TypeId::of::<u8>(), Self::new("u8", VK_FORMAT_R8_UINT, 1, size_of::<u8>())),
+				(TypeId::of::<i16>(), Self::new("i16", VK_FORMAT_R16_SINT, 1, size_of::<i16>())),
+				(TypeId::of::<u16>(), Self::new("u16", VK_FORMAT_R16_UINT, 1, size_of::<u16>())),
+				(TypeId::of::<i32>(), Self::new("i32", VK_FORMAT_R32_SINT, 1, size_of::<i32>())),
+				(TypeId::of::<u32>(), Self::new("u32", VK_FORMAT_R32_UINT, 1, size_of::<u32>())),
+				(TypeId::of::<i64>(), Self::new("i64", VK_FORMAT_R64_SINT, 1, size_of::<i64>())),
+				(TypeId::of::<u64>(), Self::new("u64", VK_FORMAT_R64_UINT, 1, size_of::<u64>())),
+				(TypeId::of::<f16>(), Self::new("f16", VK_FORMAT_R16_SFLOAT, 1, size_of::<f16>())),
+				(TypeId::of::<f32>(), Self::new("f32", VK_FORMAT_R32_SFLOAT, 1, size_of::<f32>())),
+				(TypeId::of::<f64>(), Self::new("f64", VK_FORMAT_R64_SFLOAT, 1, size_of::<f64>())),
+				(TypeId::of::<Vec1>(), Self::new("vec1", VK_FORMAT_R32_SFLOAT, 1, size_of::<Vec1>())),
+				(TypeId::of::<Vec2>(), Self::new("vec2", VK_FORMAT_R32G32_SFLOAT, 1, size_of::<Vec2>())),
+				(TypeId::of::<Vec3>(), Self::new("vec3", VK_FORMAT_R32G32B32_SFLOAT, 1, size_of::<Vec3>())),
+				(TypeId::of::<Vec4>(), Self::new("vec4", VK_FORMAT_R32G32B32A32_SFLOAT, 1, size_of::<Vec4>())),
+				(TypeId::of::<DVec1>(), Self::new("dvec1", VK_FORMAT_R64_SFLOAT, 1, size_of::<DVec1>())),
+				(TypeId::of::<DVec2>(), Self::new("dvec2", VK_FORMAT_R64G64_SFLOAT, 1, size_of::<DVec2>())),
+				(TypeId::of::<DVec3>(), Self::new("dvec3", VK_FORMAT_R64G64B64_SFLOAT, 1, size_of::<DVec3>())),
+				(TypeId::of::<DVec4>(), Self::new("dvec4", VK_FORMAT_R64G64B64A64_SFLOAT, 1, size_of::<DVec4>())),
+				(TypeId::of::<IVec1>(), Self::new("ivec1", VK_FORMAT_R32_SINT, 1, size_of::<IVec1>())),
+				(TypeId::of::<IVec2>(), Self::new("ivec2", VK_FORMAT_R32G32_SINT, 1, size_of::<IVec2>())),
+				(TypeId::of::<IVec3>(), Self::new("ivec3", VK_FORMAT_R32G32B32_SINT, 1, size_of::<IVec3>())),
+				(TypeId::of::<IVec4>(), Self::new("ivec4", VK_FORMAT_R32G32B32A32_SINT, 1, size_of::<IVec4>())),
+				(TypeId::of::<UVec1>(), Self::new("uvec1", VK_FORMAT_R32_UINT, 1, size_of::<UVec1>())),
+				(TypeId::of::<UVec2>(), Self::new("uvec2", VK_FORMAT_R32G32_UINT, 1, size_of::<UVec2>())),
+				(TypeId::of::<UVec3>(), Self::new("uvec3", VK_FORMAT_R32G32B32_UINT, 1, size_of::<UVec3>())),
+				(TypeId::of::<UVec4>(), Self::new("uvec4", VK_FORMAT_R32G32B32A32_UINT, 1, size_of::<UVec4>())),
+				(TypeId::of::<Mat2>(), Self::new("mat2", VK_FORMAT_R32G32_SFLOAT, 2, size_of::<Mat2>())),
+				(TypeId::of::<Mat3>(), Self::new("mat3", VK_FORMAT_R32G32B32_SFLOAT, 3, size_of::<Mat3>())),
+				(TypeId::of::<Mat4>(), Self::new("mat4", VK_FORMAT_R32G32B32A32_SFLOAT, 4, size_of::<Mat4>())),
+				(TypeId::of::<Mat2x3>(), Self::new("mat2x3", VK_FORMAT_R32G32B32_SFLOAT, 2, size_of::<Mat2x3>())),
+				(TypeId::of::<Mat2x4>(), Self::new("mat2x4", VK_FORMAT_R32G32B32A32_SFLOAT, 2, size_of::<Mat2x4>())),
+				(TypeId::of::<Mat3x2>(), Self::new("mat3x2", VK_FORMAT_R32G32_SFLOAT, 3, size_of::<Mat3x2>())),
+				(TypeId::of::<Mat3x4>(), Self::new("mat3x4", VK_FORMAT_R32G32B32A32_SFLOAT, 3, size_of::<Mat3x4>())),
+				(TypeId::of::<Mat4x2>(), Self::new("mat4x2", VK_FORMAT_R32G32_SFLOAT, 4, size_of::<Mat4x2>())),
+				(TypeId::of::<Mat4x3>(), Self::new("mat4x3", VK_FORMAT_R32G32B32_SFLOAT, 4, size_of::<Mat4x3>())),
+				(TypeId::of::<DMat2>(), Self::new("dmat2", VK_FORMAT_R64G64_SFLOAT, 2, size_of::<DMat2>())),
+				(TypeId::of::<DMat3>(), Self::new("dmat3", VK_FORMAT_R64G64B64_SFLOAT, 3, size_of::<DMat3>())),
+				(TypeId::of::<DMat4>(), Self::new("dmat4", VK_FORMAT_R64G64B64A64_SFLOAT, 4, size_of::<DMat4>())),
+				(TypeId::of::<DMat2x3>(), Self::new("dmat2x3", VK_FORMAT_R64G64B64_SFLOAT, 2, size_of::<DMat2x3>())),
+				(TypeId::of::<DMat2x4>(), Self::new("dmat2x4", VK_FORMAT_R64G64B64A64_SFLOAT, 2, size_of::<DMat2x4>())),
+				(TypeId::of::<DMat3x2>(), Self::new("dmat3x2", VK_FORMAT_R64G64_SFLOAT, 3, size_of::<DMat3x2>())),
+				(TypeId::of::<DMat3x4>(), Self::new("dmat3x4", VK_FORMAT_R64G64B64A64_SFLOAT, 3, size_of::<DMat3x4>())),
+				(TypeId::of::<DMat4x2>(), Self::new("dmat4x2", VK_FORMAT_R64G64_SFLOAT, 4, size_of::<DMat4x2>())),
+				(TypeId::of::<DMat4x3>(), Self::new("dmat4x3", VK_FORMAT_R64G64B64_SFLOAT, 4, size_of::<DMat4x3>())),
+			].into_iter().collect()
+		})
 	}
 }
