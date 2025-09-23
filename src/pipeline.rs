@@ -1,7 +1,7 @@
 
 use crate::prelude::*;
 use std::{
-	collections::{BTreeMap, HashMap},
+	collections::{BTreeMap, HashMap, HashSet},
 	fmt::{self, Debug, Formatter},
 	iter,
 	ptr::null,
@@ -344,6 +344,8 @@ pub struct PipelineBuilder {
 	/// The color blend attachment states
 	pub color_blend_attachment_states: Vec<VkPipelineColorBlendAttachmentState>,
 
+	/// The dynamic states
+	pub dynamic_states: HashSet<VkDynamicState>,
 
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
@@ -485,6 +487,10 @@ impl PipelineBuilder {
 			pushConstantRangeCount: push_constant_ranges.len() as u32,
 			pPushConstantRanges: push_constant_ranges.as_ptr(),
 		};
+		let dynamic_states = [
+			VkDynamicState::VK_DYNAMIC_STATE_VIEWPORT,
+			VkDynamicState::VK_DYNAMIC_STATE_SCISSOR,
+		].into_iter().collect();
 		let mut pipeline_layout = null();
 		device.vkcore.vkCreatePipelineLayout(device.get_vk_device(), &pipeline_layout_ci, null(), &mut pipeline_layout)?;
 		Ok(Self {
@@ -500,6 +506,7 @@ impl PipelineBuilder {
 			depth_stenctil_ci,
 			color_blend_state_ci,
 			color_blend_attachment_states,
+			dynamic_states,
 			pipeline_layout,
 		})
 	}
