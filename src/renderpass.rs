@@ -138,7 +138,7 @@ impl VulkanRenderPass {
 		vkcore.vkCreateRenderPass(device.get_vk_device(), &renderpass_ci, null(), &mut renderpass)?;
 		Ok(Self {
 			device,
-			attachments: attachments.iter().collect(),
+			attachments: attachments.to_vec(),
 			renderpass,
 		})
 	}
