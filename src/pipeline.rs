@@ -338,6 +338,12 @@ pub struct PipelineBuilder {
 	/// The depth stencil state create info
 	pub depth_stenctil_ci: VkPipelineDepthStencilStateCreateInfo,
 
+	/// The color blend state create info
+	pub color_blend_state_ci: VkPipelineColorBlendStateCreateInfo,
+
+	/// The color blend attachment states
+	pub color_blend_attachment_states: Vec<VkPipelineColorBlendAttachmentState>,
+
 
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
@@ -424,6 +430,52 @@ impl PipelineBuilder {
 			minDepthBounds: 0.0,
 			maxDepthBounds: 0.0,
 		};
+		let mut color_blend_attachment_states: Vec<VkPipelineColorBlendAttachmentState> = Vec::with_capacity(rt_props.renderpass.attachments.len());
+		for attachment in rt_props.renderpass.attachments.iter() {
+			if attachment.is_depth_stencil {
+				color_blend_attachment_states.push(VkPipelineColorBlendAttachmentState {
+					blendEnable: 0,
+					srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+					dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+					colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+					srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+					dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+					alphaBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+					colorWriteMask: VkColorComponentFlagBits::combine(&[
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT,
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT,
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT,
+					]),
+				});
+			} else {
+				color_blend_attachment_states.push(VkPipelineColorBlendAttachmentState {
+					blendEnable: 0,
+					srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_SRC_ALPHA,
+					dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+					colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+					srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_SRC_ALPHA,
+					dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
+					alphaBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+					colorWriteMask: VkColorComponentFlagBits::combine(&[
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT,
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT,
+						VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT,
+					]),
+				});
+			}
+		}
+		let color_blend_state_ci = VkPipelineColorBlendStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_COLOR_BLEND_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			logicOpEnable: 0,
+			logicOp: VkLogicOp::VK_LOGIC_OP_COPY,
+			attachmentCount: 0,
+			pAttachments: null(),
+			blendConstants: [0_f32; 4_usize],
+		};
 		let pipeline_layout_ci = VkPipelineLayoutCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			pNext: null(),
@@ -446,6 +498,8 @@ impl PipelineBuilder {
 			rasterization_state_ci,
 			msaa_state_ci,
 			depth_stenctil_ci,
+			color_blend_state_ci,
+			color_blend_attachment_states,
 			pipeline_layout,
 		})
 	}
@@ -564,6 +618,81 @@ impl PipelineBuilder {
 	pub fn set_stencil_mode(mut self, front_face: VkStencilOpState, back_face: VkStencilOpState) -> Self {
 		self.depth_stenctil_ci.front = front_face;
 		self.depth_stenctil_ci.back = back_face;
+		self
+	}
+
+	/// Return a color blend mode for normal alpha blend
+	pub fn normal_blend_mode() -> VkPipelineColorBlendAttachmentState {
+		VkPipelineColorBlendAttachmentState {
+			blendEnable: 1,
+			srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+			srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			alphaBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+			colorWriteMask: VkColorComponentFlagBits::combine(&[
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT,
+			]),
+		}
+	}
+
+	/// Return a color blend mode for additive blend
+	pub fn additive_blend_mode() -> VkPipelineColorBlendAttachmentState {
+		VkPipelineColorBlendAttachmentState {
+			blendEnable: 1,
+			srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE,
+			dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE,
+			colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+			srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE,
+			dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE,
+			alphaBlendOp: VkBlendOp::VK_BLEND_OP_MAX,
+			colorWriteMask: VkColorComponentFlagBits::combine(&[
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT,
+			]),
+		}
+	}
+
+	/// Return a color blend mode for no blending
+	pub fn disabled_blend_mode() -> VkPipelineColorBlendAttachmentState {
+		VkPipelineColorBlendAttachmentState {
+			blendEnable: 0,
+			srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+			srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			alphaBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
+			colorWriteMask: VkColorComponentFlagBits::combine(&[
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT,
+				VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT,
+			]),
+		}
+	}
+
+	/// Set alpha blend mode
+	pub fn set_color_blend_mode(mut self, attachment_index: usize, color_blend_mode: VkPipelineColorBlendAttachmentState) -> Self {
+		self.color_blend_attachment_states[attachment_index] = color_blend_mode;
+		self
+	}
+
+	/// Add a dynamic state
+	pub fn add_dynamic_state(mut self, dynamic_state: VkDynamicState) -> Self {
+		self.dynamic_states.insert(dynamic_state);
+		self
+	}
+
+	/// Remove a dynamic state
+	pub fn remove_dynamic_state(mut self, dynamic_state: VkDynamicState) -> Self {
+		self.dynamic_states.remove(&dynamic_state);
 		self
 	}
 
