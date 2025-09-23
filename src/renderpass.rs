@@ -7,7 +7,7 @@ use std::{
 };
 
 /// The renderpass attachment
-#[derive(Debug)]
+#[derive(Debug, Clone, Copy)]
 pub struct VulkanRenderPassAttachment {
 	/// The format of the attachment
 	pub format: VkFormat,
