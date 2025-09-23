@@ -335,6 +335,9 @@ pub struct PipelineBuilder {
 	/// The MSAA state create info
 	msaa_state_ci: VkPipelineMultisampleStateCreateInfo,
 
+	/// The depth stencil state create info
+	depth_stenctil_ci: VkPipelineDepthStencilStateCreateInfo,
+
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
 }
@@ -390,6 +393,36 @@ impl PipelineBuilder {
 			alphaToCoverageEnable: 0,
 			alphaToOneEnable: 0,
 		};
+		let depth_stenctil_ci = VkPipelineDepthStencilStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			depthTestEnable: 1,
+			depthWriteEnable: 1,
+			depthCompareOp: VkCompareOp::VK_COMPARE_OP_LESS_OR_EQUAL,
+			depthBoundsTestEnable: 0,
+			stencilTestEnable: 0,
+			front: VkStencilOpState {
+				failOp: VkStencilOp::VK_STENCIL_OP_KEEP,
+				passOp: VkStencilOp::VK_STENCIL_OP_KEEP,
+				depthFailOp: VkStencilOp::VK_STENCIL_OP_KEEP,
+				compareOp: VkCompareOp::VK_COMPARE_OP_NEVER,
+				compareMask: 0xFFFFFFFF,
+				writeMask: 0xFFFFFFFF,
+				reference: 0,
+			},
+			back: VkStencilOpState {
+				failOp: VkStencilOp::VK_STENCIL_OP_KEEP,
+				passOp: VkStencilOp::VK_STENCIL_OP_KEEP,
+				depthFailOp: VkStencilOp::VK_STENCIL_OP_KEEP,
+				compareOp: VkCompareOp::VK_COMPARE_OP_NEVER,
+				compareMask: 0xFFFFFFFF,
+				writeMask: 0xFFFFFFFF,
+				reference: 0,
+			},
+			minDepthBounds: 0.0,
+			maxDepthBounds: 0.0,
+		};
 		let pipeline_layout_ci = VkPipelineLayoutCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
 			pNext: null(),
@@ -411,6 +444,7 @@ impl PipelineBuilder {
 			pipeline_cache,
 			rasterization_state_ci,
 			msaa_state_ci,
+			depth_stenctil_ci,
 			pipeline_layout,
 		})
 	}
@@ -486,6 +520,49 @@ impl PipelineBuilder {
 		} else {
 			self.msaa_state_ci.sampleShadingEnable = 0;
 		}
+		self
+	}
+
+	/// Set depth test state
+	pub fn set_depth_test(mut self, enabled: bool) -> Self {
+		self.depth_stenctil_ci.depthTestEnable = if enabled {1} else {0};
+		self
+	}
+
+	/// Set depth write state
+	pub fn set_depth_write(mut self, enabled: bool) -> Self {
+		self.depth_stenctil_ci.depthWriteEnable = if enabled {1} else {0};
+		self
+	}
+
+	/// Set depth compare mode
+	pub fn set_depth_compare_mode(mut self, mode: VkCompareOp) -> Self {
+		self.depth_stenctil_ci.depthCompareOp = mode;
+		self
+	}
+
+	/// Set depth bound test mode
+	pub fn set_depth_bound_test_mode(mut self, bounds: Option<(f32, f32)>) -> Self {
+		if let Some((min_bound, max_bound)) = bounds {
+			self.depth_stenctil_ci.depthBoundsTestEnable = 1;
+			self.depth_stenctil_ci.minDepthBounds = min_bound;
+			self.depth_stenctil_ci.maxDepthBounds = max_bound;
+		} else {
+			self.depth_stenctil_ci.depthBoundsTestEnable = 0;
+		}
+		self
+	}
+
+	/// Set stencil test mode
+	pub fn set_stencil_test(mut self, enabled: bool) -> Self {
+		self.depth_stenctil_ci.stencilTestEnable = if enabled {1} else {0};
+		self
+	}
+
+	/// Set stencil mode
+	pub fn set_stencil_mode(mut self, front_face: VkStencilOpState, back_face: VkStencilOpState) -> Self {
+		self.depth_stenctil_ci.front = front_face;
+		self.depth_stenctil_ci.back = back_face;
 		self
 	}
 
