@@ -632,11 +632,11 @@ impl PipelineBuilder {
 	pub fn normal_blend_mode() -> VkPipelineColorBlendAttachmentState {
 		VkPipelineColorBlendAttachmentState {
 			blendEnable: 1,
-			srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
-			dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_SRC_ALPHA,
+			dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 			colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
-			srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
-			dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
+			srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_SRC_ALPHA,
+			dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA,
 			alphaBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
 			colorWriteMask: VkColorComponentFlagBits::combine(&[
 				VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
