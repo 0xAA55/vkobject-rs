@@ -704,7 +704,7 @@ impl PipelineBuilder {
 	}
 
 	/// Generate the pipeline
-	pub fn create_pipeline(self) -> Result<Pipeline, VulkanError> {
+	pub fn build(self) -> Result<Pipeline, VulkanError> {
 		Pipeline::new(self)
 	}
 }
@@ -745,19 +745,196 @@ pub struct Pipeline {
 	/// The pool
 	pub desc_pool: Arc<DescriptorPool>,
 
+	/// The render target props
+	pub rt_props: Arc<RenderTargetProps>,
+
+	/// The pipeline cache
+	pub pipeline_cache: Arc<VulkanPipelineCache>,
+
+	/// The pipeline layout was created by providing descriptor layout there.
+	pipeline_layout: VkPipelineLayout,
+
 	/// The pipeline
 	pipeline: VkPipeline,
 }
 
+struct MemberInfo<'a> {
+	name: &'a str,
+	type_name: &'static str,
+	row_format: VkFormat,
+	num_rows: u32,
+	offset: u32,
+	size: usize,
+}
+
 impl Pipeline {
 	/// Create the `Pipeline`
-	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
+	pub fn new(mut builder: PipelineBuilder) -> Result<Self, VulkanError> {
+		let device = builder.device.clone();
+		let mesh = builder.mesh.clone();
+		let shaders = builder.shaders.clone();
+		let desc_pool = builder.desc_pool.clone();
+		let rt_props = builder.rt_props.clone();
+		let pipeline_cache = builder.pipeline_cache.clone();
+		let pipeline_layout = builder.pipeline_layout;
+		builder.pipeline_layout = null();
+		let shader_stages: Vec<VkPipelineShaderStageCreateInfo> = shaders.iter_shaders().map(|(stage, shader)| VkPipelineShaderStageCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			stage,
+			module: shader.get_vk_shader(),
+			pName: "main\0".as_ptr() as *const i8,
+			pSpecializationInfo: null(),
+		}).collect();
+		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
+		let mut mesh_vertex_inputs: HashMap<String, MemberInfo> = HashMap::new();
+		let mut mesh_instance_inputs: HashMap<String, MemberInfo> = HashMap::new();
+		let mesh_lock = mesh.lock().unwrap();
+		let vertex_stride = mesh_lock.mesh.get_vertex_stride();
+		let instance_stride = mesh_lock.mesh.get_instance_stride();
+		let topology = mesh_lock.mesh.get_primitive_type();
+		let mut cur_vertex_offset = 0;
+		for (name, var) in mesh_lock.mesh.iter_vertex_buffer_struct_members() {
+			if let Some(info) = type_id_to_info.get(&var.type_id()) {
+				mesh_vertex_inputs.insert(name.to_string(), MemberInfo {
+					name: &name,
+					type_name: info.type_name,
+					row_format: info.row_format,
+					num_rows: info.num_rows,
+					offset: cur_vertex_offset,
+					size: info.size,
+				});
+				cur_vertex_offset += info.size as u32;
+			} else {
+				panic!("Unknown member {:?} of the vertex struct: `{:?}`", var, var.type_id());
+			}
+		}
+		if let Some(instance_member_iter) = mesh_lock.mesh.iter_instance_buffer_struct_members() {
+			let mut cur_instance_offset = 0;
+			for (name, var) in instance_member_iter {
+				if let Some(info) = type_id_to_info.get(&var.type_id()) {
+					mesh_instance_inputs.insert(name.to_string(), MemberInfo {
+						name: &name,
+						type_name: info.type_name,
+						row_format: info.row_format,
+						num_rows: info.num_rows,
+						offset: cur_instance_offset,
+						size: info.size,
+					});
+					cur_instance_offset += info.size as u32;
+				} else {
+					panic!("Unknown member {:?} of the instance struct: `{:?}`", var, var.type_id());
+				}
+			}
+		}
+		drop(mesh_lock);
+		let mut vertex_input_bindings: Vec<VkVertexInputBindingDescription> = Vec::with_capacity(2);
+		vertex_input_bindings.push(VkVertexInputBindingDescription {
+			binding: 0,
+			stride: vertex_stride as u32,
+			inputRate: VkVertexInputRate::VK_VERTEX_INPUT_RATE_VERTEX,
+		});
+		if !mesh_instance_inputs.is_empty() {
+			vertex_input_bindings.push(VkVertexInputBindingDescription {
+				binding: 1,
+				stride: instance_stride as u32,
+				inputRate: VkVertexInputRate::VK_VERTEX_INPUT_RATE_INSTANCE,
+			});
+		}
+		let mut vertex_attrib_bindings: Vec<VkVertexInputAttributeDescription> = Vec::with_capacity(mesh_vertex_inputs.len() + mesh_instance_inputs.len());
+		for var in shaders.vertex_shader.get_vars() {
+			if let VariableLayout::Location(location) = var.layout {
+				if let Some(member_info) = mesh_vertex_inputs.get(&var.var_name) {
+					let row_stride = member_info.size as u32 / member_info.num_rows;
+					for row in 0..member_info.num_rows {
+						vertex_attrib_bindings.push(VkVertexInputAttributeDescription {
+							location: location + row,
+							binding: 0,
+							format: member_info.row_format,
+							offset: member_info.offset + row * row_stride,
+						});
+					}
+				} else if let Some(member_info) = mesh_instance_inputs.get(&var.var_name) {
+					let row_stride = member_info.size as u32 / member_info.num_rows;
+					for row in 0..member_info.num_rows {
+						vertex_attrib_bindings.push(VkVertexInputAttributeDescription {
+							location: location + row,
+							binding: 1,
+							format: member_info.row_format,
+							offset: member_info.offset + row * row_stride,
+						});
+					}
+				}
+			}
+		}
+		let vertex_input_state_ci = VkPipelineVertexInputStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			vertexBindingDescriptionCount: vertex_input_bindings.len() as u32,
+			pVertexBindingDescriptions: vertex_input_bindings.as_ptr(),
+			vertexAttributeDescriptionCount: vertex_attrib_bindings.len() as u32,
+			pVertexAttributeDescriptions: vertex_attrib_bindings.as_ptr(),
+		};
+		let input_assembly_state_ci = VkPipelineInputAssemblyStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			topology,
+			primitiveRestartEnable: 0,
+		};
+		let viewport_state_ci = VkPipelineViewportStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			viewportCount: 1,
+			pViewports: null(),
+			scissorCount: 1,
+			pScissors: null(),
+		};
+		builder.color_blend_state_ci.attachmentCount = builder.color_blend_attachment_states.len() as u32;
+		builder.color_blend_state_ci.pAttachments = builder.color_blend_attachment_states.as_ptr();
+		let dynamic_states: Vec<VkDynamicState> = builder.dynamic_states.clone().into_iter().collect();
+		let dynamic_state_ci = VkPipelineDynamicStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			dynamicStateCount: dynamic_states.len() as u32,
+			pDynamicStates: dynamic_states.as_ptr(),
+		};
+		let pipeline_ci = VkGraphicsPipelineCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			stageCount: shader_stages.len() as u32,
+			pStages: shader_stages.as_ptr(),
+			pVertexInputState: &vertex_input_state_ci,
+			pInputAssemblyState: &input_assembly_state_ci,
+			pTessellationState: null(), // Currently not supported
+			pViewportState: &viewport_state_ci,
+			pRasterizationState: &builder.rasterization_state_ci,
+			pMultisampleState: &builder.msaa_state_ci,
+			pDepthStencilState: &builder.depth_stenctil_ci,
+			pColorBlendState: &builder.color_blend_state_ci,
+			pDynamicState: &dynamic_state_ci,
+			layout: pipeline_layout,
+			renderPass: rt_props.renderpass.get_vk_renderpass(),
+			subpass: 0,
+			basePipelineHandle: null(),
+			basePipelineIndex: 0,
+		};
+		let mut pipeline = null();
+		device.vkcore.vkCreateGraphicsPipelines(device.get_vk_device(), pipeline_cache.get_vk_pipeline_cache(), 1, &pipeline_ci, null(), &mut pipeline)?;
 		Ok(Self {
 			device,
 			mesh,
 			shaders,
 			desc_pool,
-			pipeline: null(),
+			rt_props,
+			pipeline_cache,
+			pipeline_layout,
+			pipeline,
 		})
 	}
 
@@ -769,6 +946,7 @@ impl Pipeline {
 
 impl Drop for Pipeline {
 	fn drop(&mut self) {
+		self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()).unwrap();
 		self.device.vkcore.vkDestroyPipeline(self.device.get_vk_device(), self.pipeline, null()).unwrap();
 	}
 }
