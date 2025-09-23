@@ -46,6 +46,9 @@ pub struct VulkanRenderPass {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
+	/// The render pass attachments
+	pub attachments: Vec<VulkanRenderPassAttachment>,
+
 	/// The handle to the renderpass object
 	renderpass: VkRenderPass,
 }
@@ -135,6 +138,7 @@ impl VulkanRenderPass {
 		vkcore.vkCreateRenderPass(device.get_vk_device(), &renderpass_ci, null(), &mut renderpass)?;
 		Ok(Self {
 			device,
+			attachments: attachments.iter().collect(),
 			renderpass,
 		})
 	}
