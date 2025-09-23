@@ -330,13 +330,14 @@ pub struct PipelineBuilder {
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
 
 	/// The rasterization state create info
-	rasterization_state_ci: VkPipelineRasterizationStateCreateInfo,
+	pub rasterization_state_ci: VkPipelineRasterizationStateCreateInfo,
 
 	/// The MSAA state create info
-	msaa_state_ci: VkPipelineMultisampleStateCreateInfo,
+	pub msaa_state_ci: VkPipelineMultisampleStateCreateInfo,
 
 	/// The depth stencil state create info
-	depth_stenctil_ci: VkPipelineDepthStencilStateCreateInfo,
+	pub depth_stenctil_ci: VkPipelineDepthStencilStateCreateInfo,
+
 
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
