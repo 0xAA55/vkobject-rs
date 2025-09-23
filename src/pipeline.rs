@@ -731,7 +731,6 @@ impl Drop for PipelineBuilder {
 	}
 }
 
-#[derive(Debug)]
 pub struct Pipeline {
 	/// The associated device
 	pub device: Arc<VulkanDevice>,
@@ -941,6 +940,20 @@ impl Pipeline {
 	/// Get the descriptor set layouts
 	pub(crate) fn get_vk_pipeline(&self) -> VkPipeline {
 		self.pipeline
+	}
+}
+
+impl Debug for Pipeline {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("Pipeline")
+		.field("mesh", &self.mesh)
+		.field("shaders", &self.shaders)
+		.field("desc_pool", &self.desc_pool)
+		.field("rt_props", &self.rt_props)
+		.field("pipeline_cache", &self.pipeline_cache)
+		.field("pipeline_layout", &self.pipeline_layout)
+		.field("pipeline", &self.pipeline)
+		.finish()
 	}
 }
 
