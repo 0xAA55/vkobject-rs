@@ -689,10 +689,69 @@ pub struct TextureForSample {
 #[derive(Debug)]
 pub enum DescriptorProp {
 	/// The props for the samplers
-	Samplers(Vec<VulkanSampler>),
+	Samplers(Vec<Arc<VulkanSampler>>),
+
+	/// The props for the image
+	Images(Vec<TextureForSample>),
 
 	/// The props for the uniform buffers
-	UniformBuffers(Vec<Box<dyn GenericUniformBuffer>>),
+	UniformBuffers(Vec<RwLock<Box<dyn GenericUniformBuffer>>>),
+}
+
+impl DescriptorProp {
+	/// Get samplers
+	pub fn get_samplers(&self) -> Result<&[Arc<VulkanSampler>], VulkanError> {
+		if let Self::Samplers(samplers) = self {
+			Ok(samplers)
+		} else {
+			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::Samplers`, got {self:?}")))
+		}
+	}
+
+	/// Get images
+	pub fn get_images(&self) -> Result<&[TextureForSample], VulkanError> {
+		if let Self::Images(images) = self {
+			Ok(images)
+		} else {
+			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::Images`, got {self:?}")))
+		}
+	}
+
+	/// Get uniform buffers
+	pub fn get_uniform_buffers(&self) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
+		if let Self::UniformBuffers(uniform_buffers) = self {
+			Ok(uniform_buffers)
+		} else {
+			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::UniformBuffers`, got {self:?}")))
+		}
+	}
+
+	/// Unwrap for samplers
+	pub fn unwrap_samplers(&self) -> &[Arc<VulkanSampler>] {
+		if let Self::Samplers(samplers) = self {
+			samplers
+		} else {
+			panic!("Expected `DescriptorProp::Samplers`, got {self:?}")
+		}
+	}
+
+	/// Unwrap for images
+	pub fn unwrap_images(&self) -> &[TextureForSample] {
+		if let Self::Images(images) = self {
+			images
+		} else {
+			panic!("Expected `DescriptorProp::Images`, got {self:?}")
+		}
+	}
+
+	/// Unwrap for uniform buffers
+	pub fn unwrap_uniform_buffers(&self) -> &[RwLock<Box<dyn GenericUniformBuffer>>] {
+		if let Self::UniformBuffers(uniform_buffers) = self {
+			uniform_buffers
+		} else {
+			panic!("Expected `DescriptorProp::UniformBuffers`, got {self:?}")
+		}
+	}
 }
 
 /// The wrapper for `VkShaderModule`
@@ -904,6 +963,36 @@ impl VulkanShader {
 	/// Get the desc props
 	pub fn get_desc_props(&self) -> &HashMap<String, DescriptorProp> {
 		&self.desc_props
+	}
+
+	/// Get specific number of samplers from a `HashMap<String, DescriptorProp>`
+	pub fn get_desc_props_samplers(&self, name: &str, desired_count: usize) -> Result<&[Arc<VulkanSampler>], VulkanError> {
+		let name = name.to_string();
+		let samplers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_samplers()?;
+		if samplers.len() != desired_count {
+			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} sampler(s) is needed for `{}`, but {} sampler(s) were provided.", name, samplers.len())));
+		}
+		Ok(samplers)
+	}
+
+	/// Get specific number of textures from a `HashMap<String, DescriptorProp>`
+	pub fn get_desc_props_textures(&self, name: &str, desired_count: usize) -> Result<&[TextureForSample], VulkanError> {
+		let name = name.to_string();
+		let textures = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_images()?;
+		if textures.len() != desired_count {
+			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} texture(s) is needed for `{}`, but {} texture(s) were provided.", name, textures.len())));
+		}
+		Ok(textures)
+	}
+
+	/// Get specific number of uniform buffers from a `HashMap<String, DescriptorProp>`
+	pub fn get_desc_props_uniform_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
+		let name = name.to_string();
+		let uniform_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_uniform_buffers()?;
+		if uniform_buffers.len() != desired_count {
+			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} uniform buffer(s) is needed for `{}`, but {} uniform buffer(s) were provided.", name, uniform_buffers.len())));
+		}
+		Ok(uniform_buffers)
 	}
 }
 
