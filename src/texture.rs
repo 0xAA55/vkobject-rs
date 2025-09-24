@@ -560,6 +560,135 @@ impl VulkanTexture {
 	pub fn get_extent(&self) -> VkExtent3D {
 		self.type_size.get_extent()
 	}
+
+	/// Generate mipmaps for the texture
+	pub fn generate_mipmaps(&mut self, cmdbuf: VkCommandBuffer, filter: VkFilter) -> Result<(), VulkanError> {
+		let mut barrier = VkImageMemoryBarrier {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+			pNext: null(),
+			srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+			dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags,
+			oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+			srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+			dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+			image: self.image,
+			subresourceRange: VkImageSubresourceRange {
+				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+				baseMipLevel: 0,
+				levelCount: 1,
+				baseArrayLayer: 0,
+				layerCount: 1,
+			},
+		};
+
+		let extent = self.type_size.get_extent();
+
+		let mut mip_width = extent.width;
+		let mut mip_height = extent.height;
+		let mut mip_depth = extent.depth;
+
+		for i in 1..self.mipmap_levels {
+			barrier.subresourceRange.baseMipLevel = i - 1;
+			barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+			barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags;
+			barrier.dstAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags;
+
+			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier
+			)?;
+
+			let next_mip_width = max(mip_width / 2, 1);
+			let next_mip_height = max(mip_height / 2, 1);
+			let next_mip_depth = max(mip_depth / 2, 1);
+
+			let blit = VkImageBlit {
+				srcSubresource: VkImageSubresourceLayers {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					mipLevel: i - 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+				srcOffsets: [
+					VkOffset3D {
+						x: 0,
+						y: 0,
+						z: 0,
+					},
+					VkOffset3D {
+						x: mip_width as i32,
+						y: mip_height as i32,
+						z: mip_depth as i32,
+					},
+				],
+				dstSubresource: VkImageSubresourceLayers {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					mipLevel: i,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+				dstOffsets: [
+					VkOffset3D {
+						x: 0,
+						y: 0,
+						z: 0,
+					},
+					VkOffset3D {
+						x: next_mip_width as i32,
+						y: next_mip_height as i32,
+						z: next_mip_depth as i32,
+					},
+				],
+			};
+
+			self.device.vkcore.vkCmdBlitImage(cmdbuf,
+				self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				1, &blit,
+				filter
+			)?;
+
+			barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+			barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+			barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags;
+			barrier.dstAccessMask = VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT as VkAccessFlags;
+
+			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier
+			)?;
+
+			mip_width = next_mip_width;
+			mip_height = next_mip_height;
+			mip_depth = next_mip_depth;
+		}
+
+		barrier.subresourceRange.baseMipLevel = self.mipmap_levels - 1;
+		barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
+		barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+		barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags;
+		barrier.dstAccessMask = VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT as VkAccessFlags;
+
+		self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
+			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT as VkPipelineStageFlags,
+			0,
+			0, null(),
+			0, null(),
+			1, &barrier
+		)?;
+		Ok(())
+	}
 }
 
 unsafe impl Send for VulkanTexture {}
