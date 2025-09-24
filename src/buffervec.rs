@@ -3,6 +3,8 @@ use crate::prelude::*;
 use bitvec::vec::BitVec;
 use std::{
 	cmp::min,
+	collections::HashMap,
+	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	marker::PhantomData,
 	mem::size_of,
@@ -528,5 +530,78 @@ where
 			self.cache_modified_bitmap.set(i, true);
 		}
 		unsafe {from_raw_parts_mut(self.staging_buffer_data_address, range.end + 1)}
+	}
+}
+
+/// The trait that the struct of uniform must implement
+pub trait TexelBufferDataType: Copy + Clone + Sized + Default + Debug {}
+impl<T> TexelBufferDataType for T where T: Copy + Clone + Sized + Default + Debug {}
+
+pub type TexelBuffer<T> = BufferVec<T>;
+
+/// The trait for the `UniformBuffer` to be able to wrap into an object
+pub trait GenericTexelBuffer: Debug {
+	/// Get the `VkBuffer`
+	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Get the size of the buffer
+	fn get_size(&self) -> usize;
+
+	/// Get the address of the staging buffer
+	fn get_staging_buffer_address(&self) -> *mut c_void;
+
+	/// Get the buffer view map
+	fn get_buffer_view_map(&self) -> &HashMap<String, Vec<VulkanBufferView>>;
+
+	/// Create and insert a new buffer view to the map
+	fn insert_buffer_views(&mut self, name: String, ranges: &[BufferViewRange]) -> Result<Option<Vec<VulkanBufferView>>, VulkanError>;
+
+	/// Remove a buffer view
+	fn remove_buffer_views(&mut self, name: &String) -> Option<Vec<VulkanBufferView>>;
+
+	/// Get the `VkBufferView` by name
+	fn get_vk_buffer_views(&self, name: &String) -> Option<Vec<VkBufferView>>;
+
+	/// Upload to GPU
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+}
+
+impl<T> GenericTexelBuffer for TexelBuffer<T>
+where
+	T: TexelBufferDataType {
+	fn get_vk_buffer(&self) -> VkBuffer {
+		self.buffer.get_vk_buffer()
+	}
+
+	fn get_size(&self) -> usize {
+		self.capacity as usize * size_of::<T>()
+	}
+
+	fn get_staging_buffer_address(&self) -> *mut c_void {
+		self.staging_buffer_data_address as *mut c_void
+	}
+
+	fn get_buffer_view_map(&self) -> &HashMap<String, Vec<VulkanBufferView>> {
+		&self.buffer.buffer.buffer_views
+	}
+
+	fn insert_buffer_views(&mut self, name: String, ranges: &[BufferViewRange]) -> Result<Option<Vec<VulkanBufferView>>, VulkanError> {
+		let mut buffer_views: Vec<VulkanBufferView> = Vec::with_capacity(ranges.len());
+		for range in ranges.iter() {
+			buffer_views.push(VulkanBufferView::new_partial(&self.buffer.buffer, range)?);
+		}
+		Ok(self.buffer.buffer.buffer_views.insert(name, buffer_views))
+	}
+
+	fn remove_buffer_views(&mut self, name: &String) -> Option<Vec<VulkanBufferView>> {
+		self.buffer.buffer.buffer_views.remove(name)
+	}
+
+	fn get_vk_buffer_views(&self, name: &String) -> Option<Vec<VkBufferView>> {
+		self.buffer.buffer.buffer_views.get(name).map(|views|views.iter().map(|v|v.get_vk_buffer_view()).collect())
+	}
+
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.flush(cmdbuf)
 	}
 }
