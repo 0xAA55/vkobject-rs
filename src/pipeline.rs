@@ -95,7 +95,7 @@ impl DescriptorSets {
 						};
 						match &var.var_type {
 							VariableType::Literal(literal_type) => {
-								assert_eq!(1, samplers.len(), "A sampler is needed, but {} sampler(s) were provided.", samplers.len());
+								assert_eq!(1, samplers.len(), "A sampler is needed for `{}`, but {} sampler(s) were provided.", var.var_name, samplers.len());
 								if literal_type == "sampler" {
 									set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 										binding,
@@ -107,7 +107,7 @@ impl DescriptorSets {
 								}
 							}
 							VariableType::Image(_) => {
-								assert_eq!(1, samplers.len(), "A sampler is needed, but {} sampler(s) were provided.", samplers.len());
+								assert_eq!(1, samplers.len(), "A sampler is needed for `{}`, but {} sampler(s) were provided.", var.var_name, samplers.len());
 								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 									binding,
 									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -117,7 +117,7 @@ impl DescriptorSets {
 								});
 							}
 							VariableType::Array(array_info) => {
-								assert_eq!(array_info.element_count, samplers.len(), "{} sampler(s) were needed, but {} sampler(s) were provided.", array_info.element_count, samplers.len());
+								assert_eq!(array_info.element_count, samplers.len(), "{} sampler(s) were needed for `{}`, but {} sampler(s) were provided.", var.var_name, array_info.element_count, samplers.len());
 								match &array_info.element_type {
 									VariableType::Literal(literal_type) => {
 										if literal_type == "sampler" {
