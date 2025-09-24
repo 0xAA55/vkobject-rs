@@ -244,6 +244,8 @@ impl DescriptorSets {
 		}
 		let mut buffer_info: Vec<VkDescriptorBufferInfo> = Vec::with_capacity(total_buffers);
 		let mut image_info: Vec<VkDescriptorImageInfo> = Vec::with_capacity(total_images);
+		let buffer_info_ptr = buffer_info.as_ptr();
+		let image_info_ptr = image_info.as_ptr();
 		let mut write_descriptor_sets: Vec<VkWriteDescriptorSet> = Vec::new();
 		for var in shader.get_vars() {
 			if let VariableLayout::Descriptor{set: _, binding, input_attachment_index: _} = var.layout {
@@ -383,6 +385,8 @@ impl DescriptorSets {
 				}
 			}
 		}
+		assert_eq!(buffer_info_ptr, buffer_info.as_ptr(), "Reallocation happens on `buffer_info`, the pointer is wilded.");
+		assert_eq!(image_info_ptr, image_info.as_ptr(), "Reallocation happens on `buffer_info`, the pointer is wilded.");
 		if !write_descriptor_sets.is_empty() {
 			device.vkcore.vkUpdateDescriptorSets(device.get_vk_device(), write_descriptor_sets.len() as u32, write_descriptor_sets.as_ptr(), 0, null())?;
 		}
