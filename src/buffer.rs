@@ -254,6 +254,22 @@ where
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
 	}
 }
+
+/// The trait for the `StorageBuffer` to be able to wrap into an object
+pub trait GenericStorageBuffer: Debug {
+	/// Get the `VkBuffer`
+	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Get the size of the buffer
+	fn get_size(&self) -> VkDeviceSize;
+
+	/// Get the address of the staging buffer
+	fn get_staging_buffer_address(&self) -> *mut c_void;
+
+	/// Upload to GPU
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+}
+
 /// The trait that the struct of uniform must implement
 pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
 impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
@@ -302,4 +318,25 @@ where
 
 unsafe impl<S> Send for StorageBuffer<S> where S: StorageBufferStructType {}
 unsafe impl<S> Sync for StorageBuffer<S> where S: StorageBufferStructType {}
+
+impl<S> GenericStorageBuffer for StorageBuffer<S>
+where
+	S: StorageBufferStructType {
+	fn get_vk_buffer(&self) -> VkBuffer {
+		self.buffer.get_vk_buffer()
+	}
+
+	fn get_size(&self) -> VkDeviceSize {
+		self.buffer.get_size()
+	}
+
+	fn get_staging_buffer_address(&self) -> *mut c_void {
+		self.buffer.staging_buffer.as_ref().unwrap().get_address()
+	}
+
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
+	}
+}
+
 
