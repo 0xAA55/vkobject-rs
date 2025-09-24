@@ -602,6 +602,9 @@ pub struct VulkanBuffer {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
+	/// The size of the buffer
+	size: VkDeviceSize,
+
 	/// The handle to the buffer
 	buffer: VkBuffer,
 }
