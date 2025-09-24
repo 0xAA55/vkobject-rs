@@ -774,6 +774,25 @@ impl DescriptorProp {
 		}
 	}
 
+	/// Check if it is samplers
+	pub fn is_samplers(&self) -> bool {
+		matches!(self, Self::Samplers(_))
+	}
+
+	/// Check if it is images
+	pub fn is_images(&self) -> bool {
+		matches!(self, Self::Images(_))
+	}
+
+	/// Check if it is samplers
+	pub fn is_uniform_buffers(&self) -> bool {
+		matches!(self, Self::UniformBuffers(_))
+	}
+
+	/// Check if it is samplers
+	pub fn is_storage_buffers(&self) -> bool {
+		matches!(self, Self::StorageBuffers(_))
+	}
 }
 
 /// The wrapper for `VkShaderModule`
