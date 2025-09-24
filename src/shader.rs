@@ -9,7 +9,7 @@ use std::{
 	path::Path,
 	ptr::null,
 	slice::from_raw_parts,
-	sync::{Arc, OnceLock},
+	sync::{Arc, RwLock, OnceLock},
 };
 
 /// The optimization level for shaderc
@@ -674,6 +674,16 @@ pub mod shader_analyzer {
 }
 
 use shader_analyzer::*;
+
+/// The texture image and sampler to put in a pipeline (used to input into a shader)
+#[derive(Debug)]
+pub struct TextureForSample {
+	/// The texture
+	pub texture: Arc<RwLock<VulkanTexture>>,
+
+	/// The sampler
+	pub sampler: Arc<VulkanSampler>,
+}
 
 /// The properties for the descriptor set
 #[derive(Debug)]
