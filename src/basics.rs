@@ -29,6 +29,9 @@ pub enum VulkanError {
 	ShaderParseIdUnknown(String),
 	ShaderParseTypeUnknown(String),
 	ShaderParseError(Arc<rspirv::binary::ParseState>),
+	MissingShaderInputs(String),
+	ShaderInputTypeMismatch(String),
+	ShaderInputLengthMismatch(String),
 }
 
 impl From<VkError> for VulkanError {
