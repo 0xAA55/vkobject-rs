@@ -225,6 +225,9 @@ pub trait GenericUniformBuffer: Debug {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
+	/// Get the size of the buffer
+	fn get_size(&self) -> VkDeviceSize;
+
 	/// Get the address of the staging buffer
 	fn get_staging_buffer_address(&self) -> *mut c_void;
 
@@ -237,6 +240,10 @@ where
 	U: UniformStructType {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
+	}
+
+	fn get_size(&self) -> VkDeviceSize {
+		self.buffer.get_size()
 	}
 
 	fn get_staging_buffer_address(&self) -> *mut c_void {
