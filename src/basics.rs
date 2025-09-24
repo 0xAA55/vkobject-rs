@@ -766,6 +766,55 @@ impl VulkanSampler {
 		})
 	}
 
+	/// Create the sampler that's most common used: filter = linear, address mode = repeat, mipmap = nearest
+	pub fn new_linear(device: Arc<VulkanDevice>, anisotropy: bool) -> Result<Self, VulkanError> {
+		let max_anisotropy = device.get_gpu().properties.limits.maxSamplerAnisotropy;
+		let sampler_ci = VkSamplerCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			magFilter: VkFilter::VK_FILTER_LINEAR,
+			minFilter: VkFilter::VK_FILTER_LINEAR,
+			mipmapMode: VkSamplerMipmapMode::VK_SAMPLER_MIPMAP_MODE_NEAREST,
+			addressModeU: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeV: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeW: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			mipLodBias: 0.0,
+			anisotropyEnable: if anisotropy {1} else {0},
+			maxAnisotropy: max_anisotropy,
+			compareEnable: 0,
+			compareOp: VkCompareOp::VK_COMPARE_OP_NEVER,
+			minLod: 0.0,
+			maxLod: VK_LOD_CLAMP_NONE,
+			borderColor: VkBorderColor::VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+			unnormalizedCoordinates: 0,
+		};
+	}
+
+	/// Create the sampler that doesn't do interpolation between pixels
+	pub fn new_nearest(device: Arc<VulkanDevice>) -> Result<Self, VulkanError> {
+		let sampler_ci = VkSamplerCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			magFilter: VkFilter::VK_FILTER_NEAREST,
+			minFilter: VkFilter::VK_FILTER_NEAREST,
+			mipmapMode: VkSamplerMipmapMode::VK_SAMPLER_MIPMAP_MODE_NEAREST,
+			addressModeU: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeV: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			addressModeW: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_REPEAT,
+			mipLodBias: 0.0,
+			anisotropyEnable: 0,
+			maxAnisotropy: 1.0,
+			compareEnable: 0,
+			compareOp: VkCompareOp::VK_COMPARE_OP_NEVER,
+			minLod: 0.0,
+			maxLod: VK_LOD_CLAMP_NONE,
+			borderColor: VkBorderColor::VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+			unnormalizedCoordinates: 0,
+		};
+	}
+
 	/// Get the `VkSampler`
 	pub fn get_vk_sampler(&self) -> VkSampler {
 		self.sampler
