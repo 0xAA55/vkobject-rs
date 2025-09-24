@@ -254,3 +254,52 @@ where
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
 	}
 }
+/// The trait that the struct of uniform must implement
+pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
+impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+
+/// The storage buffer
+#[derive(Debug, Clone)]
+pub struct StorageBuffer<S>
+where
+	S: StorageBufferStructType {
+	/// The buffer
+	pub buffer: Buffer,
+
+	/// The phantom data that holds the uniform struct type
+	_phantom: PhantomData<S>,
+}
+
+impl<S> StorageBuffer<S>
+where
+	S: StorageBufferStructType {
+	/// Create the `StorageBuffer`
+	pub fn new(device: Arc<VulkanDevice>) -> Result<Self, VulkanError> {
+		let def = S::default();
+		let buffer = Buffer::new(device.clone(), size_of::<S>() as VkDeviceSize, Some(&def as *const S as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_STORAGE_BUFFER_BIT as VkBufferUsageFlags)?;
+		Ok(Self {
+			buffer,
+			_phantom: PhantomData,
+		})
+	}
+}
+
+impl<S> AsRef<S> for StorageBuffer<S>
+where
+	S: StorageBufferStructType {
+	fn as_ref(&self) -> &S {
+		unsafe{&*(self.buffer.staging_buffer.as_ref().unwrap().get_address() as *const S)}
+	}
+}
+
+impl<S> AsMut<S> for StorageBuffer<S>
+where
+	S: StorageBufferStructType {
+	fn as_mut(&mut self) -> &mut S {
+		unsafe{&mut *(self.buffer.staging_buffer.as_ref().unwrap().get_address() as *mut S)}
+	}
+}
+
+unsafe impl<S> Send for StorageBuffer<S> where S: StorageBufferStructType {}
+unsafe impl<S> Sync for StorageBuffer<S> where S: StorageBufferStructType {}
+
