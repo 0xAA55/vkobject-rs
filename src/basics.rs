@@ -625,6 +625,7 @@ impl VulkanBuffer {
 		vkcore.vkCreateBuffer(vkdevice, &buffer_ci, null(), &mut buffer)?;
 		Ok(Self {
 			device,
+			size,
 			buffer,
 		})
 	}
@@ -638,6 +639,9 @@ impl VulkanBuffer {
 
 	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer
+	}
+	pub fn get_size(&self) -> VkDeviceSize {
+		self.size
 	}
 }
 
