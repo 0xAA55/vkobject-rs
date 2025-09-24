@@ -253,8 +253,8 @@ impl DescriptorSets {
 							VariableType::Array(array_info) => shader.get_desc_props_uniform_buffers(&var.var_name, array_info.element_count)?,
 							_ => shader.get_desc_props_uniform_buffers(&var.var_name, 1)?,
 						};
-						for (i, buffer) in uniform_buffers.iter().enumerate() {
-							let buffer_info_index = buffer_info.len();
+						let buffer_info_index = buffer_info.len();
+						for buffer in uniform_buffers.iter() {
 							let buffer_lock = buffer.read().unwrap();
 							buffer_info.push(VkDescriptorBufferInfo {
 								buffer: buffer_lock.get_vk_buffer(),
@@ -262,19 +262,19 @@ impl DescriptorSets {
 								range: buffer_lock.get_size(),
 							});
 							drop(buffer_lock);
-							write_descriptor_sets.push(VkWriteDescriptorSet {
-								sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-								pNext: null(),
-								dstSet: *descriptor_sets,
-								dstBinding: binding,
-								dstArrayElement: i as u32,
-								descriptorCount: 1,
-								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-								pImageInfo: null(),
-								pBufferInfo: &buffer_info[buffer_info_index],
-								pTexelBufferView: null(),
-							});
 						}
+						write_descriptor_sets.push(VkWriteDescriptorSet {
+							sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+							pNext: null(),
+							dstSet: *descriptor_sets,
+							dstBinding: binding,
+							dstArrayElement: 0,
+							descriptorCount: 1,
+							descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+							pImageInfo: null(),
+							pBufferInfo: &buffer_info[buffer_info_index],
+							pTexelBufferView: null(),
+						});
 					}
 					StorageClass::UniformConstant => {
 						match &var.var_type {
