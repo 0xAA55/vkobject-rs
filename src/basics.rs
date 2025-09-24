@@ -630,6 +630,7 @@ impl VulkanBuffer {
 		})
 	}
 
+	/// Get the memory requirements
 	pub fn get_memory_requirements(&self) -> Result<VkMemoryRequirements, VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		let mut ret: VkMemoryRequirements = unsafe {MaybeUninit::zeroed().assume_init()};
@@ -637,9 +638,12 @@ impl VulkanBuffer {
 		Ok(ret)
 	}
 
+	/// Get the `VkBuffer` handle
 	pub(crate) fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer
 	}
+
+	/// Get the size of the buffer
 	pub fn get_size(&self) -> VkDeviceSize {
 		self.size
 	}
