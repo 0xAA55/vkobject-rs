@@ -694,6 +694,9 @@ pub enum DescriptorProp {
 	/// The props for the image
 	Images(Vec<TextureForSample>),
 
+	/// The props for storage buffer
+	StorageBuffers(Vec<RwLock<Box<dyn GenericStorageBuffer>>>),
+
 	/// The props for the uniform buffers
 	UniformBuffers(Vec<RwLock<Box<dyn GenericUniformBuffer>>>),
 }
@@ -726,6 +729,15 @@ impl DescriptorProp {
 		}
 	}
 
+	/// Get storage buffers
+	pub fn get_storage_buffers(&self) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
+		if let Self::StorageBuffers(uniform_buffers) = self {
+			Ok(uniform_buffers)
+		} else {
+			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::StorageBuffers`, got {self:?}")))
+		}
+	}
+
 	/// Unwrap for samplers
 	pub fn unwrap_samplers(&self) -> &[Arc<VulkanSampler>] {
 		if let Self::Samplers(samplers) = self {
@@ -752,6 +764,16 @@ impl DescriptorProp {
 			panic!("Expected `DescriptorProp::UniformBuffers`, got {self:?}")
 		}
 	}
+
+	/// Unwrap for storage buffers
+	pub fn unwrap_storage_buffers(&self) -> &[RwLock<Box<dyn GenericStorageBuffer>>] {
+		if let Self::StorageBuffers(storage_buffers) = self {
+			storage_buffers
+		} else {
+			panic!("Expected `DescriptorProp::StorageBuffers`, got {self:?}")
+		}
+	}
+
 }
 
 /// The wrapper for `VkShaderModule`
@@ -993,6 +1015,16 @@ impl VulkanShader {
 			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} uniform buffer(s) is needed for `{}`, but {} uniform buffer(s) were provided.", name, uniform_buffers.len())));
 		}
 		Ok(uniform_buffers)
+	}
+
+	/// Get specific number of uniform buffers from a `HashMap<String, DescriptorProp>`
+	pub fn get_desc_props_storage_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
+		let name = name.to_string();
+		let storage_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_storage_buffers()?;
+		if storage_buffers.len() != desired_count {
+			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} storage buffer(s) is needed for `{}`, but {} storage buffer(s) were provided.", name, storage_buffers.len())));
+		}
+		Ok(storage_buffers)
 	}
 }
 
