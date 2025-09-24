@@ -51,6 +51,24 @@ impl Drop for DescriptorSetLayout {
 	}
 }
 
+pub(crate) fn through_array<'a>(array_info: &'a ArrayType, dimensions: &mut Vec<usize>) -> &'a VariableType {
+	dimensions.push(array_info.element_count);
+	if let VariableType::Array(sub_array_info) = &array_info.element_type {
+		through_array(&sub_array_info, dimensions)
+	} else {
+		&array_info.element_type
+	}
+}
+pub(crate) fn dig_array<'a>(array_info: &'a ArrayType) -> (usize, &'a VariableType) {
+	let mut dimensions = Vec::new();
+	let var_type = through_array(array_info, &mut dimensions);
+	let mut total = 0;
+	for dim in dimensions.iter() {
+		total += dim;
+	}
+	(total, var_type)
+}
+
 /// The descriptor set object
 #[derive(Debug)]
 pub struct DescriptorSets {
