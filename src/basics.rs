@@ -655,6 +655,7 @@ impl VulkanBuffer {
 impl Debug for VulkanBuffer {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanBuffer")
+		.field("size", &self.size)
 		.field("buffer", &self.buffer)
 		.finish()
 	}
