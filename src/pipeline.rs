@@ -232,6 +232,12 @@ impl Clone for DescriptorSets {
 	}
 }
 
+impl Drop for DescriptorSets {
+	fn drop(&mut self) {
+		self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), 1, &self.descriptor_sets).unwrap();
+	}
+}
+
 unsafe impl Send for DescriptorSets {}
 unsafe impl Sync for DescriptorSets {}
 
