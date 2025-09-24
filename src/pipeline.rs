@@ -77,7 +77,6 @@ impl DescriptorSets {
 	/// Create the `DescriptorSetLayout` by parsing the shader variable
 	pub fn new(device: Arc<VulkanDevice>, shader: Arc<VulkanShader>, shader_stage: VkShaderStageFlags, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
 		let mut layout_bindings: HashMap<u32, HashMap<u32, VkDescriptorSetLayoutBinding>> = HashMap::new();
-		let desc_props = shader.get_desc_props();
 		for var in shader.get_vars() {
 			if let VariableLayout::Descriptor{set, binding, input_attachment_index: _} = var.layout {
 				let set_binding = if let Some(set_binding) = layout_bindings.get_mut(&set) {
@@ -88,14 +87,9 @@ impl DescriptorSets {
 				};
 				match var.storage_class {
 					StorageClass::UniformConstant => {
-						let samplers: Vec<VkSampler> = if let Some(props) = desc_props.get(&var.var_name) && let DescriptorProp::Samplers(samplers) = props {
-							samplers.iter().map(|s|s.get_vk_sampler()).collect()
-						} else {
-							Vec::new()
-						};
 						match &var.var_type {
 							VariableType::Literal(literal_type) => {
-								assert_eq!(1, samplers.len(), "A sampler is needed for `{}`, but {} sampler(s) were provided.", var.var_name, samplers.len());
+								let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, 1)?.iter().map(|s|s.get_vk_sampler()).collect();
 								if literal_type == "sampler" {
 									set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 										binding,
@@ -107,7 +101,7 @@ impl DescriptorSets {
 								}
 							}
 							VariableType::Image(_) => {
-								assert_eq!(1, samplers.len(), "A sampler is needed for `{}`, but {} sampler(s) were provided.", var.var_name, samplers.len());
+								let samplers: Vec<VkSampler> = shader.get_desc_props_textures(&var.var_name, 1)?.iter().map(|t|t.sampler.get_vk_sampler()).collect();
 								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 									binding,
 									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -117,10 +111,10 @@ impl DescriptorSets {
 								});
 							}
 							VariableType::Array(array_info) => {
-								assert_eq!(array_info.element_count, samplers.len(), "{} sampler(s) were needed for `{}`, but {} sampler(s) were provided.", var.var_name, array_info.element_count, samplers.len());
 								match &array_info.element_type {
 									VariableType::Literal(literal_type) => {
 										if literal_type == "sampler" {
+											let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, array_info.element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
 											set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 												binding,
 												descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
@@ -131,6 +125,7 @@ impl DescriptorSets {
 										}
 									}
 									VariableType::Image(_) => {
+										let samplers: Vec<VkSampler> = shader.get_desc_props_textures(&var.var_name, array_info.element_count)?.iter().map(|t|t.sampler.get_vk_sampler()).collect();
 										set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 											binding,
 											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
@@ -205,6 +200,193 @@ impl DescriptorSets {
 		};
 		let mut descriptor_sets: VkDescriptorSet = null();
 		device.vkcore.vkAllocateDescriptorSets(device.get_vk_device(), &desc_sets_ai, &mut descriptor_sets)?;
+		let descriptor_sets = ResourceGuard::new(descriptor_sets, |&ds| device.vkcore.vkFreeDescriptorSets(device.get_vk_device(), desc_pool.get_vk_pool(), 1, &ds).unwrap());
+		let mut total_buffers = 0;
+		let mut total_images = 0;
+		for var in shader.get_vars() {
+			if let VariableLayout::Descriptor{set: _, binding: _, input_attachment_index: _} = var.layout {
+				match var.storage_class {
+					StorageClass::Uniform => {
+						match &var.var_type {
+							VariableType::Array(array_info) => total_buffers += array_info.element_count,
+							_ => total_buffers += 1,
+						}
+					}
+					StorageClass::UniformConstant => {
+						match &var.var_type {
+							VariableType::Literal(literal_type) => {
+								if literal_type == "sampler" {
+									total_images += 1;
+								}
+							}
+							VariableType::Image(_) => {
+								total_images += 1;
+							}
+							VariableType::Array(array_info) => {
+								match &array_info.element_type {
+									VariableType::Literal(literal_type) => {
+										if literal_type == "sampler" {
+											total_images += array_info.element_count;
+										}
+									}
+									VariableType::Image(_) => {
+										total_images += array_info.element_count;
+									}
+									_ => {}
+								}
+							}
+							_ => {}
+						}
+					}
+					_ => {}
+				}
+			}
+		}
+		let mut buffer_info: Vec<VkDescriptorBufferInfo> = Vec::with_capacity(total_buffers);
+		let mut image_info: Vec<VkDescriptorImageInfo> = Vec::with_capacity(total_images);
+		let mut write_descriptor_sets: Vec<VkWriteDescriptorSet> = Vec::new();
+		for var in shader.get_vars() {
+			if let VariableLayout::Descriptor{set: _, binding, input_attachment_index: _} = var.layout {
+				match var.storage_class {
+					StorageClass::Uniform => {
+						let uniform_buffers = match &var.var_type {
+							VariableType::Array(array_info) => shader.get_desc_props_uniform_buffers(&var.var_name, array_info.element_count)?,
+							_ => shader.get_desc_props_uniform_buffers(&var.var_name, 1)?,
+						};
+						for (i, buffer) in uniform_buffers.iter().enumerate() {
+							let buffer_info_index = buffer_info.len();
+							let buffer_lock = buffer.read().unwrap();
+							buffer_info.push(VkDescriptorBufferInfo {
+								buffer: buffer_lock.get_vk_buffer(),
+								offset: 0,
+								range: buffer_lock.get_size(),
+							});
+							drop(buffer_lock);
+							write_descriptor_sets.push(VkWriteDescriptorSet {
+								sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+								pNext: null(),
+								dstSet: *descriptor_sets,
+								dstBinding: binding,
+								dstArrayElement: i as u32,
+								descriptorCount: 1,
+								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+								pImageInfo: null(),
+								pBufferInfo: &buffer_info[buffer_info_index],
+								pTexelBufferView: null(),
+							});
+						}
+					}
+					StorageClass::UniformConstant => {
+						match &var.var_type {
+							VariableType::Literal(literal_type) => {
+								if literal_type == "sampler" {
+									let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, 1)?.iter().map(|s|s.get_vk_sampler()).collect();
+									let image_info_index = image_info.len();
+									image_info.push(VkDescriptorImageInfo {
+										sampler: samplers[0],
+										imageView: null(),
+										imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+									});
+									write_descriptor_sets.push(VkWriteDescriptorSet {
+										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+										pNext: null(),
+										dstSet: *descriptor_sets,
+										dstBinding: binding,
+										dstArrayElement: 0,
+										descriptorCount: 1,
+										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+										pImageInfo: &image_info[image_info_index],
+										pBufferInfo: null(),
+										pTexelBufferView: null(),
+									});
+								}
+							}
+							VariableType::Image(_) => {
+								let textures: Vec<&TextureForSample> = shader.get_desc_props_textures(&var.var_name, 1)?.iter().collect();
+								let image_info_index = image_info.len();
+								image_info.push(VkDescriptorImageInfo {
+									sampler: textures[0].sampler.get_vk_sampler(),
+									imageView: textures[0].texture.read().unwrap().get_vk_image_view(),
+									imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+								});
+								write_descriptor_sets.push(VkWriteDescriptorSet {
+									sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+									pNext: null(),
+									dstSet: *descriptor_sets,
+									dstBinding: binding,
+									dstArrayElement: 0,
+									descriptorCount: 1,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+									pImageInfo: &image_info[image_info_index],
+									pBufferInfo: null(),
+									pTexelBufferView: null(),
+								});
+							}
+							VariableType::Array(array_info) => {
+								match &array_info.element_type {
+									VariableType::Literal(literal_type) => {
+										if literal_type == "sampler" {
+											let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, array_info.element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
+											let image_info_index = image_info.len();
+											for sampler in samplers.iter() {
+												image_info.push(VkDescriptorImageInfo {
+													sampler: *sampler,
+													imageView: null(),
+													imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+												});
+											}
+											write_descriptor_sets.push(VkWriteDescriptorSet {
+												sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+												pNext: null(),
+												dstSet: *descriptor_sets,
+												dstBinding: binding,
+												dstArrayElement: 0,
+												descriptorCount: samplers.len() as u32,
+												descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+												pImageInfo: &image_info[image_info_index],
+												pBufferInfo: null(),
+												pTexelBufferView: null(),
+											});
+										}
+									}
+									VariableType::Image(_) => {
+										let textures: Vec<&TextureForSample> = shader.get_desc_props_textures(&var.var_name, array_info.element_count)?.iter().collect();
+										let image_info_index = image_info.len();
+										for texture in textures.iter() {
+											image_info.push(VkDescriptorImageInfo {
+												sampler: texture.sampler.get_vk_sampler(),
+												imageView: texture.texture.read().unwrap().get_vk_image_view(),
+												imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+											});
+										}
+										write_descriptor_sets.push(VkWriteDescriptorSet {
+											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+											pNext: null(),
+											dstSet: *descriptor_sets,
+											dstBinding: binding,
+											dstArrayElement: 0,
+											descriptorCount: textures.len() as u32,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+											pImageInfo: &image_info[image_info_index],
+											pBufferInfo: null(),
+											pTexelBufferView: null(),
+										});
+									}
+									_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {:?}", var.var_name, var.var_type),
+								}
+							}
+							others => eprintln!("[WARN] Unknown type of uniform constant {}: {others:?}", var.var_name),
+						}
+					}
+					// Ignore other storage classes
+					_ => {}
+				}
+			}
+		}
+		if !write_descriptor_sets.is_empty() {
+			device.vkcore.vkUpdateDescriptorSets(device.get_vk_device(), write_descriptor_sets.len() as u32, write_descriptor_sets.as_ptr(), 0, null())?;
+		}
+		let descriptor_sets = descriptor_sets.release();
 		Ok(Self {
 			device,
 			shader_stage,
