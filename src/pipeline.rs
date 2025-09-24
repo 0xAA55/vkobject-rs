@@ -233,82 +233,52 @@ impl DescriptorSets {
 					layout_bindings.insert(set, HashMap::new());
 					layout_bindings.get_mut(&set).unwrap()
 				};
+				let (total_element_count, var_type) = match &var.var_type {
+					VariableType::Array(array_info) => dig_array(array_info),
+					others => (1, others),
+				};
 				match var.storage_class {
-					StorageClass::UniformConstant => {
-						match &var.var_type {
-							VariableType::Literal(literal_type) => {
-								let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, 1)?.iter().map(|s|s.get_vk_sampler()).collect();
-								if literal_type == "sampler" {
-									set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-										binding,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
-										descriptorCount: 1,
-										stageFlags: shader_stage,
-										pImmutableSamplers: samplers.as_ptr(),
-									});
-								}
-							}
-							VariableType::Image(_) => {
-								let samplers: Vec<VkSampler> = shader.get_desc_props_textures(&var.var_name, 1)?.iter().map(|t|t.sampler.get_vk_sampler()).collect();
+					StorageClass::UniformConstant => match var_type {
+						VariableType::Literal(literal_type) => {
+							if literal_type == "sampler" {
+								let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, total_element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
 								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
 									binding,
-									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-									descriptorCount: 1,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+									descriptorCount: total_element_count as u32,
 									stageFlags: shader_stage,
 									pImmutableSamplers: samplers.as_ptr(),
 								});
+							} else {
+								eprintln!("[WARN] Unknown array type of uniform constant {}: {var_type:?}", var.var_name);
 							}
-							VariableType::Array(array_info) => {
-								match &array_info.element_type {
-									VariableType::Literal(literal_type) => {
-										if literal_type == "sampler" {
-											let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, array_info.element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
-											set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-												binding,
-												descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
-												descriptorCount: array_info.element_count as u32,
-												stageFlags: shader_stage,
-												pImmutableSamplers: samplers.as_ptr(),
-											});
-										}
-									}
-									VariableType::Image(_) => {
-										let samplers: Vec<VkSampler> = shader.get_desc_props_textures(&var.var_name, array_info.element_count)?.iter().map(|t|t.sampler.get_vk_sampler()).collect();
-										set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-											binding,
-											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-											descriptorCount: array_info.element_count as u32,
-											stageFlags: shader_stage,
-											pImmutableSamplers: samplers.as_ptr(),
-										});
-									}
-									_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {:?}", var.var_name, var.var_type),
-								}
-							}
-							others => eprintln!("[WARN] Unknown type of uniform constant {}: {others:?}", var.var_name),
 						}
+						VariableType::Image(_) => {
+							let samplers: Vec<VkSampler> = shader.get_desc_props_textures(&var.var_name, total_element_count)?.iter().map(|t|t.sampler.get_vk_sampler()).collect();
+							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+								binding,
+								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+								descriptorCount: total_element_count as u32,
+								stageFlags: shader_stage,
+								pImmutableSamplers: samplers.as_ptr(),
+							});
+						}
+						_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {var_type:?}", var.var_name),
 					}
 					StorageClass::Uniform => {
-						match &var.var_type {
-							VariableType::Array(array_info) => {
-								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-									binding,
-									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-									descriptorCount: array_info.element_count as u32,
-									stageFlags: shader_stage,
-									pImmutableSamplers: null(),
-								});
-							}
-							_ => {
-								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-									binding,
-									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-									descriptorCount: 1,
-									stageFlags: shader_stage,
-									pImmutableSamplers: null(),
-								});
-							}
-						}
+						let buffer = shader.get_desc_props().get(&var.var_name).ok_or(VulkanError::MissingShaderInputs(var.var_name.clone()))?;
+						let desc_type = match buffer {
+							DescriptorProp::StorageBuffers(_) => VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+							DescriptorProp::UniformBuffers(_) => VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+							others => return Err(VulkanError::ShaderInputTypeMismatch(format!("The storage class of `{}` is uniform, but {others:?} were given.", var.var_name))),
+						};
+						set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+							binding,
+							descriptorType: desc_type,
+							descriptorCount: total_element_count as u32,
+							stageFlags: shader_stage,
+							pImmutableSamplers: null(),
+						});
 					}
 					// Ignore other storage classes
 					_ => {}
