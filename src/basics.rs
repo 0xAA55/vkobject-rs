@@ -789,6 +789,7 @@ impl VulkanSampler {
 			borderColor: VkBorderColor::VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
 			unnormalizedCoordinates: 0,
 		};
+		Self::new(device, &sampler_ci)
 	}
 
 	/// Create the sampler that doesn't do interpolation between pixels
@@ -813,6 +814,7 @@ impl VulkanSampler {
 			borderColor: VkBorderColor::VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
 			unnormalizedCoordinates: 0,
 		};
+		Self::new(device, &sampler_ci)
 	}
 
 	/// Get the `VkSampler`
