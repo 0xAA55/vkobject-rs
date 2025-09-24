@@ -201,7 +201,6 @@ impl WriteDescriptorSets {
 }
 
 /// The descriptor set object
-#[derive(Debug)]
 pub struct DescriptorSets {
 	/// The associated device
 	pub device: Arc<VulkanDevice>,
@@ -570,6 +569,18 @@ impl Clone for DescriptorSets {
 impl Drop for DescriptorSets {
 	fn drop(&mut self) {
 		self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), 1, &self.descriptor_sets).unwrap();
+	}
+}
+
+impl Debug for DescriptorSets {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("DescriptorSets")
+		.field("shader_stage", &self.shader_stage)
+		.field("desc_pool", &self.desc_pool)
+		.field("descriptor_set_layouts", &self.descriptor_set_layouts)
+		.field("descriptor_sets", &self.descriptor_sets)
+		.field("shader", &self.shader)
+		.finish()
 	}
 }
 
