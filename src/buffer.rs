@@ -251,6 +251,6 @@ where
 	}
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
-		self.buffer.upload_staging_buffer(cmdbuf, 0, size_of::<U>() as VkDeviceSize)
+		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
 	}
 }
