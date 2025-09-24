@@ -139,6 +139,9 @@ pub struct VulkanTexture {
 
 	/// The staging buffer for the texture
 	pub staging_buffer: Option<StagingBuffer>,
+
+	/// The mipmap levels
+	mipmap_levels: u32,
 }
 
 impl VulkanTexture {
@@ -186,6 +189,7 @@ impl VulkanTexture {
 		memory.bind_vk_image(*image)?;
 		let mut ret = Self::new_from_existing_image(device, *image, type_size, format)?;
 		ret.memory = Some(memory);
+		ret.mipmap_levels = mipmap_levels;
 		image.release();
 		Ok(ret)
 	}
@@ -239,6 +243,7 @@ impl VulkanTexture {
 			format,
 			memory: None,
 			staging_buffer: None,
+			mipmap_levels: 1,
 		})
 	}
 
@@ -385,6 +390,11 @@ impl VulkanTexture {
 	pub fn get_pitch(&self) -> Result<usize, VulkanError> {
 		let extent = self.type_size.get_extent();
 		Ok(self.get_size()? as usize / extent.depth as usize / extent.height as usize)
+	}
+
+	/// Get the mipmap levels
+	pub fn get_mipmap_levels(&self) -> u32 {
+		self.mipmap_levels
 	}
 
 	/// Create the staging buffer if it not exists
