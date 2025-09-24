@@ -659,8 +659,7 @@ impl Debug for VulkanBuffer {
 
 impl Drop for VulkanBuffer {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
-		vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
+		self.device.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
 	}
 }
 
