@@ -69,6 +69,137 @@ pub(crate) fn dig_array<'a>(array_info: &'a ArrayType) -> (usize, &'a VariableTy
 	(total, var_type)
 }
 
+#[derive(Debug, Clone)]
+pub struct WriteDescriptorSets {
+	pub write_descriptor_sets: Vec<VkWriteDescriptorSet>,
+	pub buffer_info: Vec<VkDescriptorBufferInfo>,
+	pub image_info: Vec<VkDescriptorImageInfo>,
+}
+
+impl WriteDescriptorSets {
+	pub(crate) fn new() -> Self {
+		Self {
+			write_descriptor_sets: Vec::new(),
+			buffer_info: Vec::new(),
+			image_info: Vec::new(),
+		}
+	}
+	fn pass(&mut self, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<bool, VulkanError> {
+		self.buffer_info.clear();
+		self.image_info.clear();
+		self.write_descriptor_sets.clear();
+		let buffer_info_ptr = self.buffer_info.as_ptr();
+		let image_info_ptr = self.image_info.as_ptr();
+		for var in shader.get_vars() {
+			if let VariableLayout::Descriptor{set: _, binding, input_attachment_index: _} = var.layout {
+				match var.storage_class {
+					StorageClass::Uniform => {
+						let total_element_count = match &var.var_type {
+							VariableType::Array(array_info) => {
+								let (count, _) = dig_array(array_info);
+								count
+							}
+							_ => 1,
+						};
+						let uniform_buffers = shader.get_desc_props_uniform_buffers(&var.var_name, total_element_count)?;
+						let buffer_info_index = self.buffer_info.len();
+						for buffer in uniform_buffers.iter() {
+							let buffer_lock = buffer.read().unwrap();
+							self.buffer_info.push(VkDescriptorBufferInfo {
+								buffer: buffer_lock.get_vk_buffer(),
+								offset: 0,
+								range: buffer_lock.get_size(),
+							});
+							drop(buffer_lock);
+						}
+						self.write_descriptor_sets.push(VkWriteDescriptorSet {
+							sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+							pNext: null(),
+							dstSet: descriptor_sets,
+							dstBinding: binding,
+							dstArrayElement: 0,
+							descriptorCount: uniform_buffers.len() as u32,
+							descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+							pImageInfo: null(),
+							pBufferInfo: &self.buffer_info[buffer_info_index],
+							pTexelBufferView: null(),
+						});
+					}
+					StorageClass::UniformConstant => {
+						let (total_element_count, var_type);
+						match &var.var_type {
+							VariableType::Array(array_info) => (total_element_count, var_type) = dig_array(array_info),
+							_ => (total_element_count, var_type) = (1, &var.var_type),
+						}
+						match var_type {
+							VariableType::Literal(literal_type) => {
+								if literal_type == "sampler" {
+									let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, total_element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
+									let image_info_index = self.image_info.len();
+									self.image_info.push(VkDescriptorImageInfo {
+										sampler: samplers[0],
+										imageView: null(),
+										imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+									});
+									self.write_descriptor_sets.push(VkWriteDescriptorSet {
+										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+										pNext: null(),
+										dstSet: descriptor_sets,
+										dstBinding: binding,
+										dstArrayElement: 0,
+										descriptorCount: 1,
+										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+										pImageInfo: &self.image_info[image_info_index],
+										pBufferInfo: null(),
+										pTexelBufferView: null(),
+									});
+								}
+							}
+							VariableType::Image(_) => {
+								let textures: Vec<&TextureForSample> = shader.get_desc_props_textures(&var.var_name, total_element_count)?.iter().collect();
+								let image_info_index = self.image_info.len();
+								self.image_info.push(VkDescriptorImageInfo {
+									sampler: textures[0].sampler.get_vk_sampler(),
+									imageView: textures[0].texture.read().unwrap().get_vk_image_view(),
+									imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+								});
+								self.write_descriptor_sets.push(VkWriteDescriptorSet {
+									sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+									pNext: null(),
+									dstSet: descriptor_sets,
+									dstBinding: binding,
+									dstArrayElement: 0,
+									descriptorCount: 1,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
+									pImageInfo: &self.image_info[image_info_index],
+									pBufferInfo: null(),
+									pTexelBufferView: null(),
+								});
+							}
+							others => eprintln!("[WARN] Unknown type of uniform constant {}: {others:?}", var.var_name),
+						}
+					}
+					// Ignore other storage classes
+					_ => {}
+				}
+			}
+		}
+		if buffer_info_ptr != self.buffer_info.as_ptr() || image_info_ptr != self.image_info.as_ptr() {
+			Ok(false)
+		} else {
+			Ok(true)
+		}
+	}
+	pub fn build(device: Arc<VulkanDevice>, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<(), VulkanError> {
+		let mut ret = Self::new();
+		while !ret.pass(descriptor_sets, shader)? {}
+		if !ret.write_descriptor_sets.is_empty() {
+			device.vkcore.vkUpdateDescriptorSets(device.get_vk_device(), ret.write_descriptor_sets.len() as u32, ret.write_descriptor_sets.as_ptr(), 0, null())?;
+		}
+		Ok(())
+	}
+}
+
 /// The descriptor set object
 #[derive(Debug)]
 pub struct DescriptorSets {
