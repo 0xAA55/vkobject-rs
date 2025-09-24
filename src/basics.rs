@@ -597,6 +597,88 @@ impl Drop for MappedMemory<'_> {
 	}
 }
 
+/// The buffer view range
+#[derive(Debug, Clone, Copy)]
+pub struct BufferViewRange {
+	/// The format of the buffer view
+	pub format: VkFormat,
+
+	/// The offset of the view
+	pub offset: VkDeviceSize,
+
+	/// The range of the view
+	pub range: VkDeviceSize,
+}
+
+/// The buffer view object for a buffer
+pub struct VulkanBufferView {
+	/// The `VulkanDevice` is the associated device
+	pub device: Arc<VulkanDevice>,
+
+	/// The `VkBufferView`
+	buffer_view: VkBufferView,
+
+	/// The range of the buffer view
+	range: BufferViewRange,
+}
+
+impl VulkanBufferView {
+	/// Create the `VulkanBufferView` with a specific offset and range
+	pub fn new_partial(buffer: &VulkanBuffer, range: &BufferViewRange) -> Result<Self, VulkanError> {
+		let buffer_view_ci = VkBufferViewCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			buffer: buffer.get_vk_buffer(),
+			format: range.format,
+			offset: range.offset,
+			range: range.range,
+		};
+		let mut buffer_view = null();
+		buffer.device.vkcore.vkCreateBufferView(buffer.device.get_vk_device(), &buffer_view_ci, null(), &mut buffer_view)?;
+		Ok(Self {
+			device: buffer.device.clone(),
+			buffer_view,
+			range: *range,
+		})
+	}
+
+	/// Create the `VulkanBufferView` that covers the whole buffer
+	pub fn new(buffer: &VulkanBuffer, format: VkFormat) -> Result<Self, VulkanError> {
+		let range = BufferViewRange {
+			format,
+			offset: 0,
+			range: buffer.get_size(),
+		};
+		Self::new_partial(buffer, &range)
+	}
+
+	/// Get the `VkBufferView` handle
+	pub(crate) fn get_vk_buffer_view(&self) -> VkBufferView {
+		self.buffer_view
+	}
+
+	/// Get the range of the view
+	pub fn get_range(&self) -> &BufferViewRange {
+		&self.range
+	}
+}
+
+impl Debug for VulkanBufferView {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		f.debug_struct("VulkanBufferView")
+		.field("buffer_view", &self.buffer_view)
+		.field("range", &self.range)
+		.finish()
+	}
+}
+
+impl Drop for VulkanBufferView {
+	fn drop(&mut self) {
+		self.device.vkcore.vkDestroyBufferView(self.device.get_vk_device(), self.buffer_view, null()).unwrap();
+	}
+}
+
 /// The buffer object that temporarily stores the `VkBuffer`
 pub struct VulkanBuffer {
 	/// The `VulkanDevice` is the associated device
