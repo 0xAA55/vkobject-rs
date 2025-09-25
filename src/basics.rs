@@ -770,7 +770,7 @@ pub struct StagingBuffer {
 	pub memory: VulkanMemory,
 
 	/// The buffer
-	pub buffer: VulkanBuffer,
+	pub buffer: Arc<VulkanBuffer>,
 
 	/// The address of the data
 	pub(crate) address: *mut c_void,
@@ -779,7 +779,7 @@ pub struct StagingBuffer {
 impl StagingBuffer {
 	/// Create a new staging buffer
 	pub fn new(device: Arc<VulkanDevice>, size: VkDeviceSize) -> Result<Self, VulkanError> {
-		let buffer = VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as VkBufferUsageFlags)?;
+		let buffer = Arc::new(VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as VkBufferUsageFlags)?);
 		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as VkMemoryPropertyFlags |
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?;
