@@ -75,6 +75,7 @@ pub struct WriteDescriptorSets {
 	pub write_descriptor_sets: Vec<VkWriteDescriptorSet>,
 	pub buffer_info: Vec<VkDescriptorBufferInfo>,
 	pub image_info: Vec<VkDescriptorImageInfo>,
+	pub texel_buffer_views: Vec<VkBufferView>,
 }
 
 impl WriteDescriptorSets {
@@ -83,6 +84,7 @@ impl WriteDescriptorSets {
 			write_descriptor_sets: Vec::new(),
 			buffer_info: Vec::new(),
 			image_info: Vec::new(),
+			texel_buffer_views: Vec::new(),
 		}
 	}
 	fn pass(&mut self, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<bool, VulkanError> {
