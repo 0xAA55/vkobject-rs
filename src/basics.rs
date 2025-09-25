@@ -147,6 +147,9 @@ impl Drop for VulkanPipelineCache {
 	}
 }
 
+unsafe impl Send for VulkanPipelineCache {}
+unsafe impl Sync for VulkanPipelineCache {}
+
 /// The wrapper for the `VkSemaphore`
 pub struct VulkanSemaphore {
 	/// The `VulkanDevice` is the associated device
@@ -753,6 +756,9 @@ impl Drop for VulkanBuffer {
 		self.device.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
 	}
 }
+
+unsafe impl Send for VulkanBuffer {}
+unsafe impl Sync for VulkanBuffer {}
 
 /// The region of a buffer
 #[derive(Debug)]
