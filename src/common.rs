@@ -8,7 +8,7 @@ use std::{
 	hash::{Hash, Hasher},
 	io,
 	iter::FromIterator,
-	mem::{forget, size_of},
+	mem::{forget, size_of, size_of_val},
 	ops::{Deref, DerefMut},
 	slice,
 	path::PathBuf,
@@ -184,9 +184,8 @@ pub fn load_cache<T: Clone + Copy + Sized>(cache_usage: &str, extension: Option<
 
 pub fn save_cache<T: Clone + Copy + Sized>(cache_usage: &str, extension: Option<&str>, data: &[T]) -> io::Result<()> {
 	let path = get_hashed_cache_file_path(cache_usage, extension);
-	let item_size = size_of::<T>();
 	let ptr = data.as_ptr() as *const u8;
-	let len = data.len() * item_size;
+	let len = size_of_val(data);
 	let data: &[u8] = unsafe {slice::from_raw_parts(ptr, len)};
 	write(&path, data)
 }

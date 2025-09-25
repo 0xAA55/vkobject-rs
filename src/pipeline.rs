@@ -54,16 +54,19 @@ impl Drop for DescriptorSetLayout {
 pub(crate) fn through_array<'a>(array_info: &'a ArrayType, dimensions: &mut Vec<usize>) -> &'a VariableType {
 	dimensions.push(array_info.element_count);
 	if let VariableType::Array(sub_array_info) = &array_info.element_type {
-		through_array(&sub_array_info, dimensions)
+		through_array(sub_array_info, dimensions)
 	} else {
 		&array_info.element_type
 	}
 }
-pub(crate) fn dig_array<'a>(array_info: &'a ArrayType) -> (usize, &'a VariableType) {
+
+pub(crate) fn dig_array(array_info: &ArrayType) -> (usize, &VariableType) {
 	let mut dimensions = Vec::new();
 	let var_type = through_array(array_info, &mut dimensions);
 	let mut total = 1;
-	for dim in dimensions.iter() {total *= dim;}
+	for dim in dimensions.iter() {
+		total *= dim;
+	}
 	(total, var_type)
 }
 
@@ -923,7 +926,7 @@ impl Pipeline {
 			flags: 0,
 			stage,
 			module: shader.get_vk_shader(),
-			pName: "main\0".as_ptr() as *const i8,
+			pName: c"main".as_ptr(),
 			pSpecializationInfo: null(),
 		}).collect();
 		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
@@ -937,7 +940,7 @@ impl Pipeline {
 		for (name, var) in mesh_lock.mesh.iter_vertex_buffer_struct_members() {
 			if let Some(info) = type_id_to_info.get(&var.type_id()) {
 				mesh_vertex_inputs.insert(name.to_string(), MemberInfo {
-					name: &name,
+					name,
 					type_name: info.type_name,
 					row_format: info.row_format,
 					num_rows: info.num_rows,
@@ -954,7 +957,7 @@ impl Pipeline {
 			for (name, var) in instance_member_iter {
 				if let Some(info) = type_id_to_info.get(&var.type_id()) {
 					mesh_instance_inputs.insert(name.to_string(), MemberInfo {
-						name: &name,
+						name,
 						type_name: info.type_name,
 						row_format: info.row_format,
 						num_rows: info.num_rows,

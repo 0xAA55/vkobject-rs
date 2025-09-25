@@ -567,7 +567,7 @@ where
 	}
 
 	fn get_size(&self) -> usize {
-		self.capacity as usize * size_of::<T>()
+		self.capacity * size_of::<T>()
 	}
 
 	fn get_staging_buffer_address(&self) -> *mut c_void {
