@@ -701,10 +701,10 @@ pub enum DescriptorProp {
 	UniformBuffers(Vec<RwLock<Box<dyn GenericUniformBuffer>>>),
 
 	/// The props for the storage texel buffer
-	StorageTexelBuffers(Vec<RwLock<Box<dyn GenericTexelBuffer>>>),
+	StorageTexelBuffers(Vec<VulkanBufferView>),
 
 	/// The props for the uniform texel buffers
-	UniformTexelBuffers(Vec<RwLock<Box<dyn GenericTexelBuffer>>>),
+	UniformTexelBuffers(Vec<VulkanBufferView>),
 }
 
 impl DescriptorProp {
@@ -745,7 +745,7 @@ impl DescriptorProp {
 	}
 
 	/// Get uniform texel buffers
-	pub fn get_uniform_texel_buffers(&self) -> Result<&[RwLock<Box<dyn GenericTexelBuffer>>], VulkanError> {
+	pub fn get_uniform_texel_buffers(&self) -> Result<&[VulkanBufferView], VulkanError> {
 		if let Self::UniformTexelBuffers(uniform_buffers) = self {
 			Ok(uniform_buffers)
 		} else {
@@ -754,7 +754,7 @@ impl DescriptorProp {
 	}
 
 	/// Get storage texel buffers
-	pub fn get_storage_texel_buffers(&self) -> Result<&[RwLock<Box<dyn GenericTexelBuffer>>], VulkanError> {
+	pub fn get_storage_texel_buffers(&self) -> Result<&[VulkanBufferView], VulkanError> {
 		if let Self::StorageTexelBuffers(uniform_buffers) = self {
 			Ok(uniform_buffers)
 		} else {
@@ -799,7 +799,7 @@ impl DescriptorProp {
 	}
 
 	/// Unwrap for uniform texel buffers
-	pub fn unwrap_uniform_texel_buffers(&self) -> &[RwLock<Box<dyn GenericTexelBuffer>>] {
+	pub fn unwrap_uniform_texel_buffers(&self) -> &[VulkanBufferView] {
 		if let Self::UniformTexelBuffers(uniform_texel_buffers) = self {
 			uniform_texel_buffers
 		} else {
@@ -808,7 +808,7 @@ impl DescriptorProp {
 	}
 
 	/// Unwrap for storage texel buffers
-	pub fn unwrap_storage_texel_buffers(&self) -> &[RwLock<Box<dyn GenericTexelBuffer>>] {
+	pub fn unwrap_storage_texel_buffers(&self) -> &[VulkanBufferView] {
 		if let Self::StorageTexelBuffers(storage_texel_buffers) = self {
 			storage_texel_buffers
 		} else {
@@ -1099,7 +1099,7 @@ impl VulkanShader {
 	}
 
 	/// Get specific number of uniform texel buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_uniform_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
+	pub fn get_desc_props_uniform_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[VulkanBufferView], VulkanError> {
 		let name = name.to_string();
 		let uniform_texel_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_uniform_texel_buffers()?;
 		if uniform_texel_buffers.len() != desired_count {
@@ -1109,7 +1109,7 @@ impl VulkanShader {
 	}
 
 	/// Get specific number of uniform texel buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_storage_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
+	pub fn get_desc_props_storage_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[VulkanBufferView], VulkanError> {
 		let name = name.to_string();
 		let storage_texel_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_storage_texel_buffers()?;
 		if storage_texel_buffers.len() != desired_count {
