@@ -51,6 +51,8 @@ impl Drop for DescriptorSetLayout {
 	}
 }
 
+/// Get through an array to know how many dimensions it is, and the final type of it.
+/// * This function runs recursively, it could consume stack memory as much as the number of the array dimensions.
 pub(crate) fn through_array<'a>(array_info: &'a ArrayType, dimensions: &mut Vec<usize>) -> &'a VariableType {
 	dimensions.push(array_info.element_count);
 	if let VariableType::Array(sub_array_info) = &array_info.element_type {
@@ -60,6 +62,8 @@ pub(crate) fn through_array<'a>(array_info: &'a ArrayType, dimensions: &mut Vec<
 	}
 }
 
+/// Dig through a multi-dimensional array and get the total size, the element type of the array.
+/// * This function calls `through_array()` to dig through the array, which consumes stack memory as much as the number of the array dimensions.
 pub(crate) fn dig_array(array_info: &ArrayType) -> (usize, &VariableType) {
 	let mut dimensions = Vec::new();
 	let var_type = through_array(array_info, &mut dimensions);
@@ -70,6 +74,8 @@ pub(crate) fn dig_array(array_info: &ArrayType) -> (usize, &VariableType) {
 	(total, var_type)
 }
 
+/// The `WriteDescriptorSets` is to tell the pipeline how are the data get into the pipeline.
+/// * e.g. uniform buffers. texture inputs, mesh vertex inputs, etc.
 #[derive(Debug, Clone)]
 pub struct WriteDescriptorSets {
 	pub write_descriptor_sets: Vec<VkWriteDescriptorSet>,
@@ -79,6 +85,7 @@ pub struct WriteDescriptorSets {
 }
 
 impl WriteDescriptorSets {
+	/// Create a new `WriteDescriptorSets`
 	pub(crate) fn new() -> Self {
 		Self {
 			write_descriptor_sets: Vec::new(),
@@ -87,6 +94,8 @@ impl WriteDescriptorSets {
 			texel_buffer_views: Vec::new(),
 		}
 	}
+
+	/// Pass through all of the structure tree, use `pass_for_cap = true` to calculate and allocate the needed size of the memory, and use `pass_for_cap = false` to actually generate the structures, passing pointers of structures in the pre-allocated memory.
 	fn pass(&mut self, descriptor_sets: VkDescriptorSet, shader: &VulkanShader, pass_for_cap: bool) -> Result<bool, VulkanError> {
 		self.buffer_info.clear();
 		self.image_info.clear();
@@ -351,6 +360,8 @@ impl WriteDescriptorSets {
 			Ok(true)
 		}
 	}
+
+	/// Build inputs to the pipeline
 	pub fn build(device: Arc<VulkanDevice>, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<(), VulkanError> {
 		let mut ret = Self::new();
 		ret.pass(descriptor_sets, shader, true)?;
