@@ -62,10 +62,8 @@ pub(crate) fn through_array<'a>(array_info: &'a ArrayType, dimensions: &mut Vec<
 pub(crate) fn dig_array<'a>(array_info: &'a ArrayType) -> (usize, &'a VariableType) {
 	let mut dimensions = Vec::new();
 	let var_type = through_array(array_info, &mut dimensions);
-	let mut total = 0;
-	for dim in dimensions.iter() {
-		total += dim;
-	}
+	let mut total = 1;
+	for dim in dimensions.iter() {total *= dim;}
 	(total, var_type)
 }
 
