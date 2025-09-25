@@ -87,7 +87,7 @@ impl WriteDescriptorSets {
 			texel_buffer_views: Vec::new(),
 		}
 	}
-	fn pass(&mut self, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<bool, VulkanError> {
+	fn pass(&mut self, descriptor_sets: VkDescriptorSet, shader: &VulkanShader, pass_for_cap: bool) -> Result<bool, VulkanError> {
 		self.buffer_info.clear();
 		self.image_info.clear();
 		self.write_descriptor_sets.clear();
@@ -203,7 +203,8 @@ impl WriteDescriptorSets {
 	}
 	pub fn build(device: Arc<VulkanDevice>, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<(), VulkanError> {
 		let mut ret = Self::new();
-		while !ret.pass(descriptor_sets, shader)? {}
+		ret.pass(descriptor_sets, shader, true)?;
+		assert!(ret.pass(descriptor_sets, shader, false)?, "The vector pointer changed while pushing data into it, but its capacity should be enough not to trigger the internal memory reallocation. Redesign of the code is needed.");
 		if !ret.write_descriptor_sets.is_empty() {
 			device.vkcore.vkUpdateDescriptorSets(device.get_vk_device(), ret.write_descriptor_sets.len() as u32, ret.write_descriptor_sets.as_ptr(), 0, null())?;
 		}
