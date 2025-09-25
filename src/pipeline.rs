@@ -412,7 +412,7 @@ impl DescriptorSets {
 									pImmutableSamplers: samplers.as_ptr(),
 								});
 							} else {
-								eprintln!("[WARN] Unknown array type of uniform constant {}: {var_type:?}", var.var_name);
+								eprintln!("[WARN] Unknown type of uniform constant {}: {var_type:?}", var.var_name);
 							}
 						}
 						VariableType::Image(_) => {
@@ -425,7 +425,7 @@ impl DescriptorSets {
 								pImmutableSamplers: samplers.as_ptr(),
 							});
 						}
-						_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {var_type:?}", var.var_name),
+						_ => eprintln!("[WARN] Unknown type of uniform constant {}: {var_type:?}", var.var_name),
 					}
 					StorageClass::Uniform => match var_type {
 						VariableType::Struct(_) => {
