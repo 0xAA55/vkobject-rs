@@ -92,23 +92,31 @@ impl WriteDescriptorSets {
 			if let VariableLayout::Descriptor{set: _, binding, input_attachment_index: _} = var.layout {
 				match var.storage_class {
 					StorageClass::Uniform => {
+						let mut dims: Vec<usize> = Vec::new();
 						let total_element_count = match &var.var_type {
 							VariableType::Array(array_info) => {
-								let (count, _) = dig_array(array_info);
-								count
+								through_array(&array_info, &mut dims);
+								let mut total = 1;
+								for dim in dims.iter() {total *= dim;}
+								total
 							}
 							_ => 1,
 						};
-						let uniform_buffers = shader.get_desc_props_uniform_buffers(&var.var_name, total_element_count)?;
+						let (buffers, desc_type, type_str) = match shader.get_desc_props().get(&var.var_name).ok_or(VulkanError::MissingShaderInputs(var.var_name.clone()))? {
+							DescriptorProp::StorageBuffers(b) => (b.iter().map(|b|{let b = b.read().unwrap(); (b.get_vk_buffer(), b.get_size())}).collect::<Vec<_>>(), VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER, "storage"),
+							DescriptorProp::UniformBuffers(b) => (b.iter().map(|b|{let b = b.read().unwrap(); (b.get_vk_buffer(), b.get_size())}).collect::<Vec<_>>(), VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER, "uniform"),
+							others => return Err(VulkanError::ShaderInputTypeMismatch(format!("The storage class of `{}` is uniform, but {others:?} were given.", var.var_name))),
+						};
+						if buffers.len() != total_element_count {
+							return Err(VulkanError::ShaderInputLengthMismatch(format!("The {type_str} buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.", var.var_type, dims.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join(""), buffers.len())));
+						}
 						let buffer_info_index = self.buffer_info.len();
-						for buffer in uniform_buffers.iter() {
-							let buffer_lock = buffer.read().unwrap();
+						for (buffer, range) in buffers.iter() {
 							self.buffer_info.push(VkDescriptorBufferInfo {
-								buffer: buffer_lock.get_vk_buffer(),
+								buffer: *buffer,
 								offset: 0,
-								range: buffer_lock.get_size(),
+								range: *range,
 							});
-							drop(buffer_lock);
 						}
 						self.write_descriptor_sets.push(VkWriteDescriptorSet {
 							sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -116,8 +124,8 @@ impl WriteDescriptorSets {
 							dstSet: descriptor_sets,
 							dstBinding: binding,
 							dstArrayElement: 0,
-							descriptorCount: uniform_buffers.len() as u32,
-							descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+							descriptorCount: buffers.len() as u32,
+							descriptorType: desc_type,
 							pImageInfo: null(),
 							pBufferInfo: &self.buffer_info[buffer_info_index],
 							pTexelBufferView: null(),
