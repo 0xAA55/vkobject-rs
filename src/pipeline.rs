@@ -427,20 +427,47 @@ impl DescriptorSets {
 						}
 						_ => eprintln!("[WARN] Unknown array type of uniform constant {}: {var_type:?}", var.var_name),
 					}
-					StorageClass::Uniform => {
-						let buffer = shader.get_desc_props().get(&var.var_name).ok_or(VulkanError::MissingShaderInputs(var.var_name.clone()))?;
-						let desc_type = match buffer {
-							DescriptorProp::StorageBuffers(_) => VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-							DescriptorProp::UniformBuffers(_) => VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-							others => return Err(VulkanError::ShaderInputTypeMismatch(format!("The storage class of `{}` is uniform, but {others:?} were given.", var.var_name))),
-						};
-						set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-							binding,
-							descriptorType: desc_type,
-							descriptorCount: total_element_count as u32,
-							stageFlags: shader_stage,
-							pImmutableSamplers: null(),
-						});
+					StorageClass::Uniform => match var_type {
+						VariableType::Struct(_) => {
+							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+								binding,
+								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+								descriptorCount: total_element_count as u32,
+								stageFlags: shader_stage,
+								pImmutableSamplers: null(),
+							});
+						}
+						VariableType::Image(_) => {
+							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+								binding,
+								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+								descriptorCount: total_element_count as u32,
+								stageFlags: shader_stage,
+								pImmutableSamplers: null(),
+							});
+						}
+						_ => eprintln!("[WARN] Unknown of uniform {}: {var_type:?}", var.var_name),
+					}
+					StorageClass::StorageBuffer => match var_type {
+						VariableType::Struct(_) => {
+							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+								binding,
+								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+								descriptorCount: total_element_count as u32,
+								stageFlags: shader_stage,
+								pImmutableSamplers: null(),
+							});
+						}
+						VariableType::Image(_) => {
+							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+								binding,
+								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+								descriptorCount: total_element_count as u32,
+								stageFlags: shader_stage,
+								pImmutableSamplers: null(),
+							});
+						}
+						_ => eprintln!("[WARN] Unknown of storage buffer {}: {var_type:?}", var.var_name),
 					}
 					// Ignore other storage classes
 					_ => {}
