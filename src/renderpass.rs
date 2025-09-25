@@ -26,7 +26,7 @@ impl VulkanRenderPassAttachment {
 	}
 
 	/// Convert to `VkAttachmentDescription`
-	pub(crate) fn to_attachment_desc(&self) -> VkAttachmentDescription {
+	pub(crate) fn get_attachment_desc(&self) -> VkAttachmentDescription {
 		VkAttachmentDescription {
 			flags: 0,
 			format: self.format,
@@ -57,7 +57,7 @@ impl VulkanRenderPass {
 	/// Create the `VulkanRenderPass`
 	pub fn new(device: Arc<VulkanDevice>, attachments: &[VulkanRenderPassAttachment]) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
-		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.to_attachment_desc()).collect();
+		let attachment_descs: Vec<VkAttachmentDescription> = attachments.iter().map(|a|a.get_attachment_desc()).collect();
 		let color_attachment_refs: Vec<VkAttachmentReference> = attachments.iter().enumerate().filter_map(|(i, a)|
 			if !a.is_depth_stencil {
 				Some(VkAttachmentReference {
