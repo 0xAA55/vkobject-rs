@@ -616,6 +616,8 @@ pub struct VulkanBufferView {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
+	/// The buffer
+	buffer: Arc<VulkanBuffer>,
 	/// The `VkBufferView`
 	buffer_view: VkBufferView,
 
@@ -625,7 +627,7 @@ pub struct VulkanBufferView {
 
 impl VulkanBufferView {
 	/// Create the `VulkanBufferView` with a specific offset and range
-	pub fn new_partial(buffer: &VulkanBuffer, range: &BufferViewRange) -> Result<Self, VulkanError> {
+	pub fn new_partial(buffer: Arc<VulkanBuffer>, range: &BufferViewRange) -> Result<Self, VulkanError> {
 		let buffer_view_ci = VkBufferViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_BUFFER_VIEW_CREATE_INFO,
 			pNext: null(),
@@ -639,13 +641,14 @@ impl VulkanBufferView {
 		buffer.device.vkcore.vkCreateBufferView(buffer.device.get_vk_device(), &buffer_view_ci, null(), &mut buffer_view)?;
 		Ok(Self {
 			device: buffer.device.clone(),
+			buffer: buffer.clone(),
 			buffer_view,
 			range: *range,
 		})
 	}
 
 	/// Create the `VulkanBufferView` that covers the whole buffer
-	pub fn new(buffer: &VulkanBuffer, format: VkFormat) -> Result<Self, VulkanError> {
+	pub fn new(buffer: Arc<VulkanBuffer>, format: VkFormat) -> Result<Self, VulkanError> {
 		let range = BufferViewRange {
 			format,
 			offset: 0,
@@ -668,6 +671,7 @@ impl VulkanBufferView {
 impl Debug for VulkanBufferView {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanBufferView")
+		.field("buffer", &self.buffer)
 		.field("buffer_view", &self.buffer_view)
 		.field("range", &self.range)
 		.finish()
