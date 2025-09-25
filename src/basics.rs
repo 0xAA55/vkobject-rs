@@ -3,7 +3,6 @@
 #![allow(clippy::too_many_arguments)]
 use crate::prelude::*;
 use std::{
-	collections::HashMap,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	io::{self, ErrorKind},
@@ -618,6 +617,7 @@ pub struct VulkanBufferView {
 
 	/// The buffer
 	buffer: Arc<VulkanBuffer>,
+
 	/// The `VkBufferView`
 	buffer_view: VkBufferView,
 
@@ -694,9 +694,6 @@ pub struct VulkanBuffer {
 
 	/// The handle to the buffer
 	buffer: VkBuffer,
-
-	/// The buffer views
-	pub buffer_views: HashMap<String, Vec<VulkanBufferView>>,
 }
 
 impl VulkanBuffer {
@@ -720,7 +717,6 @@ impl VulkanBuffer {
 			device,
 			size,
 			buffer,
-			buffer_views: HashMap::new(),
 		})
 	}
 
@@ -748,14 +744,12 @@ impl Debug for VulkanBuffer {
 		f.debug_struct("VulkanBuffer")
 		.field("size", &self.size)
 		.field("buffer", &self.buffer)
-		.field("buffer_views", &self.buffer_views)
 		.finish()
 	}
 }
 
 impl Drop for VulkanBuffer {
 	fn drop(&mut self) {
-		self.buffer_views.clear();
 		self.device.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
 	}
 }
