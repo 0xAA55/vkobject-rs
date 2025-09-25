@@ -694,11 +694,17 @@ pub enum DescriptorProp {
 	/// The props for the image
 	Images(Vec<TextureForSample>),
 
-	/// The props for storage buffer
+	/// The props for the storage buffer
 	StorageBuffers(Vec<RwLock<Box<dyn GenericStorageBuffer>>>),
 
 	/// The props for the uniform buffers
 	UniformBuffers(Vec<RwLock<Box<dyn GenericUniformBuffer>>>),
+
+	/// The props for the storage texel buffer
+	StorageTexelBuffers(Vec<RwLock<Box<dyn GenericTexelBuffer>>>),
+
+	/// The props for the uniform texel buffers
+	UniformTexelBuffers(Vec<RwLock<Box<dyn GenericTexelBuffer>>>),
 }
 
 impl DescriptorProp {
@@ -738,6 +744,24 @@ impl DescriptorProp {
 		}
 	}
 
+	/// Get uniform texel buffers
+	pub fn get_uniform_texel_buffers(&self) -> Result<&[RwLock<Box<dyn GenericTexelBuffer>>], VulkanError> {
+		if let Self::UniformTexelBuffers(uniform_buffers) = self {
+			Ok(uniform_buffers)
+		} else {
+			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::UniformTexelBuffers`, got {self:?}")))
+		}
+	}
+
+	/// Get storage texel buffers
+	pub fn get_storage_texel_buffers(&self) -> Result<&[RwLock<Box<dyn GenericTexelBuffer>>], VulkanError> {
+		if let Self::StorageTexelBuffers(uniform_buffers) = self {
+			Ok(uniform_buffers)
+		} else {
+			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::StorageTexelBuffers`, got {self:?}")))
+		}
+	}
+
 	/// Unwrap for samplers
 	pub fn unwrap_samplers(&self) -> &[Arc<VulkanSampler>] {
 		if let Self::Samplers(samplers) = self {
@@ -774,6 +798,24 @@ impl DescriptorProp {
 		}
 	}
 
+	/// Unwrap for uniform texel buffers
+	pub fn unwrap_uniform_texel_buffers(&self) -> &[RwLock<Box<dyn GenericTexelBuffer>>] {
+		if let Self::UniformTexelBuffers(uniform_texel_buffers) = self {
+			uniform_texel_buffers
+		} else {
+			panic!("Expected `DescriptorProp::UniformTexelBuffers`, got {self:?}")
+		}
+	}
+
+	/// Unwrap for storage texel buffers
+	pub fn unwrap_storage_texel_buffers(&self) -> &[RwLock<Box<dyn GenericTexelBuffer>>] {
+		if let Self::StorageTexelBuffers(storage_texel_buffers) = self {
+			storage_texel_buffers
+		} else {
+			panic!("Expected `DescriptorProp::StorageTexelBuffers`, got {self:?}")
+		}
+	}
+
 	/// Check if it is samplers
 	pub fn is_samplers(&self) -> bool {
 		matches!(self, Self::Samplers(_))
@@ -784,14 +826,24 @@ impl DescriptorProp {
 		matches!(self, Self::Images(_))
 	}
 
-	/// Check if it is samplers
+	/// Check if it is uniform buffers
 	pub fn is_uniform_buffers(&self) -> bool {
 		matches!(self, Self::UniformBuffers(_))
 	}
 
-	/// Check if it is samplers
+	/// Check if it is storage buffers
 	pub fn is_storage_buffers(&self) -> bool {
 		matches!(self, Self::StorageBuffers(_))
+	}
+
+	/// Check if it is uniform texel buffers
+	pub fn is_uniform_texel_buffers(&self) -> bool {
+		matches!(self, Self::UniformTexelBuffers(_))
+	}
+
+	/// Check if it is storage texel buffers
+	pub fn is_storage_texel_buffers(&self) -> bool {
+		matches!(self, Self::StorageTexelBuffers(_))
 	}
 }
 
@@ -1044,6 +1096,26 @@ impl VulkanShader {
 			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} storage buffer(s) is needed for `{}`, but {} storage buffer(s) were provided.", name, storage_buffers.len())));
 		}
 		Ok(storage_buffers)
+	}
+
+	/// Get specific number of uniform texel buffers from a `HashMap<String, DescriptorProp>`
+	pub fn get_desc_props_uniform_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
+		let name = name.to_string();
+		let uniform_texel_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_uniform_texel_buffers()?;
+		if uniform_texel_buffers.len() != desired_count {
+			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} uniform buffer(s) is needed for `{}`, but {} uniform buffer(s) were provided.", name, uniform_texel_buffers.len())));
+		}
+		Ok(uniform_texel_buffers)
+	}
+
+	/// Get specific number of uniform texel buffers from a `HashMap<String, DescriptorProp>`
+	pub fn get_desc_props_storage_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
+		let name = name.to_string();
+		let storage_texel_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_storage_texel_buffers()?;
+		if storage_texel_buffers.len() != desired_count {
+			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} storage buffer(s) is needed for `{}`, but {} storage buffer(s) were provided.", name, storage_texel_buffers.len())));
+		}
+		Ok(storage_texel_buffers)
 	}
 }
 
