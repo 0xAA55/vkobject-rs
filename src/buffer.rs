@@ -152,6 +152,16 @@ impl Buffer {
 		let staging_buffer = self.staging_buffer.as_ref().unwrap();
 		staging_buffer.memory.map(offset, size)
 	}
+
+	/// Create a buffer view
+	pub fn create_buffer_view(&self, format: VkFormat) -> Result<VulkanBufferView, VulkanError> {
+		VulkanBufferView::new(self.buffer.clone(), format)
+	}
+
+	/// Create a buffer view
+	pub fn create_buffer_view_partial(&self, range: &BufferViewRange) -> Result<VulkanBufferView, VulkanError> {
+		VulkanBufferView::new_partial(self.buffer.clone(), range)
+	}
 }
 
 impl Clone for Buffer {
@@ -338,5 +348,3 @@ where
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
 	}
 }
-
-
