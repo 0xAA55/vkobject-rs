@@ -32,6 +32,7 @@ pub enum VulkanError {
 	MissingShaderInputs(String),
 	ShaderInputTypeMismatch(String),
 	ShaderInputLengthMismatch(String),
+	ShaderInputTypeUnsupported(String),
 }
 
 impl From<VkError> for VulkanError {

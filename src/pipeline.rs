@@ -125,7 +125,7 @@ impl WriteDescriptorSets {
 									num_texel_buffer_views += total_element_count;
 									num_wds += 1;
 								}
-								others => eprintln!("[WARN] Unknown type of uniform {}: {others:?}", var.var_name),
+								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
 							}
 						} else {
 							match var_type {
@@ -186,7 +186,7 @@ impl WriteDescriptorSets {
 										pTexelBufferView: &self.texel_buffer_views[texel_buffer_views_index],
 									});
 								}
-								others => eprintln!("[WARN] Unknown type of uniform {}: {others:?}", var.var_name),
+								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
 							}
 						}
 					}
@@ -201,7 +201,7 @@ impl WriteDescriptorSets {
 									num_texel_buffer_views += total_element_count;
 									num_wds += 1;
 								}
-								others => eprintln!("[WARN] Unknown type of storage buffer {}: {others:?}", var.var_name),
+								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
 							}
 						} else {
 							match var_type {
@@ -262,7 +262,7 @@ impl WriteDescriptorSets {
 										pTexelBufferView: &self.texel_buffer_views[texel_buffer_views_index],
 									});
 								}
-								others => eprintln!("[WARN] Unknown type of storage buffer {}: {others:?}", var.var_name),
+								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
 							}
 						}
 					}
@@ -298,7 +298,7 @@ impl WriteDescriptorSets {
 										});
 									}
 								} else {
-									eprintln!("[WARN] Unknown type of uniform constant input: `{literal_type}`.");
+									return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant input {literal_type}.")));
 								}
 							}
 							VariableType::Image(_) => {
@@ -329,7 +329,7 @@ impl WriteDescriptorSets {
 									});
 								}
 							}
-							others => eprintln!("[WARN] Unknown type of uniform constant {}: {others:?}", var.var_name),
+							others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {others:?}", var.var_name))),
 						}
 					}
 					// Ignore other storage classes
@@ -412,7 +412,7 @@ impl DescriptorSets {
 									pImmutableSamplers: samplers.as_ptr(),
 								});
 							} else {
-								eprintln!("[WARN] Unknown type of uniform constant {}: {var_type:?}", var.var_name);
+								return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {var_type:?}", var.var_name)));
 							}
 						}
 						VariableType::Image(_) => {
@@ -425,7 +425,7 @@ impl DescriptorSets {
 								pImmutableSamplers: samplers.as_ptr(),
 							});
 						}
-						_ => eprintln!("[WARN] Unknown type of uniform constant {}: {var_type:?}", var.var_name),
+						others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {others:?}", var.var_name))),
 					}
 					StorageClass::Uniform => match var_type {
 						VariableType::Struct(_) => {
@@ -446,7 +446,7 @@ impl DescriptorSets {
 								pImmutableSamplers: null(),
 							});
 						}
-						_ => eprintln!("[WARN] Unknown of uniform {}: {var_type:?}", var.var_name),
+						others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
 					}
 					StorageClass::StorageBuffer => match var_type {
 						VariableType::Struct(_) => {
@@ -467,7 +467,7 @@ impl DescriptorSets {
 								pImmutableSamplers: null(),
 							});
 						}
-						_ => eprintln!("[WARN] Unknown of storage buffer {}: {var_type:?}", var.var_name),
+						others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
 					}
 					// Ignore other storage classes
 					_ => {}
