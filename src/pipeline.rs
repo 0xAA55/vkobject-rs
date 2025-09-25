@@ -1035,7 +1035,7 @@ impl Pipeline {
 			pDynamicStates: dynamic_states.as_ptr(),
 		};
 		let pipeline_ci = VkGraphicsPipelineCreateInfo {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO,
+			sType: VkStructureType::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 			pNext: null(),
 			flags: 0,
 			stageCount: shader_stages.len() as u32,
