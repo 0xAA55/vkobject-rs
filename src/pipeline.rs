@@ -1065,6 +1065,9 @@ impl Drop for PipelineBuilder {
 	}
 }
 
+/// The core thing of Vulkan: the pipeline. This thing manages the inputs to the shaders, outputs of the shaders, and drawing states, all aspects, everything of a rendering behavior.
+/// * use `PipelineBuilder` to build a pipeline, and draw with it!
+/// * Note: building this thing could be very slow, do not build it on every frame, and only use it once every time and discard it.
 pub struct Pipeline {
 	/// The associated device
 	pub device: Arc<VulkanDevice>,
