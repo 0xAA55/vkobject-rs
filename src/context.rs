@@ -291,7 +291,7 @@ impl VulkanContext {
 		let pool_in_use = if let Some(rt_props) = rt_props {
 			swapchain = None;
 			present_image_index = None;
-			self.cmdpools[pool_index].use_pool(pool_index, rt_props)?
+			self.cmdpools[pool_index].use_pool(Some(rt_props))?
 		} else {
 			swapchain = Some(self.swapchain.clone());
 			loop {
@@ -312,7 +312,7 @@ impl VulkanContext {
 					}
 				};
 			}
-			self.cmdpools[pool_index].use_pool(pool_index, self.swapchain.get_image(present_image_index.unwrap()).rt_props.clone())?
+			self.cmdpools[pool_index].use_pool(Some(self.swapchain.get_image(present_image_index.unwrap()).rt_props.clone()))?
 		};
 		VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)
 	}
@@ -358,7 +358,7 @@ impl<'a> VulkanContextScene<'a> {
 				layerCount: 1,
 			},
 		};
-		for image in pool_in_use.rt_props.attachments.iter() {
+		for image in pool_in_use.rt_props.as_ref().unwrap().attachments.iter() {
 			barrier.image = image.get_vk_image();
 			barrier.subresourceRange.aspectMask = if image.is_depth_stencil() {
 				VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
@@ -401,7 +401,7 @@ impl<'a> VulkanContextScene<'a> {
 	}
 
 	pub fn set_viewport_swapchain(&self, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
-		let extent = self.pool_in_use.get_extent();
+		let extent = self.pool_in_use.rt_props.as_ref().unwrap().get_extent();
 		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
 	}
 
@@ -418,12 +418,12 @@ impl<'a> VulkanContextScene<'a> {
 	}
 
 	pub fn set_scissor_swapchain(&self) -> Result<(), VulkanError> {
-		self.set_scissor(self.pool_in_use.get_extent())
+		self.set_scissor(*self.pool_in_use.rt_props.as_ref().unwrap().get_extent())
 	}
 
 	pub fn clear(&self, color: Vec4, depth: f32, stencil: u32) -> Result<(), VulkanError> {
 		let cmdbuf = self.pool_in_use.cmdbuf;
-		for image in self.pool_in_use.rt_props.attachments.iter() {
+		for image in self.pool_in_use.rt_props.as_ref().unwrap().attachments.iter() {
 			if !image.is_depth_stencil() {
 				let color_clear_value = VkClearColorValue {
 					float32: [color.x, color.y, color.z, color.w],
@@ -478,7 +478,7 @@ impl<'a> VulkanContextScene<'a> {
 				layerCount: 1,
 			},
 		};
-		for image in self.pool_in_use.rt_props.attachments.iter() {
+		for image in self.pool_in_use.rt_props.as_ref().unwrap().attachments.iter() {
 			barrier.image = image.get_vk_image();
 			barrier.subresourceRange.aspectMask = if image.is_depth_stencil() {
 				VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
