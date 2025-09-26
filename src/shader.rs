@@ -1147,6 +1147,18 @@ impl VulkanShader {
 		Self::new_from_source(device, code_path.load()?.as_ref(), is_hlsl, &code_path.get_filename(), entry_point, level, warning_as_error, desc_props)
 	}
 
+	/// Create the `VulkanShader` from source code from file or load from cached binary code
+	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
+	///
+	/// # Overwrite
+	///
+	/// See `VulkanShader::load_cache_or_compile`
+	#[cfg(feature = "shaderc")]
+	pub fn new_from_source_file_or_cache(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+		let artifact = Self::load_cache_or_compile(device.clone(), code_path, is_hlsl, entry_point, level, warning_as_error)?;
+		Self::new(device, &artifact, entry_point, desc_props)
+	}
+
 	/// Get the inner
 	pub(crate) fn get_vk_shader(&self) -> VkShaderModule {
 		self.shader
