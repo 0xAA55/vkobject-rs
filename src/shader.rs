@@ -991,6 +991,19 @@ impl ShaderSourcePath {
 			Self::ComputeShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
 		}
 	}
+
+	/// Modify the path, then construct a new `ShaderSourcePath`
+	pub fn modify(&self, modifier: impl FnOnce(&PathBuf) -> PathBuf) -> Self {
+		match self {
+			Self::VertexShader(path) => Self::VertexShader((modifier)(path)),
+			Self::TessellationControlShader(path) => Self::TessellationControlShader((modifier)(path)),
+			Self::TessellationEvaluationShader(path) => Self::TessellationEvaluationShader((modifier)(path)),
+			Self::GeometryShader(path) => Self::GeometryShader((modifier)(path)),
+			Self::FragmentShader(path) => Self::FragmentShader((modifier)(path)),
+			Self::ComputeShader(path) => Self::ComputeShader((modifier)(path)),
+		}
+	}
+
 }
 
 impl ShaderSourceOwned {
