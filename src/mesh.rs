@@ -30,7 +30,7 @@ impl<T> BufferWithType<T>
 where
 	T: BufferVecItem {
 	/// Create the `BufferWithType<T>`
-	pub fn new(buffer: Buffer) -> Self {
+	pub fn new_from_buffer(buffer: Buffer) -> Self {
 		Self {
 			buffer,
 			_phantom: PhantomData,
@@ -119,7 +119,7 @@ where
 	}
 
 	fn convert_to_buffer_with_type(self) -> BufferWithType<T> {
-		BufferWithType::new(self.into_inner())
+		BufferWithType::new_from_buffer(self.into_inner())
 	}
 }
 
