@@ -1109,22 +1109,30 @@ impl VulkanShader {
 		let src = code.get_path();
 		let spv = {let mut path = src.clone(); path.set_extension("spv"); path};
 		let mut need_compilation = false;
-		let res = {
+		let res = || -> Result<bool, std::io::Error> {
 			let metadata1 = metadata(src)?;
 			let metadata2 = metadata(&spv)?;
 			let mtime1 = metadata1.modified()?;
 			let mtime2 = metadata2.modified()?;
-			Ok::<bool, std::io::Error>(mtime1 > mtime2)
+			Ok(mtime1 > mtime2)
 		};
-		match res {
-			Ok(is_newer) => need_compilation |= is_newer,
-			Err(_) => need_compilation = true,
+		match res() {
+			Ok(is_newer) => {
+				if is_newer {
+					eprintln!("The shader source code file `{}` is newer than the binary file `{}`, proceed to compile the code.", src.display(), spv.display());
+					need_compilation = true;
+				}
+			},
+			Err(_) => {
+				eprintln!("The shader binary file `{}` is missing, proceed to compile the code and store to `{}`.", src.display(), spv.display());
+				need_compilation = true;
+			}
 		}
 		if need_compilation {
 			let artifact = Self::compile(device, code.load()?.as_ref(), is_hlsl, &code.get_filename(), entry_point, level, warning_as_error)?;
 			let u8slice = unsafe {from_raw_parts(artifact.as_ptr() as *const u8, artifact.len() * 4)};
 			if let Err(error) = write(&spv, u8slice) {
-				eprintln!("Could not save the compiled SPIR-V code to {}: {error:?}", spv.display());
+				eprintln!("Could not save the compiled SPIR-V code to `{}`: {error:?}", spv.display());
 			}
 			Ok(artifact)
 		} else {
