@@ -66,7 +66,6 @@ where
 	/// Create the `BufferVec<T>` with an initial capacity
 	pub fn with_capacity(device: Arc<VulkanDevice>, capacity: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let mut buffer = Buffer::new(device, capacity as VkDeviceSize, None, usage)?;
-		buffer.ensure_staging_buffer()?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
 		Ok(Self {
 			buffer,
