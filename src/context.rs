@@ -4,7 +4,7 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	mem::MaybeUninit,
 	ptr::null,
-	sync::Arc,
+	sync::{Arc, Mutex},
 };
 
 /// The struct to provide the information of the surface
@@ -259,6 +259,11 @@ impl VulkanContext {
 	/// Get the number of CPU renderer threads that supports
 	pub fn get_supported_number_of_cpu_renderer_threads(&self) -> usize {
 		self.cpu_renderer_threads
+	}
+
+	/// Create a pipeline builder
+	pub fn create_pipeline_builder(&self, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>) -> Result<PipelineBuilder, VulkanError> {
+		PipelineBuilder::new(self.device.clone(), mesh, shaders, self.desc_pool.clone(), self.swapchain.rt_props.clone(), self.pipeline_cache.clone())
 	}
 
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
