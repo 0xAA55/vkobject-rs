@@ -129,11 +129,11 @@ mod tests {
 			let vsh_bytes = std::fs::read("shaders/test.vsh")?;
 			let tcsh_bytes = std::fs::read("shaders/test.tcsh")?;
 			let fsh_bytes = std::fs::read("shaders/test.fsh")?;
-			let vsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::VertexShader(unsafe {str::from_utf8_unchecked(&vsh_bytes)}), false, "test.vsh", "main", OptimizationLevel::Zero, false, HashMap::new())?;
+			let vsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::VertexShader(unsafe {str::from_utf8_unchecked(&vsh_bytes)}), false, "test.vsh", "main", OptimizationLevel::Performance, false, HashMap::new())?;
 			dbg!(&vsh);
-			let tcsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::TessellationControlShader(unsafe {str::from_utf8_unchecked(&tcsh_bytes)}), false, "test.tcsh", "main", OptimizationLevel::Zero, false, HashMap::new())?;
+			let tcsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::TessellationControlShader(unsafe {str::from_utf8_unchecked(&tcsh_bytes)}), false, "test.tcsh", "main", OptimizationLevel::Performance, false, HashMap::new())?;
 			dbg!(&tcsh);
-			let fsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::FragmentShader(unsafe {str::from_utf8_unchecked(&fsh_bytes)}), false, "test.fsh", "main", OptimizationLevel::Zero, false, HashMap::new())?;
+			let fsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::FragmentShader(unsafe {str::from_utf8_unchecked(&fsh_bytes)}), false, "test.fsh", "main", OptimizationLevel::Performance, false, HashMap::new())?;
 			dbg!(&fsh);
 			while !self.window.should_close() {
 				let cur_frame_time = self.glfw.get_time();
