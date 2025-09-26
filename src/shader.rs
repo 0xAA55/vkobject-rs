@@ -1004,6 +1004,17 @@ impl ShaderSourcePath {
 		}
 	}
 
+	/// Return the path
+	pub fn get_path(&self) -> &PathBuf {
+		match self {
+			Self::VertexShader(path) => path,
+			Self::TessellationControlShader(path) => path,
+			Self::TessellationEvaluationShader(path) => path,
+			Self::GeometryShader(path) => path,
+			Self::FragmentShader(path) => path,
+			Self::ComputeShader(path) => path,
+		}
+	}
 }
 
 impl ShaderSourceOwned {
