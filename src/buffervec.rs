@@ -63,6 +63,22 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
+	/// Create from a slice of data
+	pub fn from(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		let mut buffer = Buffer::new(device, data.len() as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
+		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
+		buffer.upload_staging_buffer(cmdbuf, 0, (data.len() * size_of::<T>()) as VkDeviceSize)?;
+		Ok(Self {
+			buffer,
+			staging_buffer_data_address,
+			num_items: data.len(),
+			capacity: data.len(),
+			cache_modified_bitmap: BitVec::with_capacity(data.len()),
+			cache_modified: false,
+			_phantom: PhantomData,
+		})
+	}
+
 	/// Create the `BufferVec<T>` with an initial capacity
 	pub fn with_capacity(device: Arc<VulkanDevice>, capacity: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let mut buffer = Buffer::new(device, capacity as VkDeviceSize, None, usage)?;
