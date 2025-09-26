@@ -641,6 +641,7 @@ impl DrawShaders {
 unsafe impl Send for DrawShaders {}
 unsafe impl Sync for DrawShaders {}
 
+/// Build a pipeline step by step
 pub struct PipelineBuilder {
 	/// The associated device
 	pub device: Arc<VulkanDevice>,
@@ -1239,6 +1240,12 @@ impl Pipeline {
 			dynamicStateCount: dynamic_states.len() as u32,
 			pDynamicStates: dynamic_states.as_ptr(),
 		};
+		let tessellation_state_ci = VkPipelineTessellationStateCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_TESSELLATION_STATE_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			patchControlPoints: if let Some(tcs) = &shaders.tessellation_control_shader {tcs.get_tessellation_output_vertices().unwrap_or(0)} else {0},
+		};
 		let pipeline_ci = VkGraphicsPipelineCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_GRAPHICS_PIPELINE_CREATE_INFO,
 			pNext: null(),
@@ -1247,7 +1254,7 @@ impl Pipeline {
 			pStages: shader_stages.as_ptr(),
 			pVertexInputState: &vertex_input_state_ci,
 			pInputAssemblyState: &input_assembly_state_ci,
-			pTessellationState: null(), // Currently not supported
+			pTessellationState: if tessellation_state_ci.patchControlPoints == 0 {null()} else {&tessellation_state_ci},
 			pViewportState: &viewport_state_ci,
 			pRasterizationState: &builder.rasterization_state_ci,
 			pMultisampleState: &builder.msaa_state_ci,
