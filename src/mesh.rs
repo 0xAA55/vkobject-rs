@@ -192,7 +192,7 @@ where
 pub struct UnusedBufferItem {}
 
 /// If a buffer you don't need, use this for your buffer type
-pub type UnusedBufferType = BufferVec<UnusedBufferItem>;
+pub type UnusedBufferType = BufferWithType<UnusedBufferItem>;
 
 /// Use this function to create an unused buffer type
 pub fn buffer_unused() -> Option<UnusedBufferType> {
