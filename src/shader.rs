@@ -657,7 +657,7 @@ pub mod shader_analyzer {
 				let var_type_id = inst.result_type.unwrap();
 				let storage_class = inst.operands[0].unwrap_storage_class();
 
-				let var_type = self.get_type(var_type_id).unwrap();
+				let var_type = self.get_type(var_type_id)?;
 				let var_name = self.get_name(var_id);
 				let layout = self.get_layout(var_id, None);
 
