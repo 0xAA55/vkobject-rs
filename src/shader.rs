@@ -1093,6 +1093,45 @@ impl VulkanShader {
 		Ok(artifact.as_binary().to_vec())
 	}
 
+	/// Compile shader code to binary, or load from the cache.
+	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
+	///
+	/// # Overwrite
+	///
+	/// * The cache file path is the source file path modified by replacing the file extension with `.spv`.
+	/// * The existing file will be **REPLACED** with the newly compiled binary data if the source file is newer than the cache file.
+	#[cfg(feature = "shaderc")]
+	pub fn load_cache_or_compile(device: Arc<VulkanDevice>, code: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Vec<u32>, VulkanError> {
+		use std::fs::{
+			metadata,
+			write,
+		};
+		let src = code.get_path();
+		let spv = {let mut path = src.clone(); path.set_extension("spv"); path};
+		let mut need_compilation = false;
+		let res = {
+			let metadata1 = metadata(src)?;
+			let metadata2 = metadata(&spv)?;
+			let mtime1 = metadata1.modified()?;
+			let mtime2 = metadata2.modified()?;
+			Ok::<bool, std::io::Error>(mtime1 > mtime2)
+		};
+		match res {
+			Ok(is_newer) => need_compilation |= is_newer,
+			Err(_) => need_compilation = true,
+		}
+		if need_compilation {
+			let artifact = Self::compile(device, code.load()?.as_ref(), is_hlsl, &code.get_filename(), entry_point, level, warning_as_error)?;
+			let u8slice = unsafe {from_raw_parts(artifact.as_ptr() as *const u8, artifact.len() * 4)};
+			if let Err(error) = write(&spv, u8slice) {
+				eprintln!("Could not save the compiled SPIR-V code to {}: {error:?}", spv.display());
+			}
+			Ok(artifact)
+		} else {
+			Ok(u8vec_to_u32vec(read(spv)?))
+		}
+	}
+
 	/// Create the `VulkanShader` from source code
 	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
