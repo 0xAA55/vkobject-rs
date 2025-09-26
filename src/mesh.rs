@@ -350,12 +350,12 @@ pub struct GenericMeshWithMaterial {
 	pub mesh: Box<dyn GenericMesh>,
 
 	/// The material
-	pub material: Box<dyn Material>,
+	pub material: Option<Box<dyn Material>>,
 }
 
 impl GenericMeshWithMaterial {
 	/// Create an instance for the `GenericMeshWithMaterial`
-	pub fn new(mesh: Box<dyn GenericMesh>, material: Box<dyn Material>) -> Self {
+	pub fn new(mesh: Box<dyn GenericMesh>, material: Option<Box<dyn Material>>) -> Self {
 		Self {
 			mesh,
 			material,
