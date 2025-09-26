@@ -93,6 +93,7 @@ mod tests {
 	use crate::prelude::*;
 	use std::{
 		collections::HashMap,
+		path::PathBuf,
 	};
 
 	const TEST_TIME: f64 = 10.0;
@@ -126,12 +127,8 @@ mod tests {
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
-			let vsh_bytes = std::fs::read("shaders/test.vsh")?;
-			let fsh_bytes = std::fs::read("shaders/test.fsh")?;
-			let vsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::VertexShader(unsafe {str::from_utf8_unchecked(&vsh_bytes)}), false, "test.vsh", "main", OptimizationLevel::Performance, false, HashMap::new())?;
-			dbg!(&vsh);
-			let fsh = VulkanShader::new_from_source(self.ctx.device.clone(), ShaderSource::FragmentShader(unsafe {str::from_utf8_unchecked(&fsh_bytes)}), false, "test.fsh", "main", OptimizationLevel::Performance, false, HashMap::new())?;
-			dbg!(&fsh);
+			let vsh = VulkanShader::new_from_source_file_or_cache(self.ctx.device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/test.vsh")), false, "main", OptimizationLevel::Performance, false, HashMap::new())?;
+			let fsh = VulkanShader::new_from_source_file_or_cache(self.ctx.device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false, HashMap::new())?;
 			while !self.window.should_close() {
 				let cur_frame_time = self.glfw.get_time();
 				let run_time = cur_frame_time - start_time;
