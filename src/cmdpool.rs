@@ -104,8 +104,8 @@ impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
 		if self.fence_is_signaling.fetch_or(false, Ordering::Relaxed) {
-			let _ = self.submit_fence.wait(u64::MAX);
-			let _ = self.submit_fence.unsignal();
+			self.submit_fence.wait(u64::MAX).unwrap();
+			self.submit_fence.unsignal().unwrap();
 		}
 		vkcore.vkDestroyCommandPool(self.device.get_vk_device(), *self.pool.lock().unwrap(), null()).unwrap();
 	}
