@@ -1082,9 +1082,6 @@ pub struct Pipeline {
 	/// The pool
 	pub desc_pool: Arc<DescriptorPool>,
 
-	/// The render target props
-	pub rt_props: Arc<RenderTargetProps>,
-
 	/// The pipeline cache
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
 
@@ -1274,7 +1271,6 @@ impl Pipeline {
 			mesh,
 			shaders,
 			desc_pool,
-			rt_props,
 			pipeline_cache,
 			pipeline_layout,
 			pipeline,
@@ -1293,7 +1289,6 @@ impl Debug for Pipeline {
 		.field("mesh", &self.mesh)
 		.field("shaders", &self.shaders)
 		.field("desc_pool", &self.desc_pool)
-		.field("rt_props", &self.rt_props)
 		.field("pipeline_cache", &self.pipeline_cache)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.field("pipeline", &self.pipeline)
