@@ -6,7 +6,7 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	fs::read,
 	mem::forget,
-	path::Path,
+	path::PathBuf,
 	ptr::null,
 	slice::from_raw_parts,
 	sync::{Arc, RwLock, OnceLock},
@@ -485,7 +485,7 @@ pub mod shader_analyzer {
 			let mut binding = None;
 			let mut input_attachment_index = None;
 			for inst in self.module.annotations.iter() {
-				if inst.class.opcode != Op::Decorate || inst.operands.len() < 1 || inst.operands[0].unwrap_id_ref() != target_id {
+				if inst.class.opcode != Op::Decorate || inst.operands.is_empty() || inst.operands[0].unwrap_id_ref() != target_id {
 					continue;
 				}
 
@@ -935,28 +935,40 @@ pub enum ShaderSourceOwned {
 }
 
 /// The shader source path
-#[derive(Debug, Clone, Copy)]
-pub enum ShaderSourcePath<'a> {
+#[derive(Debug, Clone)]
+pub enum ShaderSourcePath {
 	/// Vertex shader source code file path
-	VertexShader(&'a Path),
+	VertexShader(PathBuf),
 
 	/// Tessellation control shader file path
-	TessellationControlShader(&'a Path),
+	TessellationControlShader(PathBuf),
 
 	/// Tessellation evaluation shader file path
-	TessellationEvaluationShader(&'a Path),
+	TessellationEvaluationShader(PathBuf),
 
 	/// Geometry shader source code file path
-	GeometryShader(&'a Path),
+	GeometryShader(PathBuf),
 
 	/// Fragment shader source code file path
-	FragmentShader(&'a Path),
+	FragmentShader(PathBuf),
 
 	/// Compute shader source code file path
-	ComputeShader(&'a Path),
+	ComputeShader(PathBuf),
 }
 
-impl ShaderSourcePath<'_> {
+fn u8vec_to_u32vec(mut u8vec: Vec<u8>) -> Vec<u32> {
+	u8vec.resize(((u8vec.len() - 1) / 4 + 1) * 4, 0);
+	unsafe {
+		let ptr = u8vec.as_mut_ptr() as *mut u32;
+		let len = u8vec.len() >> 2;
+		let cap = u8vec.capacity() >> 2;
+		forget(u8vec);
+		Vec::from_raw_parts(ptr, len, cap)
+	}
+}
+
+impl ShaderSourcePath {
+	/// Load the shader code to `ShaderSourceOwned`
 	pub fn load(&self) -> Result<ShaderSourceOwned, VulkanError> {
 		Ok(match self {
 			Self::VertexShader(path) => {let bytes = read(path)?; ShaderSourceOwned::VertexShader(unsafe {str::from_utf8_unchecked(&bytes).to_owned()})}
@@ -968,6 +980,7 @@ impl ShaderSourcePath<'_> {
 		})
 	}
 
+	/// Get the filename of the shader regard less the kind of the shader
 	pub fn get_filename(&self) -> String {
 		match self {
 			Self::VertexShader(path) => path.file_name().unwrap().to_string_lossy().to_string(),
@@ -1020,16 +1033,8 @@ impl VulkanShader {
 	}
 
 	/// Create the `VulkanShader` from file
-	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &Path, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
-		let mut shader_bytes = read(shader_file)?;
-		shader_bytes.resize(((shader_bytes.len() - 1) / 4 + 1) * 4, 0);
-		let shader_code = unsafe {
-			let ptr = shader_bytes.as_mut_ptr() as *mut u32;
-			let len = shader_bytes.len() >> 2;
-			let cap = shader_bytes.capacity() >> 2;
-			forget(shader_bytes);
-			Vec::from_raw_parts(ptr, len, cap)
-		};
+	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &PathBuf, entry_point: &str, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+		let shader_bytes = u8vec_to_u32vec(read(shader_file)?);
 		Self::new(device, &shader_code, desc_props)
 	}
 
