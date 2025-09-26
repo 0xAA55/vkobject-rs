@@ -19,7 +19,7 @@ pub use shaderc::OptimizationLevel;
 pub mod shader_analyzer {
 	use super::*;
 	use rspirv::{
-		dr::Module,
+		dr::{Module, Operand},
 		spirv::*,
 	};
 
@@ -667,6 +667,34 @@ pub mod shader_analyzer {
 			}
 			Ok(vars)
 		}
+
+		/// Get the tessellation control shader output vertices
+		pub fn get_tessellation_output_vertices(&self) -> Option<u32> {
+			for inst in self.module.entry_points.iter() {
+				if inst.operands.len() < 2 {
+					continue;
+				}
+				if let Operand::ExecutionModel(ExecutionModel::TessellationControl) = inst.operands[0] {
+					let entry_point_id = if let Operand::IdRef(id) = inst.operands[1] {
+						id
+					} else {
+						continue;
+					};
+					for mode_inst in self.module.execution_modes.iter() {
+						if mode_inst.operands.len() < 3 {
+							continue;
+						}
+						if let Operand::IdRef(mode_id) = mode_inst.operands[0] && mode_id != entry_point_id {
+							continue;
+						}
+						if let Operand::ExecutionMode(ExecutionMode::OutputVertices) = mode_inst.operands[1] && let Operand::LiteralBit32(n) = mode_inst.operands[2] {
+							return Some(n);
+						}
+					}
+				}
+			}
+			None
+		}
 	}
 }
 
@@ -855,6 +883,9 @@ pub struct VulkanShader {
 	/// The parsed variables of the shader
 	vars: Vec<Arc<ShaderVariable>>,
 
+	/// The tessellation output vertices for the tessellation control shader
+	tessellation_output_vertices: Option<u32>,
+
 	/// The properties of the shader descriptor sets
 	desc_props: HashMap<String, DescriptorProp>
 }
@@ -968,6 +999,7 @@ impl VulkanShader {
 		let bytes = unsafe {from_raw_parts(shader_code.as_ptr() as *const u8, shader_code.len() * 4)};
 		let analyzer = ShaderAnalyzer::new(bytes)?;
 		let vars = analyzer.get_global_vars()?;
+		let tessellation_output_vertices = analyzer.get_tessellation_output_vertices();
 		let vkdevice = device.get_vk_device();
 		let shader_module_ci = VkShaderModuleCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO,
@@ -982,6 +1014,7 @@ impl VulkanShader {
 			device,
 			shader,
 			vars,
+			tessellation_output_vertices,
 			desc_props,
 		})
 	}
@@ -1055,6 +1088,11 @@ impl VulkanShader {
 		&self.desc_props
 	}
 
+	/// Get the tessellation output vertices
+	pub fn get_tessellation_output_vertices(&self) -> Option<u32> {
+		self.tessellation_output_vertices
+	}
+
 	/// Get specific number of samplers from a `HashMap<String, DescriptorProp>`
 	pub fn get_desc_props_samplers(&self, name: &str, desired_count: usize) -> Result<&[Arc<VulkanSampler>], VulkanError> {
 		let name = name.to_string();
@@ -1121,6 +1159,7 @@ impl Debug for VulkanShader {
 		f.debug_struct("VulkanShader")
 		.field("shader", &self.shader)
 		.field("vars", &self.vars)
+		.field("tessellation_output_vertices", &self.tessellation_output_vertices)
 		.field("desc_props", &self.desc_props)
 		.finish()
 	}
