@@ -73,7 +73,7 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer of the command pool to record draw commands
-	pub(crate) fn use_pool<'a>(&'a mut self, thread_index: usize, rt_props: Arc<RenderTargetProps>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub(crate) fn use_pool<'a>(&'a mut self, rt_props: Option<Arc<RenderTargetProps>>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
 		let pool_lock = self.pool.lock().unwrap();
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -84,7 +84,7 @@ impl VulkanCommandPool {
 		let buffer_index = self.index_of_buffer.fetch_add(1, Ordering::Relaxed) % self.cmd_buffers.len();
 		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[buffer_index], 0).unwrap();
 		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[buffer_index], &begin_info).unwrap();
-		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], thread_index, rt_props, self.fence_is_signaling.clone())
+		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], rt_props, self.fence_is_signaling.clone())
 	}
 }
 
@@ -122,11 +122,8 @@ pub struct VulkanCommandPoolInUse<'a> {
 	/// The command pool to submit commands
 	pub(crate) pool_lock: MutexGuard<'a, VkCommandPool>,
 
-	/// The thread index
-	pub(crate) thread_index: usize,
-
 	/// The render target for the command pool to draw to
-	pub rt_props: Arc<RenderTargetProps>,
+	pub rt_props: Option<Arc<RenderTargetProps>>,
 
 	/// The fence indicating if all commands were submitted
 	pub submit_fence: Arc<VulkanFence>,
@@ -143,14 +140,13 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, thread_index: usize, rt_props: Arc<RenderTargetProps>, fence_is_signaling: Arc<AtomicBool>) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, rt_props: Option<Arc<RenderTargetProps>>, fence_is_signaling: Arc<AtomicBool>) -> Result<Self, VulkanError> {
 		let device = cmdpool.device.clone();
 		let submit_fence = cmdpool.submit_fence.clone();
 		Ok(Self {
 			device,
 			cmdbuf,
 			pool_lock,
-			thread_index,
 			rt_props,
 			submit_fence,
 			fence_is_signaling,
@@ -162,11 +158,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Get the current command buffer
 	pub(crate) fn get_vk_cmdbuf(&self) -> VkCommandBuffer {
 		self.cmdbuf
-	}
-
-	/// Get the extent of the render target
-	pub fn get_extent(&self) -> VkExtent2D {
-		self.rt_props.extent
 	}
 
 	/// End recording commands
@@ -196,8 +187,14 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			let wait_stage = [VkPipelineStageFlagBits::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT as VkPipelineStageFlags];
 			let cmd_buffers = [self.cmdbuf];
 
-			let acquire_semaphores = [self.rt_props.acquire_semaphore.lock().unwrap().get_vk_semaphore()];
-			let release_semaphores = [self.rt_props.release_semaphore.get_vk_semaphore()];
+			let (acquire_semaphores, release_semaphores) = if let Some(rt_props) = &self.rt_props {
+				(
+					vec![rt_props.acquire_semaphore.lock().unwrap().get_vk_semaphore()],
+					vec![rt_props.release_semaphore.get_vk_semaphore()]
+				)
+			} else {
+				(vec![], vec![])
+			};
 			let submit_info = VkSubmitInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_SUBMIT_INFO,
 				pNext: null(),
@@ -231,7 +228,6 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 		f.debug_struct("VulkanCommandPoolInUse")
 		.field("cmdbuf", &self.cmdbuf)
 		.field("pool_lock", &self.pool_lock)
-		.field("thread_index", &self.thread_index)
 		.field("rt_props", &self.rt_props)
 		.field("submit_fence", &self.submit_fence)
 		.field("fence_is_signaling", &self.fence_is_signaling)
