@@ -6,6 +6,7 @@ use std::{
 	fmt::Debug,
 	marker::PhantomData,
 	mem::size_of,
+	sync::Arc,
 	vec::IntoIter,
 };
 use struct_iterable::Iterable;
@@ -29,6 +30,16 @@ where
 impl<T> BufferWithType<T>
 where
 	T: BufferVecItem {
+	/// Create the `BufferWithType<T>`
+	pub fn new(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		let ret = Self {
+			buffer: Buffer::new(device, (data.len() * size_of::<T>()) as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?,
+			_phantom: PhantomData,
+		};
+		ret.upload_staging_buffer(cmdbuf)?;
+		Ok(ret)
+	}
+
 	/// Create the `BufferWithType<T>`
 	pub fn new_empty(device: Arc<VulkanDevice>, size: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		Ok(Self {
