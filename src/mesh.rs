@@ -30,6 +30,14 @@ impl<T> BufferWithType<T>
 where
 	T: BufferVecItem {
 	/// Create the `BufferWithType<T>`
+	pub fn new_empty(device: Arc<VulkanDevice>, size: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		Ok(Self {
+			buffer: Buffer::new(device, (size * size_of::<T>()) as VkDeviceSize, None, usage)?,
+			_phantom: PhantomData,
+		})
+	}
+
+	/// Create the `BufferWithType<T>`
 	pub fn new_from_buffer(buffer: Buffer) -> Self {
 		Self {
 			buffer,
