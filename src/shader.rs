@@ -4,6 +4,7 @@ use std::{
 	any::TypeId,
 	collections::HashMap,
 	fmt::{self, Debug, Formatter},
+	ffi::CString,
 	fs::read,
 	mem::forget,
 	path::PathBuf,
@@ -880,6 +881,9 @@ pub struct VulkanShader {
 	/// The handle to the shader
 	shader: VkShaderModule,
 
+	/// The entry point of the shader
+	entry_point: CString,
+
 	/// The parsed variables of the shader
 	vars: Vec<Arc<ShaderVariable>>,
 
@@ -1032,7 +1036,7 @@ impl ShaderSourceOwned {
 
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
-	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32], desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32], entry_point: &str, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
 		let bytes = unsafe {from_raw_parts(shader_code.as_ptr() as *const u8, shader_code.len() * 4)};
 		let analyzer = ShaderAnalyzer::new(bytes)?;
 		let vars = analyzer.get_global_vars()?;
@@ -1050,6 +1054,7 @@ impl VulkanShader {
 		Ok(Self {
 			device,
 			shader,
+			entry_point: CString::new(entry_point).expect("`CString::new()` failed"),
 			vars,
 			tessellation_output_vertices,
 			desc_props,
@@ -1059,7 +1064,7 @@ impl VulkanShader {
 	/// Create the `VulkanShader` from file
 	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &PathBuf, entry_point: &str, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
 		let shader_bytes = u8vec_to_u32vec(read(shader_file)?);
-		Self::new(device, &shader_code, desc_props)
+		Self::new(device, &shader_bytes, entry_point, desc_props)
 	}
 
 	/// Compile shader code to binary
@@ -1092,7 +1097,7 @@ impl VulkanShader {
 	#[cfg(feature = "shaderc")]
 	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, is_hlsl: bool, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
 		let artifact = Self::compile(device.clone(), code, is_hlsl, filename, entry_point, level, warning_as_error)?;
-		Self::new(device, &artifact, desc_props)
+		Self::new(device, &artifact, entry_point, desc_props)
 	}
 
 	/// Create the `VulkanShader` from source code from file
@@ -1105,6 +1110,11 @@ impl VulkanShader {
 	/// Get the inner
 	pub(crate) fn get_vk_shader(&self) -> VkShaderModule {
 		self.shader
+	}
+
+	/// Get the entry point
+	pub fn get_entry_point(&self) -> &CString {
+		&self.entry_point
 	}
 
 	/// Get variables

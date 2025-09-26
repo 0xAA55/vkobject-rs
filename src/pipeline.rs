@@ -1121,7 +1121,7 @@ impl Pipeline {
 			flags: 0,
 			stage,
 			module: shader.get_vk_shader(),
-			pName: c"main".as_ptr(),
+			pName: shader.get_entry_point().as_ptr(),
 			pSpecializationInfo: null(),
 		}).collect();
 		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
