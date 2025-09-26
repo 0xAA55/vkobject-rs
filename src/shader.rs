@@ -485,23 +485,20 @@ pub mod shader_analyzer {
 			let mut binding = None;
 			let mut input_attachment_index = None;
 			for inst in self.module.annotations.iter() {
-				if inst.class.opcode != Op::Decorate {
-					continue;
-				}
-				if inst.operands[0].unwrap_id_ref() != target_id {
+				if inst.class.opcode != Op::Decorate || inst.operands.len() < 1 || inst.operands[0].unwrap_id_ref() != target_id {
 					continue;
 				}
 
-				let decoration;
-				let value = if let Some(member_id) = member_id {
-					if member_id != inst.operands[1].unwrap_literal_bit32() {
+				let (decoration, value) = if let Some(member_id) = member_id {
+					if inst.operands.len() < 4 || member_id != inst.operands[1].unwrap_literal_bit32() {
 						continue;
 					}
-					decoration = inst.operands[2].unwrap_decoration();
-					&inst.operands[3]
+					(inst.operands[2].unwrap_decoration(), &inst.operands[3])
 				} else {
-					decoration = inst.operands[1].unwrap_decoration();
-					&inst.operands[2]
+					if inst.operands.len() < 3 {
+						continue;
+					}
+					(inst.operands[1].unwrap_decoration(), &inst.operands[2])
 				};
 				match decoration {
 					Decoration::Location => {
