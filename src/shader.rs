@@ -1068,6 +1068,7 @@ impl VulkanShader {
 	}
 
 	/// Compile shader code to binary
+	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
 	pub fn compile(device: Arc<VulkanDevice>, code: ShaderSource, is_hlsl: bool, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Vec<u32>, VulkanError> {
 		use shaderc::*;
