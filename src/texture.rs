@@ -388,8 +388,14 @@ impl VulkanTexture {
 
 	/// Get the pitch, the bytes per row of the texture
 	pub fn get_pitch(&self) -> Result<usize, VulkanError> {
-		let extent = self.type_size.get_extent();
-		Ok(self.get_size()? as usize / extent.depth as usize / extent.height as usize)
+		let subresource = VkImageSubresource {
+		    aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+			mipLevel: 0,
+			arrayLayer: 0,
+		};
+		let mut layout = unsafe {MaybeUninit::zeroed().assume_init()};
+		self.device.vkcore.vkGetImageSubresourceLayout(self.device.get_vk_device(), self.image, &subresource, &mut layout)?;
+		Ok(layout.rowPitch as usize)
 	}
 
 	/// Get the mipmap levels
