@@ -6,9 +6,14 @@ use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	io::{self, ErrorKind},
-	mem::MaybeUninit,
+	marker::PhantomData,
+	mem::{MaybeUninit, size_of},
 	ptr::{copy, null, null_mut},
-	sync::Arc,
+	slice::{from_raw_parts, from_raw_parts_mut},
+	sync::{
+		Arc,
+		Mutex,
+	},
 };
 
 /// The error for almost all of the crate's `Result<>`
@@ -474,6 +479,12 @@ pub struct VulkanMemory {
 
 	/// The allocated size of the memory
 	size: VkDeviceSize,
+
+	/// The mapped address
+	mapped_address: *mut c_void,
+
+	/// The map counter
+	pub(crate) map_count: Mutex<u32>,
 }
 
 /// The direction of manipulating data
@@ -499,6 +510,8 @@ impl VulkanMemory {
 			device,
 			memory,
 			size: mem_reqs.size,
+			mapped_address: null_mut(),
+			map_count: Mutex::new(0),
 		};
 		Ok(ret)
 	}
@@ -514,15 +527,17 @@ impl VulkanMemory {
 	}
 
 	/// Map the memory
-	pub fn map<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
-		let vkdevice = self.device.get_vk_device();
-		let mut map_pointer: *mut c_void = null_mut();
-		self.device.vkcore.vkMapMemory(vkdevice, self.memory, offset, size as VkDeviceSize, 0, &mut map_pointer)?;
-		Ok(MappedMemory::new(self, map_pointer))
+	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+		let mut map_count_lock = self.map_count.lock().unwrap();
+		if *map_count_lock == 0 {
+			*map_count_lock += 1;
+			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut self.mapped_address)?;
+		}
+		Ok(MappedMemory::new(self, (self.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size))
 	}
 
 	/// Provide data for the memory, or retrieve data from the memory
-	pub fn manipulate_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
+	pub fn manipulate_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
 		let map_guard = self.map(offset, size)?;
 		match direction {
 			DataDirection::SetData => unsafe {copy(data as *const u8, map_guard.address as *mut u8, size)},
@@ -532,12 +547,12 @@ impl VulkanMemory {
 	}
 
 	/// Provide data for the memory
-	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn set_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.manipulate_data(data as *mut c_void, offset, size, DataDirection::SetData)
 	}
 
 	/// Retrieve data from the memory
-	pub fn get_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn get_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.manipulate_data(data, offset, size, DataDirection::GetData)
 	}
 
@@ -567,8 +582,7 @@ impl Debug for VulkanMemory {
 
 impl Drop for VulkanMemory {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
-		vkcore.vkFreeMemory(self.device.get_vk_device(), self.memory, null()).unwrap();
+		self.device.vkcore.vkFreeMemory(self.device.get_vk_device(), self.memory, null()).unwrap();
 	}
 }
 
@@ -580,24 +594,42 @@ pub struct MappedMemory<'a> {
 
 	/// The mapped address
 	pub(crate) address: *mut c_void,
+
+	/// The size of the map
+	pub(crate) size: usize,
 }
 
 impl<'a> MappedMemory<'a> {
-	pub(crate) fn new(memory: &'a VulkanMemory, address: *mut c_void) -> Self {
+	/// Called by `VulkanMemory::map()`
+	pub(crate) fn new(memory: &'a VulkanMemory, address: *mut c_void, size: usize) -> Self {
 		Self {
 			memory,
 			address,
+			size,
 		}
 	}
 
+	/// Get the mapped address
 	pub fn get_address(&self) -> *const c_void {
 		self.address
+	}
+
+	/// Get the mapped size
+	pub fn get_size(&self) -> usize {
+		self.size
 	}
 }
 
 impl Drop for MappedMemory<'_> {
 	fn drop(&mut self) {
-		self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory).unwrap();
+		let mut map_count_lock = self.memory.map_count.lock().unwrap();
+		*map_count_lock -= 1;
+		if *map_count_lock == 0 {
+			self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory).unwrap();
+		}
+	}
+}
+
 	}
 }
 
