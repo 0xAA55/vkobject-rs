@@ -263,7 +263,7 @@ impl VulkanContext {
 
 	/// Create a pipeline builder
 	pub fn create_pipeline_builder(&self, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>) -> Result<PipelineBuilder, VulkanError> {
-		PipelineBuilder::new(self.device.clone(), mesh, shaders, self.desc_pool.clone(), self.swapchain.rt_props.clone(), self.pipeline_cache.clone())
+		PipelineBuilder::new(self.device.clone(), mesh, shaders, self.desc_pool.clone(), self.swapchain.renderpass.clone(), self.pipeline_cache.clone())
 	}
 
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
