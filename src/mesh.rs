@@ -5,7 +5,7 @@ use std::{
 	ffi::c_void,
 	fmt::Debug,
 	marker::PhantomData,
-	mem::size_of,
+	mem::{size_of, size_of_val},
 	sync::Arc,
 	vec::IntoIter,
 };
@@ -33,7 +33,7 @@ where
 	/// Create the `BufferWithType<T>`
 	pub fn new(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let ret = Self {
-			buffer: Buffer::new(device, (data.len() * size_of::<T>()) as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?,
+			buffer: Buffer::new(device, size_of_val(data) as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?,
 			_phantom: PhantomData,
 		};
 		ret.upload_staging_buffer(cmdbuf)?;

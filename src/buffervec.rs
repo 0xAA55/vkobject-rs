@@ -6,7 +6,7 @@ use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	marker::PhantomData,
-	mem::size_of,
+	mem::{size_of, size_of_val},
 	ops::{Index, IndexMut, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive},
 	ptr::{copy, null_mut},
 	slice::{from_raw_parts, from_raw_parts_mut},
@@ -67,7 +67,7 @@ where
 	pub fn from(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let mut buffer = Buffer::new(device, data.len() as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
-		buffer.upload_staging_buffer(cmdbuf, 0, (data.len() * size_of::<T>()) as VkDeviceSize)?;
+		buffer.upload_staging_buffer(cmdbuf, 0, size_of_val(data) as VkDeviceSize)?;
 		Ok(Self {
 			buffer,
 			staging_buffer_data_address,
