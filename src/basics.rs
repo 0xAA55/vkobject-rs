@@ -1037,6 +1037,13 @@ impl StagingBuffer {
 	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		self.memory.map(offset, size)
 	}
+
+	/// Map the memory as a slice
+	pub fn map_as_slice<'a, T>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
+	where
+		T: Sized + Clone + Copy {
+		self.memory.map_as_slice(offset, size)
+	}
 }
 
 impl Debug for StagingBuffer {
