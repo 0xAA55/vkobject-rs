@@ -659,7 +659,7 @@ pub struct PipelineBuilder {
 	pub descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets>,
 
 	/// The render target props
-	pub rt_props: Arc<RenderTargetProps>,
+	pub renderpass: Arc<VulkanRenderPass>,
 
 	/// The pipeline cache
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
@@ -688,7 +688,7 @@ pub struct PipelineBuilder {
 
 impl PipelineBuilder {
 	/// Create the `PipelineBuilder`
-	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, rt_props: Arc<RenderTargetProps>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, renderpass: Arc<VulkanRenderPass>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
 		let mut descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets> = HashMap::new();
 		let mut desc_set_layouts: Vec<VkDescriptorSetLayout> = Vec::with_capacity(5);
 		let mut push_constant_ranges: Vec<VkPushConstantRange> = Vec::with_capacity(5);
@@ -834,7 +834,7 @@ impl PipelineBuilder {
 			shaders,
 			desc_pool,
 			descriptor_sets,
-			rt_props,
+			renderpass,
 			pipeline_cache,
 			rasterization_state_ci,
 			msaa_state_ci,
@@ -1051,7 +1051,7 @@ impl Debug for PipelineBuilder {
 		.field("shaders", &self.shaders)
 		.field("desc_pool", &self.desc_pool)
 		.field("descriptor_sets", &self.descriptor_sets)
-		.field("rt_props", &self.rt_props)
+		.field("renderpass", &self.renderpass)
 		.field("pipeline_cache", &self.pipeline_cache)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.finish()
@@ -1082,6 +1082,9 @@ pub struct Pipeline {
 	/// The pool
 	pub desc_pool: Arc<DescriptorPool>,
 
+	/// The render pass
+	pub renderpass: Arc<VulkanRenderPass>,
+
 	/// The pipeline cache
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
 
@@ -1108,7 +1111,7 @@ impl Pipeline {
 		let mesh = builder.mesh.clone();
 		let shaders = builder.shaders.clone();
 		let desc_pool = builder.desc_pool.clone();
-		let rt_props = builder.rt_props.clone();
+		let renderpass = builder.renderpass.clone();
 		let pipeline_cache = builder.pipeline_cache.clone();
 		let pipeline_layout = builder.pipeline_layout;
 		builder.pipeline_layout = null();
@@ -1259,7 +1262,7 @@ impl Pipeline {
 			pColorBlendState: &builder.color_blend_state_ci,
 			pDynamicState: &dynamic_state_ci,
 			layout: pipeline_layout,
-			renderPass: rt_props.renderpass.get_vk_renderpass(),
+			renderPass: renderpass.get_vk_renderpass(),
 			subpass: 0,
 			basePipelineHandle: null(),
 			basePipelineIndex: 0,
@@ -1271,6 +1274,7 @@ impl Pipeline {
 			mesh,
 			shaders,
 			desc_pool,
+			renderpass,
 			pipeline_cache,
 			pipeline_layout,
 			pipeline,
@@ -1289,6 +1293,7 @@ impl Debug for Pipeline {
 		.field("mesh", &self.mesh)
 		.field("shaders", &self.shaders)
 		.field("desc_pool", &self.desc_pool)
+		.field("renderpass", &self.renderpass)
 		.field("pipeline_cache", &self.pipeline_cache)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.field("pipeline", &self.pipeline)
