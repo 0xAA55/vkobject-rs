@@ -772,25 +772,9 @@ impl PipelineBuilder {
 			minDepthBounds: 0.0,
 			maxDepthBounds: 0.0,
 		};
-		let mut color_blend_attachment_states: Vec<VkPipelineColorBlendAttachmentState> = Vec::with_capacity(rt_props.renderpass.attachments.len());
-		for attachment in rt_props.renderpass.attachments.iter() {
-			if attachment.is_depth_stencil {
-				color_blend_attachment_states.push(VkPipelineColorBlendAttachmentState {
-					blendEnable: 0,
-					srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
-					dstColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
-					colorBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
-					srcAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
-					dstAlphaBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_ZERO,
-					alphaBlendOp: VkBlendOp::VK_BLEND_OP_ADD,
-					colorWriteMask: VkColorComponentFlagBits::combine(&[
-						VkColorComponentFlagBits::VK_COLOR_COMPONENT_R_BIT,
-						VkColorComponentFlagBits::VK_COLOR_COMPONENT_G_BIT,
-						VkColorComponentFlagBits::VK_COLOR_COMPONENT_B_BIT,
-						VkColorComponentFlagBits::VK_COLOR_COMPONENT_A_BIT,
-					]),
-				});
-			} else {
+		let mut color_blend_attachment_states: Vec<VkPipelineColorBlendAttachmentState> = Vec::with_capacity(renderpass.attachments.len());
+		for attachment in renderpass.attachments.iter() {
+			if !attachment.is_depth_stencil {
 				color_blend_attachment_states.push(VkPipelineColorBlendAttachmentState {
 					blendEnable: 0,
 					srcColorBlendFactor: VkBlendFactor::VK_BLEND_FACTOR_SRC_ALPHA,
