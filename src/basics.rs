@@ -537,6 +537,18 @@ impl VulkanMemory {
 		Ok(MappedMemory::new(self, (self.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size))
 	}
 
+	/// Map the memory as a slice
+	pub fn map_as_slice<'a, T>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
+	where
+		T: Sized + Clone + Copy {
+		let mut map_count_lock = self.map_count.lock().unwrap();
+		if *map_count_lock == 0 {
+			*map_count_lock += 1;
+			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut self.mapped_address)?;
+		}
+		Ok(TypedMappedMemory::new(MappedMemory::new(self, (self.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size)))
+	}
+
 	/// Provide data for the memory, or retrieve data from the memory
 	pub fn manipulate_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
 		let map_guard = self.map(offset, size)?;
