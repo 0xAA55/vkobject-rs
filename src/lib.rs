@@ -66,6 +66,7 @@ pub mod prelude {
 	pub use vkcore_rs::*;
 	pub use glm::*;
 	pub use half::f16;
+	pub use struct_iterable::Iterable;
 	pub use crate::common::*;
 	pub use crate::init::*;
 	pub use crate::basics::*;
@@ -85,6 +86,7 @@ pub mod prelude {
 	pub use crate::material::*;
 	pub use crate::mesh::*;
 	pub use crate::pipeline::*;
+	pub use crate::derive_vertex_type;
 }
 
 #[cfg(test)]
