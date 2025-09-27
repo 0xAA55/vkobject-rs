@@ -25,7 +25,7 @@ pub struct VulkanSwapchainImage {
 
 impl VulkanSwapchainImage {
 	/// Create the `VulkanSwapchainImage`
-	pub(crate) fn new(device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat) -> Result<Self, VulkanError> {
+	pub(crate) fn new(device: Arc<VulkanDevice>, surface_format: &VkSurfaceFormatKHR, image: VkImage, extent: &VkExtent2D, depth_stencil_format: VkFormat, renderpass: Arc<VulkanRenderPass>) -> Result<Self, VulkanError> {
 		let image = Arc::new(VulkanTexture::new_from_existing_image(device.clone(), image, VulkanTextureType::T2d(*extent), surface_format.format)?);
 		let depth_stencil = Arc::new(VulkanTexture::new(
 			device.clone(),
@@ -36,7 +36,7 @@ impl VulkanSwapchainImage {
 			VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as VkImageUsageFlags
 		)?);
 		let attachments = [image.clone(), depth_stencil.clone()];
-		let rt_props = Arc::new(RenderTargetProps::new(device.clone(), extent, &attachments)?);
+		let rt_props = Arc::new(RenderTargetProps::new(device.clone(), extent, Some(renderpass), &attachments)?);
 		Ok(Self{
 			device,
 			image,
@@ -102,6 +102,9 @@ pub struct VulkanSwapchain {
 
 	/// The desired image count
 	desired_num_of_swapchain_images: u32,
+
+	/// The render target properties
+	pub renderpass: Arc<VulkanRenderPass>,
 
 	/// The swapchain images
 	pub images: Vec<Arc<VulkanSwapchainImage>>,
@@ -238,8 +241,19 @@ impl VulkanSwapchain {
 		unsafe {vk_images.set_len(num_images as usize)};
 		let mut images = Vec::<Arc<VulkanSwapchainImage>>::with_capacity(vk_images.len());
 		let depth_stencil_format = Self::get_depth_stencil_format(&vkcore, vk_phy_dev)?;
+		let renderpass_attachments = [
+			VulkanRenderPassAttachment {
+				format: surface_format.format,
+				is_depth_stencil: false,
+			},
+			VulkanRenderPassAttachment {
+				format: depth_stencil_format,
+				is_depth_stencil: true,
+			},
+		];
+		let renderpass = Arc::new(VulkanRenderPass::new(device.clone(), &renderpass_attachments)?);
 		for vk_image in vk_images.iter() {
-			images.push(Arc::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format)?));
+			images.push(Arc::new(VulkanSwapchainImage::new(device.clone(), &surface_format, *vk_image, &swapchain_extent, depth_stencil_format, renderpass.clone())?));
 		}
 		let mut acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>> = Vec::with_capacity(cpu_renderer_threads);
 		for _ in 0..cpu_renderer_threads {
@@ -259,6 +273,7 @@ impl VulkanSwapchain {
 			depth_stencil_format,
 			cpu_renderer_threads,
 			desired_num_of_swapchain_images,
+			renderpass,
 			images,
 			acquire_semaphores,
 		})
