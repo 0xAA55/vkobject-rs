@@ -41,6 +41,9 @@ impl VulkanRenderPassAttachment {
 	}
 }
 
+unsafe impl Sync for VulkanRenderPassAttachment {}
+unsafe impl Send for VulkanRenderPassAttachment {}
+
 /// The wrapper for `VkRenderPass`
 pub struct VulkanRenderPass {
 	/// The `VulkanDevice` is the associated device
@@ -163,3 +166,6 @@ impl Drop for VulkanRenderPass {
 		vkcore.vkDestroyRenderPass(self.device.get_vk_device(), self.renderpass, null()).unwrap();
 	}
 }
+
+unsafe impl Sync for VulkanRenderPass {}
+unsafe impl Send for VulkanRenderPass {}
