@@ -1042,6 +1042,12 @@ impl Debug for PipelineBuilder {
 		.field("descriptor_sets", &self.descriptor_sets)
 		.field("renderpass", &self.renderpass)
 		.field("pipeline_cache", &self.pipeline_cache)
+		.field("rasterization_state_ci", &self.rasterization_state_ci)
+		.field("msaa_state_ci", &self.msaa_state_ci)
+		.field("depth_stenctil_ci", &self.depth_stenctil_ci)
+		.field("color_blend_state_ci", &self.color_blend_state_ci)
+		.field("color_blend_attachment_states", &self.color_blend_attachment_states)
+		.field("dynamic_states", &self.dynamic_states)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.finish()
 	}
