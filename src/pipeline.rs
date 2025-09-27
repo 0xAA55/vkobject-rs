@@ -698,11 +698,12 @@ impl PipelineBuilder {
 		let mut push_constant_ranges: Vec<VkPushConstantRange> = Vec::with_capacity(5);
 		let mut cur_offset: u32 = 0;
 		for (stage, shader) in shaders.iter_shaders() {
-			let ds = DescriptorSets::new(device.clone(), shader.clone(), stage as VkShaderStageFlags, desc_pool.clone())?;
-			for (_, dsl) in ds.get_descriptor_set_layouts().iter() {
-				desc_set_layouts.push(dsl.descriptor_set_layout);
+			if let Some(ds) = DescriptorSets::new(device.clone(), shader.clone(), stage as VkShaderStageFlags, desc_pool.clone())? {
+				for (_, dsl) in ds.get_descriptor_set_layouts().iter() {
+					desc_set_layouts.push(dsl.descriptor_set_layout);
+				}
+				descriptor_sets.insert(stage, ds);
 			}
-			descriptor_sets.insert(stage, ds);
 			for var in shader.get_vars() {
 				if let StorageClass::PushConstant = var.storage_class {
 					let cur_size = (((var.size_of()? - 1) / 4 + 1) * 4) as u32;
