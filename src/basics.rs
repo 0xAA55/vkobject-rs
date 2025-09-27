@@ -8,8 +8,9 @@ use std::{
 	io::{self, ErrorKind},
 	marker::PhantomData,
 	mem::{MaybeUninit, size_of},
+	ops::{Index, IndexMut, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive},
 	ptr::{copy, null, null_mut},
-	slice::{from_raw_parts, from_raw_parts_mut},
+	slice::from_raw_parts_mut,
 	sync::{
 		Arc,
 		Mutex,
@@ -630,6 +631,161 @@ impl Drop for MappedMemory<'_> {
 	}
 }
 
+/// The typed map
+#[derive(Debug)]
+pub struct TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	/// The mapped memory
+	mapped_memory: MappedMemory<'a>,
+
+	/// The slice of items
+	slice: &'a mut [T],
+
+	/// The phantom data to hold the generic type T
+	_phantom: PhantomData<T>,
+}
+
+impl<'a, T> TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	pub fn new(mapped_memory: MappedMemory<'a>) -> Self {
+		let len = mapped_memory.size / size_of::<T>();
+		let slice = unsafe {from_raw_parts_mut(mapped_memory.address as *mut T, len)};
+		Self {
+			mapped_memory,
+			slice,
+			_phantom: PhantomData,
+		}
+	}
+
+	/// Operate the mapped memory as a slice
+	pub fn as_slice(&self) -> &[T] {
+		self.slice
+	}
+
+	/// Operate the mapped memory as a mutable slice
+	pub fn as_slice_mut(&mut self) -> &mut [T] {
+		self.slice
+	}
+}
+
+impl<'a, T> Index<usize> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = T;
+	fn index(&self, index: usize) -> &T {
+		&self.slice[index]
+	}
+}
+
+impl<'a, T> IndexMut<usize> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, index: usize) -> &mut T {
+		&mut self.slice[index]
+	}
+}
+
+impl<'a, T> Index<Range<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: Range<usize>) -> &[T] {
+		&self.slice[range.start..range.end]
+	}
+}
+
+impl<'a, T> IndexMut<Range<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: Range<usize>) -> &mut [T] {
+		&mut self.slice[range.start..range.end]
+	}
+}
+
+impl<'a, T> Index<RangeFrom<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeFrom<usize>) -> &[T] {
+		&self.slice[range.start..]
+	}
+}
+
+impl<'a, T> IndexMut<RangeFrom<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeFrom<usize>) -> &mut [T] {
+		&mut self.slice[range.start..]
+	}
+}
+
+impl<'a, T> Index<RangeTo<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeTo<usize>) -> &[T] {
+		&self.slice[..range.end]
+	}
+}
+
+impl<'a, T> IndexMut<RangeTo<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeTo<usize>) -> &mut [T] {
+		&mut self.slice[..range.end]
+	}
+}
+
+impl<'a, T> Index<RangeFull> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, _: RangeFull) -> &[T] {
+		&self.slice[..]
+	}
+}
+
+impl<'a, T> IndexMut<RangeFull> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
+		&mut self.slice[..]
+	}
+}
+
+impl<'a, T> Index<RangeInclusive<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeInclusive<usize>) -> &[T] {
+		&self.slice[*range.start()..=*range.end()]
+	}
+}
+
+impl<'a, T> IndexMut<RangeInclusive<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeInclusive<usize>) -> &mut [T] {
+		&mut self.slice[*range.start()..=*range.end()]
+	}
+}
+
+impl<'a, T> Index<RangeToInclusive<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeToInclusive<usize>) -> &[T] {
+		&self.slice[..=range.end]
+	}
+}
+
+impl<'a, T> IndexMut<RangeToInclusive<usize>> for TypedMappedMemory<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeToInclusive<usize>) -> &mut [T] {
+		&mut self.slice[..=range.end]
 	}
 }
 
