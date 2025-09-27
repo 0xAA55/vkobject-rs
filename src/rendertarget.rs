@@ -8,7 +8,7 @@ use std::{
 #[derive(Debug)]
 pub struct RenderTargetProps {
 	/// The render pass object
-	pub renderpass: VulkanRenderPass,
+	pub renderpass: Arc<VulkanRenderPass>,
 
 	/// The framebuffer object
 	pub framebuffer: VulkanFramebuffer,
@@ -27,11 +27,15 @@ pub struct RenderTargetProps {
 }
 
 impl RenderTargetProps {
-	pub fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, attachments: &[Arc<VulkanTexture>]) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, renderpass: Option<Arc<VulkanRenderPass>>, attachments: &[Arc<VulkanTexture>]) -> Result<Self, VulkanError> {
 		let renderpass_attachments: Vec<VulkanRenderPassAttachment> = attachments.iter().map(|t| {
 			VulkanRenderPassAttachment::new(t.format, t.type_size.is_depth_stencil())
 		}).collect();
-		let renderpass = VulkanRenderPass::new(device.clone(), &renderpass_attachments)?;
+		let renderpass = if let Some(renderpass) = renderpass {
+			renderpass.clone()
+		} else {
+			Arc::new(VulkanRenderPass::new(device.clone(), &renderpass_attachments)?)
+		};
 		let framebuffer = VulkanFramebuffer::new(device.clone(), extent, &renderpass, attachments)?;
 		Ok(Self {
 			renderpass,
