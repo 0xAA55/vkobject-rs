@@ -419,7 +419,7 @@ impl VulkanTexture {
 	/// Update new data to the staging buffer
 	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.ensure_staging_buffer()?;
-		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
+		self.staging_buffer.as_mut().unwrap().set_data(data, offset, size)?;
 		Ok(())
 	}
 

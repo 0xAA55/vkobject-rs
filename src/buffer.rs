@@ -90,13 +90,13 @@ impl Buffer {
 	/// Update new data to the buffer
 	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.ensure_staging_buffer()?;
-		self.staging_buffer.as_ref().unwrap().set_data(data, offset, size)?;
+		self.staging_buffer.as_mut().unwrap().set_data(data, offset, size)?;
 		Ok(())
 	}
 
 	/// Retrieve the data from the staging buffer
 	pub fn get_staging_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
-		self.staging_buffer.as_ref().unwrap().get_data(data, offset, size)?;
+		self.staging_buffer.as_mut().unwrap().get_data(data, offset, size)?;
 		Ok(())
 	}
 
@@ -149,7 +149,7 @@ impl Buffer {
 	/// Map the staging buffer
 	pub fn map_staging_buffer<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		self.ensure_staging_buffer()?;
-		let staging_buffer = self.staging_buffer.as_ref().unwrap();
+		let staging_buffer = self.staging_buffer.as_mut().unwrap();
 		staging_buffer.memory.map(offset, size)
 	}
 

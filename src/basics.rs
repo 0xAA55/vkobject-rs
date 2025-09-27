@@ -1010,19 +1010,19 @@ impl StagingBuffer {
 	}
 
 	/// Set the content of the staging buffer
-	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn set_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.memory.set_data(data, offset, size)?;
 		Ok(())
 	}
 
 	/// Set the content of the staging buffer
-	pub fn get_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn get_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.memory.get_data(data, offset, size)?;
 		Ok(())
 	}
 
 	/// Map the memory
-	pub fn map<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		self.memory.map(offset, size)
 	}
 }

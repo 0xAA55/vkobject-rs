@@ -67,8 +67,8 @@ where
 	}
 
 	/// Get data by an index
-	pub fn get_data(&self, index: usize) -> Option<T> {
-		if let Some(staging_buffer) = &self.buffer.staging_buffer {
+	pub fn get_data(&mut self, index: usize) -> Option<T> {
+		if let Some(ref mut staging_buffer) = self.buffer.staging_buffer {
 			let mut ret = T::default();
 			staging_buffer.get_data(&mut ret as *mut T as *mut c_void, (index * size_of::<T>()) as VkDeviceSize, size_of::<T>()).ok()?;
 			Some(ret)
