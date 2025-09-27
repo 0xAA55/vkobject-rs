@@ -396,7 +396,7 @@ pub struct DescriptorSets {
 
 impl DescriptorSets {
 	/// Create the `DescriptorSetLayout` by parsing the shader variable
-	pub fn new(device: Arc<VulkanDevice>, shader: Arc<VulkanShader>, shader_stage: VkShaderStageFlags, desc_pool: Arc<DescriptorPool>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, shader: Arc<VulkanShader>, shader_stage: VkShaderStageFlags, desc_pool: Arc<DescriptorPool>) -> Result<Option<Self>, VulkanError> {
 		let mut layout_bindings: HashMap<u32, HashMap<u32, VkDescriptorSetLayoutBinding>> = HashMap::new();
 		for var in shader.get_vars() {
 			if let VariableLayout::Descriptor{set, binding, input_attachment_index: _} = var.layout {
@@ -509,26 +509,30 @@ impl DescriptorSets {
 			descriptor_set_layouts.insert(*key, DescriptorSetLayout::new(device.clone(), &layout_ci)?);
 		}
 		let layout_array: Vec<VkDescriptorSetLayout> = descriptor_set_layouts.values().map(|v|v.descriptor_set_layout).collect();
-		let desc_sets_ai = VkDescriptorSetAllocateInfo {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
-			pNext: null(),
-			descriptorPool: desc_pool.get_vk_pool(),
-			descriptorSetCount: layout_array.len() as u32,
-			pSetLayouts: layout_array.as_ptr(),
-		};
-		let mut descriptor_sets: VkDescriptorSet = null();
-		device.vkcore.vkAllocateDescriptorSets(device.get_vk_device(), &desc_sets_ai, &mut descriptor_sets)?;
-		let descriptor_sets = ResourceGuard::new(descriptor_sets, |&ds| device.vkcore.vkFreeDescriptorSets(device.get_vk_device(), desc_pool.get_vk_pool(), 1, &ds).unwrap());
-		WriteDescriptorSets::build(device.clone(), *descriptor_sets, &shader)?;
-		let descriptor_sets = descriptor_sets.release();
-		Ok(Self {
-			device,
-			shader_stage,
-			desc_pool,
-			descriptor_set_layouts,
-			descriptor_sets,
-			shader,
-		})
+		if layout_array.is_empty() {
+			Ok(None)
+		} else {
+			let desc_sets_ai = VkDescriptorSetAllocateInfo {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
+				pNext: null(),
+				descriptorPool: desc_pool.get_vk_pool(),
+				descriptorSetCount: layout_array.len() as u32,
+				pSetLayouts: layout_array.as_ptr(),
+			};
+			let mut descriptor_sets: VkDescriptorSet = null();
+			device.vkcore.vkAllocateDescriptorSets(device.get_vk_device(), &desc_sets_ai, &mut descriptor_sets)?;
+			let descriptor_sets = ResourceGuard::new(descriptor_sets, |&ds| device.vkcore.vkFreeDescriptorSets(device.get_vk_device(), desc_pool.get_vk_pool(), 1, &ds).unwrap());
+			WriteDescriptorSets::build(device.clone(), *descriptor_sets, &shader)?;
+			let descriptor_sets = descriptor_sets.release();
+			Ok(Some(Self {
+				device,
+				shader_stage,
+				desc_pool,
+				descriptor_set_layouts,
+				descriptor_sets,
+				shader,
+			}))
+		}
 	}
 
 	/// Get the `VkDescriptorSetLayout`
@@ -544,7 +548,7 @@ impl DescriptorSets {
 
 impl Clone for DescriptorSets {
 	fn clone(&self) -> Self {
-		Self::new(self.device.clone(), self.shader.clone(), self.shader_stage, self.desc_pool.clone()).unwrap()
+		Self::new(self.device.clone(), self.shader.clone(), self.shader_stage, self.desc_pool.clone()).unwrap().unwrap()
 	}
 }
 
