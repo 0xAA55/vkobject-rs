@@ -1082,6 +1082,9 @@ pub struct Pipeline {
 	/// The descriptor sets
 	pub descriptor_sets: Arc<DescriptorSets>,
 
+	/// The descriptor sets to be binded, this is just an accelerator
+	descriptor_sets_to_bind: BTreeMap<u32, Vec<VkDescriptorSet>>,
+
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
 
@@ -1263,6 +1266,22 @@ impl Pipeline {
 		};
 		let mut pipeline = null();
 		device.vkcore.vkCreateGraphicsPipelines(device.get_vk_device(), pipeline_cache.get_vk_pipeline_cache(), 1, &pipeline_ci, null(), &mut pipeline)?;
+		let descriptor_sets_map = descriptor_sets.get_descriptor_sets();
+		let first_set = *descriptor_sets_map.keys().next().unwrap();
+		let last_set = *descriptor_sets_map.last_key_value().unwrap().0;
+		let mut descriptor_sets_to_bind: BTreeMap<u32, Vec<VkDescriptorSet>> = BTreeMap::new();
+		let mut prev_set = None;
+		for i in first_set..=(last_set + 1) {
+			if let Some(set) = descriptor_sets_map.get(&i) {
+				if let Some(first_set) = &prev_set {
+					descriptor_sets_to_bind.get_mut(&first_set).unwrap().push(*set);
+				} else {
+					descriptor_sets_to_bind.insert(i, vec![*set]);
+				}
+			} else {
+				prev_set = None;
+			}
+		}
 		Ok(Self {
 			device,
 			mesh,
@@ -1270,6 +1289,7 @@ impl Pipeline {
 			renderpass,
 			pipeline_cache,
 			descriptor_sets,
+			descriptor_sets_to_bind,
 			pipeline_layout,
 			pipeline,
 		})
@@ -1286,10 +1306,10 @@ impl Pipeline {
 		if descriptor_sets.is_empty() {
 			Ok(())
 		} else {
-			let first_set = descriptor_sets.keys().next().unwrap();
-			let (last_set, _) = descriptor_sets.last_key_value().unwrap();
-			let sets: Vec<VkDescriptorSet> = (*first_set..(*last_set + 1)).map(|i|if let Some(set) = descriptor_sets.get(&i) {*set} else {null()}).collect();
-			Ok(self.device.vkcore.vkCmdBindDescriptorSets(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline_layout, *first_set, sets.len() as u32, sets.as_ptr(), 0, null())?)
+			for (first_set, sets) in self.descriptor_sets_to_bind.iter() {
+				self.device.vkcore.vkCmdBindDescriptorSets(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline_layout, *first_set, sets.len() as u32, sets.as_ptr(), 0, null())?;
+			}
+			Ok(())
 		}
 	}
 
@@ -1341,6 +1361,7 @@ impl Debug for Pipeline {
 		.field("renderpass", &self.renderpass)
 		.field("pipeline_cache", &self.pipeline_cache)
 		.field("descriptor_sets", &self.descriptor_sets)
+		.field("descriptor_sets_to_bind", &self.descriptor_sets_to_bind)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.field("pipeline", &self.pipeline)
 		.finish()
