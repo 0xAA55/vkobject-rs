@@ -1,7 +1,7 @@
 
 use crate::prelude::*;
 use std::{
-	any::{Any, TypeId},
+	any::{Any, TypeId, type_name},
 	ffi::c_void,
 	fmt::Debug,
 	marker::PhantomData,
@@ -296,6 +296,18 @@ pub trait GenericMesh: Debug {
 	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>>;
 
 	/// Get the stride of the vertex buffer
+	fn get_vertex_type_name(&self) -> &'static str;
+
+	/// Get the stride of the index buffer
+	fn get_index_type_name(&self) -> &'static str;
+
+	/// Get the stride of the instance buffer
+	fn get_instance_type_name(&self) -> &'static str;
+
+	/// Get the stride of the command buffer
+	fn get_command_type_name(&self) -> &'static str;
+
+	/// Get the stride of the vertex buffer
 	fn get_vertex_stride(&self) -> usize;
 
 	/// Get the stride of the index buffer
@@ -393,6 +405,22 @@ where
 
 	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>> {
 		self.commands.as_ref().map(|_|self.command_type.iter())
+	}
+
+	fn get_vertex_type_name(&self) -> &'static str {
+		type_name::<V>()
+	}
+
+	fn get_index_type_name(&self) -> &'static str {
+		type_name::<E>()
+	}
+
+	fn get_instance_type_name(&self) -> &'static str {
+		type_name::<I>()
+	}
+
+	fn get_command_type_name(&self) -> &'static str {
+		type_name::<C>()
 	}
 
 	fn get_vertex_stride(&self) -> usize {
