@@ -1279,6 +1279,20 @@ impl Pipeline {
 	pub(crate) fn get_vk_pipeline(&self) -> VkPipeline {
 		self.pipeline
 	}
+
+	/// Invoke `vkCmdBindDescriptorSets`
+	fn bind_descriptor_sets(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		let descriptor_sets = self.descriptor_sets.get_descriptor_sets();
+		if descriptor_sets.is_empty() {
+			Ok(())
+		} else {
+			let first_set = descriptor_sets.keys().next().unwrap();
+			let (last_set, _) = descriptor_sets.last_key_value().unwrap();
+			let sets: Vec<VkDescriptorSet> = (*first_set..(*last_set + 1)).map(|i|if let Some(set) = descriptor_sets.get(&i) {*set} else {null()}).collect();
+			Ok(self.device.vkcore.vkCmdBindDescriptorSets(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline_layout, *first_set, sets.len() as u32, sets.as_ptr(), 0, null())?)
+		}
+	}
+
 }
 
 impl Debug for Pipeline {
