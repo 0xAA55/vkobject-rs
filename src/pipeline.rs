@@ -1266,20 +1266,23 @@ impl Pipeline {
 		};
 		let mut pipeline = null();
 		device.vkcore.vkCreateGraphicsPipelines(device.get_vk_device(), pipeline_cache.get_vk_pipeline_cache(), 1, &pipeline_ci, null(), &mut pipeline)?;
-		let descriptor_sets_map = descriptor_sets.get_descriptor_sets();
-		let first_set = *descriptor_sets_map.keys().next().unwrap();
-		let last_set = *descriptor_sets_map.last_key_value().unwrap().0;
 		let mut descriptor_sets_to_bind: BTreeMap<u32, Vec<VkDescriptorSet>> = BTreeMap::new();
-		let mut prev_set = None;
-		for i in first_set..=(last_set + 1) {
-			if let Some(set) = descriptor_sets_map.get(&i) {
-				if let Some(first_set) = &prev_set {
-					descriptor_sets_to_bind.get_mut(&first_set).unwrap().push(*set);
+		let descriptor_sets_map = descriptor_sets.get_descriptor_sets();
+		if !descriptor_sets_map.is_empty() {
+			let first_set = *descriptor_sets_map.keys().next().unwrap();
+			let last_set = *descriptor_sets_map.last_key_value().unwrap().0;
+			let mut prev_set = None;
+			for i in first_set..=last_set {
+				if let Some(set) = descriptor_sets_map.get(&i) {
+					if let Some(first_set) = &prev_set {
+						descriptor_sets_to_bind.get_mut(&first_set).unwrap().push(*set);
+					} else {
+						prev_set = Some(i);
+						descriptor_sets_to_bind.insert(i, vec![*set]);
+					}
 				} else {
-					descriptor_sets_to_bind.insert(i, vec![*set]);
+					prev_set = None;
 				}
-			} else {
-				prev_set = None;
 			}
 		}
 		Ok(Self {
