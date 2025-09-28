@@ -650,11 +650,8 @@ pub struct PipelineBuilder {
 	/// The shaders to use
 	pub shaders: Arc<DrawShaders>,
 
-	/// The pool
-	pub desc_pool: Arc<DescriptorPool>,
-
 	/// The descriptor sets
-	pub descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets>,
+	pub descriptor_sets: Arc<DescriptorSets>,
 
 	/// The render target props
 	pub renderpass: Arc<VulkanRenderPass>,
@@ -686,27 +683,37 @@ pub struct PipelineBuilder {
 
 impl PipelineBuilder {
 	/// Create the `PipelineBuilder`
-	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, renderpass: Arc<VulkanRenderPass>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
-		let mut descriptor_sets: HashMap<VkShaderStageFlagBits, DescriptorSets> = HashMap::new();
+	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, desc_props: Arc<DescriptorProps>, renderpass: Arc<VulkanRenderPass>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
+		let descriptor_sets = Arc::new(DescriptorSets::new(device.clone(), desc_pool.clone(), shaders.clone(), desc_props.clone())?);
 		let mut desc_set_layouts: Vec<VkDescriptorSetLayout> = Vec::with_capacity(5);
 		let mut push_constant_ranges: Vec<VkPushConstantRange> = Vec::with_capacity(5);
-		let mut cur_offset: u32 = 0;
+		for dsl in descriptor_sets.get_descriptor_set_layouts().values() {
+			desc_set_layouts.push(dsl.descriptor_set_layout);
+		}
 		for (stage, shader) in shaders.iter_shaders() {
-			if let Some(ds) = DescriptorSets::new(device.clone(), shader.clone(), stage as VkShaderStageFlags, desc_pool.clone())? {
-				for (_, dsl) in ds.get_descriptor_set_layouts().iter() {
-					desc_set_layouts.push(dsl.descriptor_set_layout);
-				}
-				descriptor_sets.insert(stage, ds);
-			}
 			for var in shader.get_vars() {
-				if let StorageClass::PushConstant = var.storage_class {
-					let cur_size = (((var.size_of()? - 1) / 4 + 1) * 4) as u32;
-					push_constant_ranges.push(VkPushConstantRange {
-						stageFlags: stage as VkShaderStageFlags,
-						offset: cur_offset,
-						size: cur_size,
-					});
-					cur_offset += cur_size;
+				if StorageClass::PushConstant != var.storage_class {
+					continue;
+				}
+				match &var.var_type {
+					VariableType::Struct(st) => {
+						for member in st.members.iter() {
+							let size = (((member.size_of()? - 1) / 4 + 1) * 4) as u32;
+							push_constant_ranges.push(VkPushConstantRange {
+								stageFlags: stage as VkShaderStageFlags,
+								offset: member.member_offset,
+								size,
+							});
+						}
+					}
+					_ => {
+						let size = (((var.size_of()? - 1) / 4 + 1) * 4) as u32;
+						push_constant_ranges.push(VkPushConstantRange {
+							stageFlags: stage as VkShaderStageFlags,
+							offset: 0,
+							size,
+						});
+					}
 				}
 			}
 		}
@@ -815,7 +822,6 @@ impl PipelineBuilder {
 			device,
 			mesh,
 			shaders,
-			desc_pool,
 			descriptor_sets,
 			renderpass,
 			pipeline_cache,
@@ -1032,7 +1038,6 @@ impl Debug for PipelineBuilder {
 		f.debug_struct("PipelineBuilder")
 		.field("mesh", &self.mesh)
 		.field("shaders", &self.shaders)
-		.field("desc_pool", &self.desc_pool)
 		.field("descriptor_sets", &self.descriptor_sets)
 		.field("renderpass", &self.renderpass)
 		.field("pipeline_cache", &self.pipeline_cache)
