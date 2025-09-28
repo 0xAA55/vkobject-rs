@@ -807,168 +807,6 @@ pub struct TextureForSample {
 	pub sampler: Arc<VulkanSampler>,
 }
 
-/// The properties for the descriptor set
-#[derive(Debug)]
-pub enum DescriptorProp {
-	/// The props for the samplers
-	Samplers(Vec<Arc<VulkanSampler>>),
-
-	/// The props for the image
-	Images(Vec<TextureForSample>),
-
-	/// The props for the storage buffer
-	StorageBuffers(Vec<RwLock<Box<dyn GenericStorageBuffer>>>),
-
-	/// The props for the uniform buffers
-	UniformBuffers(Vec<RwLock<Box<dyn GenericUniformBuffer>>>),
-
-	/// The props for the storage texel buffer
-	StorageTexelBuffers(Vec<VulkanBufferView>),
-
-	/// The props for the uniform texel buffers
-	UniformTexelBuffers(Vec<VulkanBufferView>),
-}
-
-impl DescriptorProp {
-	/// Get samplers
-	pub fn get_samplers(&self) -> Result<&[Arc<VulkanSampler>], VulkanError> {
-		if let Self::Samplers(samplers) = self {
-			Ok(samplers)
-		} else {
-			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::Samplers`, got {self:?}")))
-		}
-	}
-
-	/// Get images
-	pub fn get_images(&self) -> Result<&[TextureForSample], VulkanError> {
-		if let Self::Images(images) = self {
-			Ok(images)
-		} else {
-			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::Images`, got {self:?}")))
-		}
-	}
-
-	/// Get uniform buffers
-	pub fn get_uniform_buffers(&self) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
-		if let Self::UniformBuffers(uniform_buffers) = self {
-			Ok(uniform_buffers)
-		} else {
-			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::UniformBuffers`, got {self:?}")))
-		}
-	}
-
-	/// Get storage buffers
-	pub fn get_storage_buffers(&self) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
-		if let Self::StorageBuffers(uniform_buffers) = self {
-			Ok(uniform_buffers)
-		} else {
-			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::StorageBuffers`, got {self:?}")))
-		}
-	}
-
-	/// Get uniform texel buffers
-	pub fn get_uniform_texel_buffers(&self) -> Result<&[VulkanBufferView], VulkanError> {
-		if let Self::UniformTexelBuffers(uniform_buffers) = self {
-			Ok(uniform_buffers)
-		} else {
-			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::UniformTexelBuffers`, got {self:?}")))
-		}
-	}
-
-	/// Get storage texel buffers
-	pub fn get_storage_texel_buffers(&self) -> Result<&[VulkanBufferView], VulkanError> {
-		if let Self::StorageTexelBuffers(uniform_buffers) = self {
-			Ok(uniform_buffers)
-		} else {
-			Err(VulkanError::ShaderInputTypeMismatch(format!("Expected `DescriptorProp::StorageTexelBuffers`, got {self:?}")))
-		}
-	}
-
-	/// Unwrap for samplers
-	pub fn unwrap_samplers(&self) -> &[Arc<VulkanSampler>] {
-		if let Self::Samplers(samplers) = self {
-			samplers
-		} else {
-			panic!("Expected `DescriptorProp::Samplers`, got {self:?}")
-		}
-	}
-
-	/// Unwrap for images
-	pub fn unwrap_images(&self) -> &[TextureForSample] {
-		if let Self::Images(images) = self {
-			images
-		} else {
-			panic!("Expected `DescriptorProp::Images`, got {self:?}")
-		}
-	}
-
-	/// Unwrap for uniform buffers
-	pub fn unwrap_uniform_buffers(&self) -> &[RwLock<Box<dyn GenericUniformBuffer>>] {
-		if let Self::UniformBuffers(uniform_buffers) = self {
-			uniform_buffers
-		} else {
-			panic!("Expected `DescriptorProp::UniformBuffers`, got {self:?}")
-		}
-	}
-
-	/// Unwrap for storage buffers
-	pub fn unwrap_storage_buffers(&self) -> &[RwLock<Box<dyn GenericStorageBuffer>>] {
-		if let Self::StorageBuffers(storage_buffers) = self {
-			storage_buffers
-		} else {
-			panic!("Expected `DescriptorProp::StorageBuffers`, got {self:?}")
-		}
-	}
-
-	/// Unwrap for uniform texel buffers
-	pub fn unwrap_uniform_texel_buffers(&self) -> &[VulkanBufferView] {
-		if let Self::UniformTexelBuffers(uniform_texel_buffers) = self {
-			uniform_texel_buffers
-		} else {
-			panic!("Expected `DescriptorProp::UniformTexelBuffers`, got {self:?}")
-		}
-	}
-
-	/// Unwrap for storage texel buffers
-	pub fn unwrap_storage_texel_buffers(&self) -> &[VulkanBufferView] {
-		if let Self::StorageTexelBuffers(storage_texel_buffers) = self {
-			storage_texel_buffers
-		} else {
-			panic!("Expected `DescriptorProp::StorageTexelBuffers`, got {self:?}")
-		}
-	}
-
-	/// Check if it is samplers
-	pub fn is_samplers(&self) -> bool {
-		matches!(self, Self::Samplers(_))
-	}
-
-	/// Check if it is images
-	pub fn is_images(&self) -> bool {
-		matches!(self, Self::Images(_))
-	}
-
-	/// Check if it is uniform buffers
-	pub fn is_uniform_buffers(&self) -> bool {
-		matches!(self, Self::UniformBuffers(_))
-	}
-
-	/// Check if it is storage buffers
-	pub fn is_storage_buffers(&self) -> bool {
-		matches!(self, Self::StorageBuffers(_))
-	}
-
-	/// Check if it is uniform texel buffers
-	pub fn is_uniform_texel_buffers(&self) -> bool {
-		matches!(self, Self::UniformTexelBuffers(_))
-	}
-
-	/// Check if it is storage texel buffers
-	pub fn is_storage_texel_buffers(&self) -> bool {
-		matches!(self, Self::StorageTexelBuffers(_))
-	}
-}
-
 /// The wrapper for `VkShaderModule`
 pub struct VulkanShader {
 	/// The associated device
@@ -985,9 +823,6 @@ pub struct VulkanShader {
 
 	/// The tessellation output vertices for the tessellation control shader
 	tessellation_output_vertices: Option<u32>,
-
-	/// The properties of the shader descriptor sets
-	desc_props: HashMap<String, DescriptorProp>
 }
 
 /// The shader source
@@ -1132,7 +967,7 @@ impl ShaderSourceOwned {
 
 impl VulkanShader {
 	/// Create the `VulkanShader` from the shader code, it should be aligned to 32-bits
-	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32], entry_point: &str, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, shader_code: &[u32], entry_point: &str) -> Result<Self, VulkanError> {
 		let bytes = unsafe {from_raw_parts(shader_code.as_ptr() as *const u8, shader_code.len() * 4)};
 		let analyzer = ShaderAnalyzer::new(bytes)?;
 		let vars = analyzer.get_global_vars()?;
@@ -1153,14 +988,13 @@ impl VulkanShader {
 			entry_point: CString::new(entry_point).expect("`CString::new()` failed"),
 			vars,
 			tessellation_output_vertices,
-			desc_props,
 		})
 	}
 
 	/// Create the `VulkanShader` from file
-	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &PathBuf, entry_point: &str, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+	pub fn new_from_file(device: Arc<VulkanDevice>, shader_file: &PathBuf, entry_point: &str) -> Result<Self, VulkanError> {
 		let shader_bytes = u8vec_to_u32vec(read(shader_file)?);
-		Self::new(device, &shader_bytes, entry_point, desc_props)
+		Self::new(device, &shader_bytes, entry_point)
 	}
 
 	/// Compile shader code to binary
@@ -1203,7 +1037,7 @@ impl VulkanShader {
 			write,
 		};
 		let src = code.get_path();
-		let spv = {let mut path = src.clone(); path.set_extension("spv"); path};
+		let spv = {let mut path = src.clone(); path.set_file_name(path.file_name().unwrap().to_string_lossy().replace('.', "_")); path.set_extension("spv"); path};
 		let mut need_compilation = false;
 		let res = || -> Result<bool, std::io::Error> {
 			let metadata1 = metadata(src)?;
@@ -1239,16 +1073,16 @@ impl VulkanShader {
 	/// Create the `VulkanShader` from source code
 	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, is_hlsl: bool, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+	pub fn new_from_source(device: Arc<VulkanDevice>, code: ShaderSource, is_hlsl: bool, filename: &str, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
 		let artifact = Self::compile(device.clone(), code, is_hlsl, filename, entry_point, level, warning_as_error)?;
-		Self::new(device, &artifact, entry_point, desc_props)
+		Self::new(device, &artifact, entry_point)
 	}
 
 	/// Create the `VulkanShader` from source code from file
 	/// * `level`: You could use one of these: `OptimizationLevel::Zero`, `OptimizationLevel::Size`, and `OptimizationLevel::Performance`
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
-		Self::new_from_source(device, code_path.load()?.as_ref(), is_hlsl, &code_path.get_filename(), entry_point, level, warning_as_error, desc_props)
+	pub fn new_from_source_file(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
+		Self::new_from_source(device, code_path.load()?.as_ref(), is_hlsl, &code_path.get_filename(), entry_point, level, warning_as_error)
 	}
 
 	/// Create the `VulkanShader` from source code from file or load from cached binary code
@@ -1258,9 +1092,9 @@ impl VulkanShader {
 	///
 	/// See `VulkanShader::load_cache_or_compile`
 	#[cfg(feature = "shaderc")]
-	pub fn new_from_source_file_or_cache(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool, desc_props: HashMap<String, DescriptorProp>) -> Result<Self, VulkanError> {
+	pub fn new_from_source_file_or_cache(device: Arc<VulkanDevice>, code_path: ShaderSourcePath, is_hlsl: bool, entry_point: &str, level: OptimizationLevel, warning_as_error: bool) -> Result<Self, VulkanError> {
 		let artifact = Self::load_cache_or_compile(device.clone(), code_path, is_hlsl, entry_point, level, warning_as_error)?;
-		Self::new(device, &artifact, entry_point, desc_props)
+		Self::new(device, &artifact, entry_point)
 	}
 
 	/// Get the inner
@@ -1278,74 +1112,9 @@ impl VulkanShader {
 		&self.vars
 	}
 
-	/// Get the desc props
-	pub fn get_desc_props(&self) -> &HashMap<String, DescriptorProp> {
-		&self.desc_props
-	}
-
 	/// Get the tessellation output vertices
 	pub fn get_tessellation_output_vertices(&self) -> Option<u32> {
 		self.tessellation_output_vertices
-	}
-
-	/// Get specific number of samplers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_samplers(&self, name: &str, desired_count: usize) -> Result<&[Arc<VulkanSampler>], VulkanError> {
-		let name = name.to_string();
-		let samplers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_samplers()?;
-		if samplers.len() != desired_count {
-			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} sampler(s) is needed for `{}`, but {} sampler(s) were provided.", name, samplers.len())));
-		}
-		Ok(samplers)
-	}
-
-	/// Get specific number of textures from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_textures(&self, name: &str, desired_count: usize) -> Result<&[TextureForSample], VulkanError> {
-		let name = name.to_string();
-		let textures = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_images()?;
-		if textures.len() != desired_count {
-			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} texture(s) is needed for `{}`, but {} texture(s) were provided.", name, textures.len())));
-		}
-		Ok(textures)
-	}
-
-	/// Get specific number of uniform buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_uniform_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
-		let name = name.to_string();
-		let uniform_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_uniform_buffers()?;
-		if uniform_buffers.len() != desired_count {
-			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} uniform buffer(s) is needed for `{}`, but {} uniform buffer(s) were provided.", name, uniform_buffers.len())));
-		}
-		Ok(uniform_buffers)
-	}
-
-	/// Get specific number of uniform buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_storage_buffers(&self, name: &str, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
-		let name = name.to_string();
-		let storage_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_storage_buffers()?;
-		if storage_buffers.len() != desired_count {
-			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} storage buffer(s) is needed for `{}`, but {} storage buffer(s) were provided.", name, storage_buffers.len())));
-		}
-		Ok(storage_buffers)
-	}
-
-	/// Get specific number of uniform texel buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_uniform_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[VulkanBufferView], VulkanError> {
-		let name = name.to_string();
-		let uniform_texel_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_uniform_texel_buffers()?;
-		if uniform_texel_buffers.len() != desired_count {
-			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} uniform buffer(s) is needed for `{}`, but {} uniform buffer(s) were provided.", name, uniform_texel_buffers.len())));
-		}
-		Ok(uniform_texel_buffers)
-	}
-
-	/// Get specific number of uniform texel buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_storage_texel_buffers(&self, name: &str, desired_count: usize) -> Result<&[VulkanBufferView], VulkanError> {
-		let name = name.to_string();
-		let storage_texel_buffers = self.desc_props.get(&name).ok_or(VulkanError::MissingShaderInputs(name.clone()))?.get_storage_texel_buffers()?;
-		if storage_texel_buffers.len() != desired_count {
-			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} storage buffer(s) is needed for `{}`, but {} storage buffer(s) were provided.", name, storage_texel_buffers.len())));
-		}
-		Ok(storage_texel_buffers)
 	}
 }
 
@@ -1353,9 +1122,9 @@ impl Debug for VulkanShader {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("VulkanShader")
 		.field("shader", &self.shader)
+		.field("entry_point", &self.entry_point)
 		.field("vars", &self.vars)
 		.field("tessellation_output_vertices", &self.tessellation_output_vertices)
-		.field("desc_props", &self.desc_props)
 		.finish()
 	}
 }

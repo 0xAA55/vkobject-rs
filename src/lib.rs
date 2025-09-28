@@ -56,6 +56,9 @@ pub mod material;
 /// The mesh object
 pub mod mesh;
 
+/// The descriptor set properties
+pub mod descprops;
+
 /// The pipeline object to wiring up buffers from a mesh, shaders, rendertargets together.
 pub mod pipeline;
 
@@ -85,6 +88,7 @@ pub mod prelude {
 	pub use crate::texture::*;
 	pub use crate::material::*;
 	pub use crate::mesh::*;
+	pub use crate::descprops::*;
 	pub use crate::pipeline::*;
 	pub use crate::derive_vertex_type;
 }
