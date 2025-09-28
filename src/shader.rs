@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use std::{
 	any::TypeId,
+	cmp::max,
 	collections::HashMap,
 	fmt::{self, Debug, Formatter},
 	ffi::CString,
@@ -40,6 +41,9 @@ pub mod shader_analyzer {
 
 		/// The type of the member
 		pub member_type: VariableType,
+
+		/// The offset of the member
+		pub member_offset: u32,
 	}
 
 	impl StructMember {
@@ -478,6 +482,21 @@ pub mod shader_analyzer {
 			format!("member_{member_id}")
 		}
 
+		/// Get the offset of the struct member if it has an offset annotation
+		pub fn get_member_offset(&self, target_id: Word, member_id: u32) -> Option<u32> {
+			for inst in self.module.annotations.iter() {
+				if inst.class.opcode != Op::MemberDecorate ||
+				   inst.operands.len() < 4 ||
+				   inst.operands[0].unwrap_id_ref() != target_id ||
+				   inst.operands[1].unwrap_literal_bit32() != member_id ||
+				   inst.operands[2].unwrap_decoration() != Decoration::Offset {
+					continue;
+				}
+				return Some(inst.operands[3].unwrap_literal_bit32());
+			}
+			None
+		}
+
 		/// Get the layout of the variable
 		/// * `member_id`: To retrieve the layout of a struct member, this field should be `Some`
 		/// * If you want to retrieve the layout of a variable rather than a struct member, this field should be `None`
@@ -580,14 +599,24 @@ pub mod shader_analyzer {
 					Op::TypeStruct => {
 						let name = self.get_name(type_id);
 						let mut members: Vec<StructMember> = Vec::with_capacity(inst.operands.len());
+						let mut cur_offset = 0;
 						for (i, member) in inst.operands.iter().enumerate() {
 							let id = member.unwrap_id_ref();
 							let member_name = self.get_member_name(type_id, i as u32);
 							let member_type = self.get_type(id).unwrap();
+							let member_size = member_type.size_of()?;
+							let member_alignment = member_type.alignment_of()? as u32;
+							if let Some(offset) = self.get_member_offset(type_id, i as u32) {
+								cur_offset = offset;
+							} else {
+								cur_offset = (cur_offset.div_ceil(member_alignment) + 1) * member_alignment;
+							};
 							members.push(StructMember {
 								member_name,
 								member_type,
+								member_offset: cur_offset,
 							});
+							cur_offset += member_size as u32;
 						}
 						Ok(VariableType::Struct(StructType {
 							name,
