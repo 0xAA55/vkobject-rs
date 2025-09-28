@@ -1309,7 +1309,7 @@ impl Pipeline {
 		let instance_count = mesh_lock.mesh.get_instance_count() as u32;
 		let command_count = mesh_lock.mesh.get_command_count() as u32;
 		let index_type = mesh_lock.mesh.get_index_type();
-		let command_stride = mesh_lock.mesh.get_instance_stride() as u32;
+		let command_stride = mesh_lock.mesh.get_command_stride() as u32;
 		drop(mesh_lock);
 		if let Some(index_buffer) = index_buffer {
 			vkcore.vkCmdBindIndexBuffer(cmdbuf, index_buffer, 0, index_type)?;
