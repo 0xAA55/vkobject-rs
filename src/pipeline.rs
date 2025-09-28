@@ -1293,6 +1293,44 @@ impl Pipeline {
 		}
 	}
 
+	/// Queue draw command
+	pub fn draw(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		let vkcore = &self.device.vkcore;
+		self.bind_descriptor_sets(cmdbuf)?;
+		vkcore.vkCmdBindPipeline(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline)?;
+		let mut mesh_lock = self.mesh.lock().unwrap();
+		mesh_lock.mesh.flush(cmdbuf)?;
+		let vertex_buffer = mesh_lock.mesh.get_vk_vertex_buffer();
+		let index_buffer = mesh_lock.mesh.get_vk_index_buffer();
+		let instance_buffer = mesh_lock.mesh.get_vk_instance_buffer();
+		let command_buffer = mesh_lock.mesh.get_vk_command_buffer();
+		let vertex_count = mesh_lock.mesh.get_vertex_count() as u32;
+		let index_count = mesh_lock.mesh.get_index_count() as u32;
+		let instance_count = mesh_lock.mesh.get_instance_count() as u32;
+		let command_count = mesh_lock.mesh.get_command_count() as u32;
+		let index_type = mesh_lock.mesh.get_index_type();
+		let command_stride = mesh_lock.mesh.get_instance_stride() as u32;
+		drop(mesh_lock);
+		if let Some(index_buffer) = index_buffer {
+			vkcore.vkCmdBindIndexBuffer(cmdbuf, index_buffer, 0, index_type)?;
+		}
+		if let Some(instance_buffer) = instance_buffer {
+			let vertex_buffers = [vertex_buffer, instance_buffer];
+			let offsets = [0, 0];
+			vkcore.vkCmdBindVertexBuffers(cmdbuf, 0, vertex_buffers.len() as u32, vertex_buffers.as_ptr(), offsets.as_ptr())?;
+		} else {
+			let vertex_buffers = [vertex_buffer];
+			let offsets = [0];
+			vkcore.vkCmdBindVertexBuffers(cmdbuf, 0, vertex_buffers.len() as u32, vertex_buffers.as_ptr(), offsets.as_ptr())?;
+		}
+		match (index_buffer, command_buffer) {
+			(None, None) => vkcore.vkCmdDraw(cmdbuf, vertex_count, instance_count, 0, 0)?,
+			(Some(_), None) => vkcore.vkCmdDrawIndexed(cmdbuf, index_count, instance_count, 0, 0, 0)?,
+			(None, Some(buffer)) => vkcore.vkCmdDrawIndirect(cmdbuf, buffer, 0, command_count, command_stride)?,
+			(Some(_), Some(buffer)) => vkcore.vkCmdDrawIndexedIndirect(cmdbuf, buffer, 0, command_count, command_stride)?,
+		}
+		Ok(())
+	}
 }
 
 impl Debug for Pipeline {
