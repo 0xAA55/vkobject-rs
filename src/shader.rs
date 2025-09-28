@@ -47,8 +47,14 @@ pub mod shader_analyzer {
 	}
 
 	impl StructMember {
+		/// Get the size of the type
 		pub fn size_of(&self) -> Result<usize, VulkanError> {
 			self.member_type.size_of()
+		}
+
+		/// Get the alignment of the type
+		pub fn alignment_of(&self) -> Result<usize, VulkanError> {
+			self.member_type.alignment_of()
 		}
 	}
 
@@ -71,6 +77,15 @@ pub mod shader_analyzer {
 			}
 			Ok(ret)
 		}
+
+		/// Get the alignment of this type
+		pub fn alignment_of(&self) -> Result<usize, VulkanError> {
+			let mut ret = 0;
+			for m in self.members.iter() {
+				ret = max(ret, m.size_of()?);
+			}
+			Ok(ret)
+		}
 	}
 
 	/// The variable type
@@ -88,6 +103,11 @@ pub mod shader_analyzer {
 		pub fn size_of(&self) -> Result<usize, VulkanError> {
 			Ok(self.element_type.size_of()? * self.element_count)
 		}
+
+		/// Get the alignment of this type
+		pub fn alignment_of(&self) -> Result<usize, VulkanError> {
+			self.element_type.alignment_of()
+		}
 	}
 
 	/// The variable type
@@ -101,6 +121,11 @@ pub mod shader_analyzer {
 		/// Get the size of this type
 		pub fn size_of(&self) -> Result<usize, VulkanError> {
 			Ok(0)
+		}
+
+		/// Get the alignment of this type
+		pub fn alignment_of(&self) -> Result<usize, VulkanError> {
+			self.element_type.alignment_of()
 		}
 	}
 
@@ -291,6 +316,48 @@ pub mod shader_analyzer {
 				}
 				VariableType::RuntimeArray(rtarr) => {
 					rtarr.size_of()
+				}
+				_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unable to evaluate the size of the type {self:?}")))
+			}
+		}
+
+		/// Get the alignment of this type
+		pub fn alignment_of(&self) -> Result<usize, VulkanError> {
+			match self {
+				VariableType::Literal(literal) => match literal.as_str() {
+					"i8" | "u8" => Ok(4),
+					"f16" | "i16" | "u16" => Ok(4),
+					"f32" | "i32" | "u32" | "bool" => Ok(4),
+					"f64" | "i64" | "u64" => Ok(8),
+					_ => if let Some(index) = literal.find("vec") {
+						let prefix = &literal[0..index];
+						let suffix = &literal[index + 3..];
+						let suffix_num = suffix.parse::<usize>().map_err(|_|VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?;
+						Ok(((match prefix {
+							"" | "i" | "u" | "b" => 4,
+							"d" => 8,
+							_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))?,
+						} * suffix_num - 1) / 8 + 1) * 8)
+					} else if let Some(index) = literal.find("mat") {
+						let prefix = &literal[0..index];
+						let suffix = &literal[index + 3..];
+						match suffix.len() {
+							1 => Self::Literal(format!("{prefix}vec{suffix}")).alignment_of(),
+							3 => Self::Literal(format!("{prefix}vec{}", &suffix[2..])).alignment_of(),
+							_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}"))),
+						}
+					} else {
+						Err(VulkanError::ShaderParseTypeUnknown(format!("Unknown literal type {literal}")))
+					}
+				}
+				VariableType::Struct(st) => {
+					st.alignment_of()
+				}
+				VariableType::Array(arr) => {
+					arr.alignment_of()
+				}
+				VariableType::RuntimeArray(rtarr) => {
+					rtarr.alignment_of()
 				}
 				_ => Err(VulkanError::ShaderParseTypeUnknown(format!("Unable to evaluate the size of the type {self:?}")))
 			}
