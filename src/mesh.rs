@@ -115,6 +115,14 @@ where
 		Ok(())
 	}
 
+	/// Get the number of the items in the buffer
+	fn len(&self) -> usize;
+
+	/// Check if the buffer is empty
+	fn is_empty(&self) -> bool {
+		self.len() == 0
+	}
+
 	/// Convert to `BufferVec<T>`
 	fn convert_to_buffer_vec(self) -> BufferVec<T>;
 
@@ -131,6 +139,10 @@ where
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.flush(cmdbuf)
+	}
+
+	fn len(&self) -> usize {
+		self.len()
 	}
 
 	fn convert_to_buffer_vec(self) -> BufferVec<T> {
@@ -153,6 +165,10 @@ where
 		self.upload_staging_buffer(cmdbuf)?;
 		self.discard_staging_buffer();
 		Ok(())
+	}
+
+	fn len(&self) -> usize {
+		self.len()
 	}
 
 	fn convert_to_buffer_vec(self) -> BufferVec<T> {
@@ -255,6 +271,18 @@ pub trait GenericMesh: Debug {
 	/// Get the primitive type
 	fn get_primitive_type(&self) -> VkPrimitiveTopology;
 
+	/// Get vertex count
+	fn get_vertex_count(&self) -> usize;
+
+	/// Get index count
+	fn get_index_count(&self) -> usize;
+
+	/// Get instance count
+	fn get_instance_count(&self) -> usize;
+
+	/// Get command count
+	fn get_command_count(&self) -> usize;
+
 	/// Get the iterator for the vertex buffer item structure
 	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any + 'static))>;
 
@@ -308,6 +336,34 @@ where
 
 	fn get_primitive_type(&self) -> VkPrimitiveTopology {
 		self.primitive_type
+	}
+
+	fn get_vertex_count(&self) -> usize {
+		self.vertices.len()
+	}
+
+	fn get_index_count(&self) -> usize {
+		if let Some(indices) = &self.indices {
+			indices.len()
+		} else {
+			0
+		}
+	}
+
+	fn get_instance_count(&self) -> usize {
+		if let Some(instances) = &self.instances {
+			instances.len()
+		} else {
+			1
+		}
+	}
+
+	fn get_command_count(&self) -> usize {
+		if let Some(commands) = &self.commands {
+			commands.len()
+		} else {
+			0
+		}
 	}
 
 	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any + 'static))> {
