@@ -7,6 +7,7 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	ffi::CString,
 	fs::read,
+	iter,
 	mem::forget,
 	path::PathBuf,
 	ptr::null,
@@ -1217,3 +1218,75 @@ impl TypeInfo {
 		})
 	}
 }
+
+/// The shaders to use
+#[derive(Debug, Clone)]
+pub struct DrawShaders {
+	/// The vertex shader cannot be absent
+	pub vertex_shader: Arc<VulkanShader>,
+
+	/// The optional tessellation control shader
+	pub tessellation_control_shader: Option<Arc<VulkanShader>>,
+
+	/// The optional tessellation evaluation shader
+	pub tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
+
+	/// The optional geometry shader
+	pub geometry_shader: Option<Arc<VulkanShader>>,
+
+	/// The fragment shader cannot be absent
+	pub fragment_shader: Arc<VulkanShader>,
+}
+
+impl DrawShaders {
+	/// Create the `DrawShaders`
+	pub fn new(
+		vertex_shader: Arc<VulkanShader>,
+		tessellation_control_shader: Option<Arc<VulkanShader>>,
+		tessellation_evaluation_shader: Option<Arc<VulkanShader>>,
+		geometry_shader: Option<Arc<VulkanShader>>,
+		fragment_shader: Arc<VulkanShader>) -> Self {
+		Self {
+			vertex_shader,
+			tessellation_control_shader,
+			tessellation_evaluation_shader,
+			geometry_shader,
+			fragment_shader,
+		}
+	}
+
+	/// Create an iterator that iterates through all of the shaders variables
+	pub fn iter_vars(&self) -> impl Iterator<Item = (VkShaderStageFlagBits, &Arc<ShaderVariable>)> {
+		self.vertex_shader.get_vars().iter().map(|v| (VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT, v)).chain(
+			if let Some(tessellation_control_shader) = &self.tessellation_control_shader {
+				tessellation_control_shader.get_vars().iter()
+			} else {
+				[].iter()
+			}.map(|v| (VkShaderStageFlagBits::VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, v))
+		).chain(
+			if let Some(tessellation_evaluation_shader) = &self.tessellation_evaluation_shader {
+				tessellation_evaluation_shader.get_vars().iter()
+			} else {
+				[].iter()
+			}.map(|v| (VkShaderStageFlagBits::VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, v))
+		).chain(
+			if let Some(geometry_shader) = &self.geometry_shader {
+				geometry_shader.get_vars().iter()
+			} else {
+				[].iter()
+			}.map(|v| (VkShaderStageFlagBits::VK_SHADER_STAGE_GEOMETRY_BIT, v))
+		).chain(self.fragment_shader.get_vars().iter().map(|v| (VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT, v)))
+	}
+
+	/// Create an iterator that iterates through all of the shaders
+	pub fn iter_shaders(&self) -> impl Iterator<Item = (VkShaderStageFlagBits, &Arc<VulkanShader>)> {
+        iter::once((VkShaderStageFlagBits::VK_SHADER_STAGE_VERTEX_BIT, &self.vertex_shader))
+		.chain(self.tessellation_control_shader.as_ref().map(|shader| (VkShaderStageFlagBits::VK_SHADER_STAGE_TESSELLATION_CONTROL_BIT, shader)))
+		.chain(self.tessellation_evaluation_shader.as_ref().map(|shader| (VkShaderStageFlagBits::VK_SHADER_STAGE_TESSELLATION_EVALUATION_BIT, shader)))
+		.chain(self.geometry_shader.as_ref().map(|shader| (VkShaderStageFlagBits::VK_SHADER_STAGE_GEOMETRY_BIT, shader)))
+		.chain(iter::once((VkShaderStageFlagBits::VK_SHADER_STAGE_FRAGMENT_BIT, &self.fragment_shader)))
+	}
+}
+
+unsafe impl Send for DrawShaders {}
+unsafe impl Sync for DrawShaders {}
