@@ -1073,14 +1073,14 @@ pub struct Pipeline {
 	/// The shaders to use
 	pub shaders: Arc<DrawShaders>,
 
-	/// The pool
-	pub desc_pool: Arc<DescriptorPool>,
-
 	/// The render pass
 	pub renderpass: Arc<VulkanRenderPass>,
 
 	/// The pipeline cache
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
+
+	/// The descriptor sets
+	pub descriptor_sets: Arc<DescriptorSets>,
 
 	/// The pipeline layout was created by providing descriptor layout there.
 	pipeline_layout: VkPipelineLayout,
@@ -1104,9 +1104,9 @@ impl Pipeline {
 		let device = builder.device.clone();
 		let mesh = builder.mesh.clone();
 		let shaders = builder.shaders.clone();
-		let desc_pool = builder.desc_pool.clone();
 		let renderpass = builder.renderpass.clone();
 		let pipeline_cache = builder.pipeline_cache.clone();
+		let descriptor_sets = builder.descriptor_sets.clone();
 		let pipeline_layout = builder.pipeline_layout;
 		builder.pipeline_layout = null();
 		let shader_stages: Vec<VkPipelineShaderStageCreateInfo> = shaders.iter_shaders().map(|(stage, shader)| VkPipelineShaderStageCreateInfo {
@@ -1267,9 +1267,9 @@ impl Pipeline {
 			device,
 			mesh,
 			shaders,
-			desc_pool,
 			renderpass,
 			pipeline_cache,
+			descriptor_sets,
 			pipeline_layout,
 			pipeline,
 		})
@@ -1286,9 +1286,9 @@ impl Debug for Pipeline {
 		f.debug_struct("Pipeline")
 		.field("mesh", &self.mesh)
 		.field("shaders", &self.shaders)
-		.field("desc_pool", &self.desc_pool)
 		.field("renderpass", &self.renderpass)
 		.field("pipeline_cache", &self.pipeline_cache)
+		.field("descriptor_sets", &self.descriptor_sets)
 		.field("pipeline_layout", &self.pipeline_layout)
 		.field("pipeline", &self.pipeline)
 		.finish()
