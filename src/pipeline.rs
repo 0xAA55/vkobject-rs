@@ -1305,15 +1305,10 @@ impl Pipeline {
 
 	/// Invoke `vkCmdBindDescriptorSets`
 	fn bind_descriptor_sets(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
-		let descriptor_sets = self.descriptor_sets.get_descriptor_sets();
-		if descriptor_sets.is_empty() {
-			Ok(())
-		} else {
-			for (first_set, sets) in self.descriptor_sets_to_bind.iter() {
-				self.device.vkcore.vkCmdBindDescriptorSets(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline_layout, *first_set, sets.len() as u32, sets.as_ptr(), 0, null())?;
-			}
-			Ok(())
+		for (first_set, sets) in self.descriptor_sets_to_bind.iter() {
+			self.device.vkcore.vkCmdBindDescriptorSets(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline_layout, *first_set, sets.len() as u32, sets.as_ptr(), 0, null())?;
 		}
+		Ok(())
 	}
 
 	/// Queue draw command
