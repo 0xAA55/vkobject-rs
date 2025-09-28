@@ -73,6 +73,27 @@ pub(crate) fn dig_array(array_info: &ArrayType) -> (usize, &VariableType) {
 	(total, var_type)
 }
 
+/// The descriptor set object
+pub struct DescriptorSets {
+	/// The associated device
+	pub device: Arc<VulkanDevice>,
+
+	/// The properties of the shader descriptor sets
+	pub desc_props: Arc<DescriptorProps>,
+
+	/// The pool
+	pub desc_pool: Arc<DescriptorPool>,
+
+	/// The descriptor set layouts. The key is the set.
+	descriptor_set_layouts: BTreeMap<u32 /* set */, DescriptorSetLayout>,
+
+	/// The descriptor sets. The key is the set.
+	descriptor_sets: BTreeMap<u32 /* set */, VkDescriptorSet>,
+
+	/// The associated shader
+	pub shaders: Arc<DrawShaders>,
+}
+
 /// The `WriteDescriptorSets` is to tell the pipeline how are the data get into the pipeline.
 /// * e.g. uniform buffers. texture inputs, mesh vertex inputs, etc.
 #[derive(Debug, Clone)]
@@ -370,27 +391,6 @@ impl WriteDescriptorSets {
 		}
 		Ok(())
 	}
-}
-
-/// The descriptor set object
-pub struct DescriptorSets {
-	/// The associated device
-	pub device: Arc<VulkanDevice>,
-
-	/// The shader stage
-	shader_stage: VkShaderStageFlags,
-
-	/// The pool
-	pub desc_pool: Arc<DescriptorPool>,
-
-	/// The descriptor set layouts
-	descriptor_set_layouts: BTreeMap<u32, DescriptorSetLayout>,
-
-	/// The descriptor sets
-	descriptor_sets: VkDescriptorSet,
-
-	/// The associated shader
-	pub shader: Arc<VulkanShader>,
 }
 
 impl DescriptorSets {
