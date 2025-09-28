@@ -306,6 +306,9 @@ pub trait GenericMesh: Debug {
 
 	/// Get the stride of the command buffer
 	fn get_command_stride(&self) -> usize;
+
+	/// Flush all buffers that needs to be flushed to use
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
 }
 
 impl<BV, V, BE, E, BI, I, BC, C> GenericMesh for Mesh<BV, V, BE, E, BI, I, BC, C>
@@ -396,6 +399,10 @@ where
 
 	fn get_command_stride(&self) -> usize {
 		size_of::<C>()
+	}
+
+	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.flush(cmdbuf)
 	}
 }
 
