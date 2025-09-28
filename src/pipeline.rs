@@ -1,7 +1,7 @@
 
 use crate::prelude::*;
 use std::{
-	collections::{BTreeMap, HashMap, HashSet},
+	collections::{BTreeMap, HashMap, HashSet, hash_map::Entry},
 	fmt::{self, Debug, Formatter},
 	ptr::null,
 	sync::{Arc, Mutex},
@@ -405,121 +405,126 @@ impl WriteDescriptorSets {
 
 impl DescriptorSets {
 	/// Create the `DescriptorSetLayout` by parsing the shader variable
-	pub fn new(device: Arc<VulkanDevice>, shader: Arc<VulkanShader>, shader_stage: VkShaderStageFlags, desc_pool: Arc<DescriptorPool>) -> Result<Option<Self>, VulkanError> {
-		let mut layout_bindings: HashMap<u32, HashMap<u32, VkDescriptorSetLayoutBinding>> = HashMap::new();
-		for var in shader.get_vars() {
-			if let VariableLayout::Descriptor{set, binding, input_attachment_index: _} = var.layout {
-				let set_binding = if let Some(set_binding) = layout_bindings.get_mut(&set) {
-					set_binding
-				} else {
-					layout_bindings.insert(set, HashMap::new());
-					layout_bindings.get_mut(&set).unwrap()
-				};
-				let (total_element_count, var_type) = match &var.var_type {
-					VariableType::Array(array_info) => dig_array(array_info),
-					others => (1, others),
-				};
-				match var.storage_class {
-					StorageClass::UniformConstant => match var_type {
-						VariableType::Literal(literal_type) => {
-							if literal_type == "sampler" {
-								let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, total_element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
-								set_binding.insert(binding, VkDescriptorSetLayoutBinding {
+	pub fn new(device: Arc<VulkanDevice>, desc_pool: Arc<DescriptorPool>, shaders: Arc<DrawShaders>, desc_props: Arc<DescriptorProps>) -> Result<Self, VulkanError> {
+		let mut samplers: HashMap<u32 /* set */, HashMap<u32 /* binding */, Vec<VkSampler>>> = HashMap::new();
+		let mut layout_bindings: HashMap<u32 /* set */, HashMap<u32 /* binding */, VkDescriptorSetLayoutBinding>> = HashMap::new();
+		for (shader_stage, shader) in shaders.iter_shaders() {
+			let shader_stage = shader_stage as VkShaderStageFlags;
+			for var in shader.get_vars() {
+				if let VariableLayout::Descriptor{set, binding, input_attachment_index: _} = var.layout {
+					let (total_element_count, var_type) = match &var.var_type {
+						VariableType::Array(array_info) => dig_array(array_info),
+						others => (1, others),
+					};
+					match var.storage_class {
+						StorageClass::UniformConstant => match var_type {
+							VariableType::Literal(literal_type) => {
+								if literal_type == "sampler" {
+									let samplers = Self::get_samplers_from_map(&mut samplers, set, binding, || Ok(desc_props.get_desc_props_samplers(set, binding, total_element_count)?.iter().map(|s|s.get_vk_sampler()).collect()))?;
+									Self::update_desc_set_layout_binding(&mut layout_bindings, set, binding, VkDescriptorSetLayoutBinding {
+										binding,
+										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+										descriptorCount: total_element_count as u32,
+										stageFlags: shader_stage,
+										pImmutableSamplers: samplers.as_ptr(),
+									})?;
+								} else {
+									return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {var_type:?}", var.var_name)));
+								}
+							}
+							VariableType::Image(_) => {
+								let samplers = Self::get_samplers_from_map(&mut samplers, set, binding, || Ok(desc_props.get_desc_props_textures(set, binding, total_element_count)?.iter().map(|t|t.sampler.get_vk_sampler()).collect()))?;
+								Self::update_desc_set_layout_binding(&mut layout_bindings, set, binding, VkDescriptorSetLayoutBinding {
 									binding,
-									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 									descriptorCount: total_element_count as u32,
 									stageFlags: shader_stage,
 									pImmutableSamplers: samplers.as_ptr(),
-								});
-							} else {
-								return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {var_type:?}", var.var_name)));
+								})?;
 							}
+							others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {others:?}", var.var_name))),
 						}
-						VariableType::Image(_) => {
-							let samplers: Vec<VkSampler> = shader.get_desc_props_textures(&var.var_name, total_element_count)?.iter().map(|t|t.sampler.get_vk_sampler()).collect();
-							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-								binding,
-								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-								descriptorCount: total_element_count as u32,
-								stageFlags: shader_stage,
-								pImmutableSamplers: samplers.as_ptr(),
-							});
+						StorageClass::Uniform => match var_type {
+							VariableType::Struct(_) => {
+								Self::update_desc_set_layout_binding(&mut layout_bindings, set, binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+									descriptorCount: total_element_count as u32,
+									stageFlags: shader_stage,
+									pImmutableSamplers: null(),
+								})?;
+							}
+							VariableType::Image(_) => {
+								Self::update_desc_set_layout_binding(&mut layout_bindings, set, binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+									descriptorCount: total_element_count as u32,
+									stageFlags: shader_stage,
+									pImmutableSamplers: null(),
+								})?;
+							}
+							others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
 						}
-						others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {others:?}", var.var_name))),
+						StorageClass::StorageBuffer => match var_type {
+							VariableType::Struct(_) => {
+								Self::update_desc_set_layout_binding(&mut layout_bindings, set, binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+									descriptorCount: total_element_count as u32,
+									stageFlags: shader_stage,
+									pImmutableSamplers: null(),
+								})?;
+							}
+							VariableType::Image(_) => {
+								Self::update_desc_set_layout_binding(&mut layout_bindings, set, binding, VkDescriptorSetLayoutBinding {
+									binding,
+									descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+									descriptorCount: total_element_count as u32,
+									stageFlags: shader_stage,
+									pImmutableSamplers: null(),
+								})?;
+							}
+							others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
+						}
+						// Ignore other storage classes
+						_ => {}
 					}
-					StorageClass::Uniform => match var_type {
-						VariableType::Struct(_) => {
-							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-								binding,
-								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-								descriptorCount: total_element_count as u32,
-								stageFlags: shader_stage,
-								pImmutableSamplers: null(),
-							});
-						}
-						VariableType::Image(_) => {
-							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-								binding,
-								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-								descriptorCount: total_element_count as u32,
-								stageFlags: shader_stage,
-								pImmutableSamplers: null(),
-							});
-						}
-						others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
-					}
-					StorageClass::StorageBuffer => match var_type {
-						VariableType::Struct(_) => {
-							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-								binding,
-								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-								descriptorCount: total_element_count as u32,
-								stageFlags: shader_stage,
-								pImmutableSamplers: null(),
-							});
-						}
-						VariableType::Image(_) => {
-							set_binding.insert(binding, VkDescriptorSetLayoutBinding {
-								binding,
-								descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
-								descriptorCount: total_element_count as u32,
-								stageFlags: shader_stage,
-								pImmutableSamplers: null(),
-							});
-						}
-						others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
-					}
-					// Ignore other storage classes
-					_ => {}
 				}
 			}
 		}
-		let mut bindings_of_set: BTreeMap<u32, Vec<VkDescriptorSetLayoutBinding>> = BTreeMap::new();
-		for (set_key, set_val) in layout_bindings.iter() {
-			for (_, binding_val) in set_val.iter() {
-				let array = if let Some(array) = bindings_of_set.get_mut(set_key) {
+		let mut bindings_of_set: BTreeMap<u32 /* set */, Vec<VkDescriptorSetLayoutBinding>> = BTreeMap::new();
+		for (set, bindings) in layout_bindings.iter() {
+			for (_, binding_val) in bindings.iter() {
+				let array = if let Some(array) = bindings_of_set.get_mut(set) {
 					array
 				} else {
-					bindings_of_set.insert(*set_key, Vec::new());
-					bindings_of_set.get_mut(set_key).unwrap()
+					bindings_of_set.insert(*set, Vec::new());
+					bindings_of_set.get_mut(set).unwrap()
 				};
 				array.push(*binding_val);
 			}
 		}
-		let mut descriptor_set_layouts: BTreeMap<u32, DescriptorSetLayout> = BTreeMap::new();
-		for (key, val) in bindings_of_set.iter() {
+		let mut descriptor_set_layouts: BTreeMap<u32 /* set */, DescriptorSetLayout> = BTreeMap::new();
+		for (set, dslb) in bindings_of_set.iter() {
 			let layout_ci = VkDescriptorSetLayoutCreateInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO,
 				pNext: null(),
 				flags: 0,
-				bindingCount: val.len() as u32,
-				pBindings: val.as_ptr(),
+				bindingCount: dslb.len() as u32,
+				pBindings: dslb.as_ptr(),
 			};
-			descriptor_set_layouts.insert(*key, DescriptorSetLayout::new(device.clone(), &layout_ci)?);
+			descriptor_set_layouts.insert(*set, DescriptorSetLayout::new(device.clone(), &layout_ci)?);
 		}
 		let layout_array: Vec<VkDescriptorSetLayout> = descriptor_set_layouts.values().map(|v|v.descriptor_set_layout).collect();
 		if layout_array.is_empty() {
-			Ok(None)
+			Ok(Self {
+				device,
+				desc_props,
+				desc_pool,
+				descriptor_set_layouts,
+				descriptor_sets: BTreeMap::new(),
+				shaders,
+			})
 		} else {
 			let desc_sets_ai = VkDescriptorSetAllocateInfo {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_SET_ALLOCATE_INFO,
@@ -528,53 +533,105 @@ impl DescriptorSets {
 				descriptorSetCount: layout_array.len() as u32,
 				pSetLayouts: layout_array.as_ptr(),
 			};
-			let mut descriptor_sets: VkDescriptorSet = null();
-			device.vkcore.vkAllocateDescriptorSets(device.get_vk_device(), &desc_sets_ai, &mut descriptor_sets)?;
-			let descriptor_sets = ResourceGuard::new(descriptor_sets, |&ds| device.vkcore.vkFreeDescriptorSets(device.get_vk_device(), desc_pool.get_vk_pool(), 1, &ds).unwrap());
-			WriteDescriptorSets::build(device.clone(), *descriptor_sets, &shader)?;
-			let descriptor_sets = descriptor_sets.release();
-			Ok(Some(Self {
-				device,
-				shader_stage,
+			let mut descriptor_set_array: Vec<VkDescriptorSet> = Vec::with_capacity(layout_array.len());
+			device.vkcore.vkAllocateDescriptorSets(device.get_vk_device(), &desc_sets_ai, descriptor_set_array.as_mut_ptr())?;
+			let descriptor_sets: BTreeMap<u32, VkDescriptorSet> = layout_bindings.keys().enumerate().map(|(index, set)|(*set, descriptor_set_array[index])).collect();
+			let ret = Self {
+				device: device.clone(),
+				desc_props,
 				desc_pool,
 				descriptor_set_layouts,
 				descriptor_sets,
-				shader,
-			}))
+				shaders: shaders.clone(),
+			};
+			WriteDescriptorSets::build(device, &ret, &shaders)?;
+			Ok(ret)
 		}
 	}
 
 	/// Get the `VkDescriptorSetLayout`
-	pub(crate) fn get_vk_descriptor_sets(&self) -> VkDescriptorSet {
-		self.descriptor_sets
+	pub fn get_descriptor_sets(&self) -> &BTreeMap<u32, VkDescriptorSet> {
+		&self.descriptor_sets
 	}
 
 	/// Get the descriptor set layouts
 	pub fn get_descriptor_set_layouts(&self) -> &BTreeMap<u32, DescriptorSetLayout> {
 		&self.descriptor_set_layouts
 	}
+
+	/// Get a `VkDescriptorSet` by a set number
+	pub fn get(&self, set_number: &u32) -> Option<&VkDescriptorSet> {
+		self.descriptor_sets.get(set_number)
+	}
+
+	/// Create or modify items in `HashMap<u32, VkDescriptorSetLayoutBinding>`
+	fn update_desc_set_layout_binding(map: &mut HashMap<u32, HashMap<u32, VkDescriptorSetLayoutBinding>>, set: u32, binding: u32, mut item: VkDescriptorSetLayoutBinding) -> Result<(), VulkanError> {
+		if let Some(bindings) = map.get_mut(&set) {
+			if let Some(existing) = bindings.get_mut(&binding) {
+				let prev_stage = vk_shader_stage_flags_to_string(existing.stageFlags);
+				let curr_stage = vk_shader_stage_flags_to_string(item.stageFlags);
+				if existing.descriptorType != item.descriptorType {
+					let prev_type = existing.descriptorType;
+					let curr_type = item.descriptorType;
+					Err(VulkanError::ShaderInputTypeMismatch(format!("In `layout(set = {set}, binding = {binding})`: descriptor type mismatch: one at `{prev_stage}` is `{prev_type:?}`, another at `{curr_stage}` is `{curr_type:?}`")))
+				} else if existing.descriptorCount != item.descriptorCount {
+					let prev_count = existing.descriptorCount;
+					let curr_count = item.descriptorCount;
+					Err(VulkanError::ShaderInputTypeMismatch(format!("In `layout(set = {set}, binding = {binding})`: descriptor count mismatch: one at `{prev_stage}` is `{prev_count}`, another at `{curr_stage}` is `{curr_count}`")))
+				} else if existing.pImmutableSamplers != item.pImmutableSamplers {
+					let prev_samplers = existing.pImmutableSamplers;
+					let curr_samplers = item.pImmutableSamplers;
+					Err(VulkanError::ShaderInputTypeMismatch(format!("In `layout(set = {set}, binding = {binding})`: descriptor samplers mismatch: one at `{prev_stage}` is `{prev_samplers:?}`, another at `{curr_stage}` is `{curr_samplers:?}`")))
+				} else {
+					existing.stageFlags |= item.stageFlags;
+					Ok(())
+				}
+			} else {
+				item.binding = binding;
+				bindings.insert(binding, item);
+				Ok(())
+			}
+		} else {
+			item.binding = binding;
+			map.insert(set, [(binding, item)].into_iter().collect());
+			Ok(())
+		}
+	}
+
+	/// Update the sampler map and get the samplers array
+	fn get_samplers_from_map(map: &mut HashMap<u32, HashMap<u32, Vec<VkSampler>>>, set: u32, binding: u32, on_create: impl FnOnce() -> Result<Vec<VkSampler>, VulkanError>) -> Result<&[VkSampler], VulkanError> {
+		if let Entry::Vacant(e) = map.entry(set) {
+			e.insert(HashMap::new());
+		}
+		let bindings = map.get_mut(&set).unwrap();
+		if let Entry::Vacant(e) = bindings.entry(binding) {
+			e.insert(on_create()?);
+		}
+		Ok(bindings.get(&binding).unwrap())
+	}
 }
 
 impl Clone for DescriptorSets {
 	fn clone(&self) -> Self {
-		Self::new(self.device.clone(), self.shader.clone(), self.shader_stage, self.desc_pool.clone()).unwrap().unwrap()
+		Self::new(self.device.clone(), self.desc_pool.clone(), self.shaders.clone(), self.desc_props.clone()).unwrap()
 	}
 }
 
 impl Drop for DescriptorSets {
 	fn drop(&mut self) {
-		self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), 1, &self.descriptor_sets).unwrap();
+		let descriptor_set_array: Vec<VkDescriptorSet> = self.descriptor_sets.values().copied().collect();
+		self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), descriptor_set_array.len() as u32, descriptor_set_array.as_ptr()).unwrap();
 	}
 }
 
 impl Debug for DescriptorSets {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("DescriptorSets")
-		.field("shader_stage", &self.shader_stage)
+		.field("desc_props", &self.desc_props)
 		.field("desc_pool", &self.desc_pool)
 		.field("descriptor_set_layouts", &self.descriptor_set_layouts)
 		.field("descriptor_sets", &self.descriptor_sets)
-		.field("shader", &self.shader)
+		.field("shaders", &self.shaders)
 		.finish()
 	}
 }
