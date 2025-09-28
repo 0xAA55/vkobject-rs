@@ -116,7 +116,7 @@ impl WriteDescriptorSets {
 	}
 
 	/// Pass through all of the structure tree, use `pass_for_cap = true` to calculate and allocate the needed size of the memory, and use `pass_for_cap = false` to actually generate the structures, passing pointers of structures in the pre-allocated memory.
-	fn pass(&mut self, descriptor_sets: VkDescriptorSet, shader: &VulkanShader, pass_for_cap: bool) -> Result<bool, VulkanError> {
+	fn pass(&mut self, descriptor_sets: &DescriptorSets, shaders: &DrawShaders, pass_for_cap: bool) -> Result<bool, VulkanError> {
 		self.buffer_info.clear();
 		self.image_info.clear();
 		self.texel_buffer_views.clear();
@@ -128,241 +128,251 @@ impl WriteDescriptorSets {
 		let buffer_info_ptr = self.buffer_info.as_ptr();
 		let image_info_ptr = self.image_info.as_ptr();
 		let texel_buffer_views_ptr = self.texel_buffer_views.as_ptr();
-		for var in shader.get_vars() {
-			if let VariableLayout::Descriptor{set: _, binding, input_attachment_index: _} = var.layout {
-				let mut dimensions = Vec::new();
-				let (total_element_count, var_type) = match &var.var_type {
-					VariableType::Array(array_info) => {
-						let var_type = through_array(array_info, &mut dimensions);
-						let mut total = 1;
-						for dim in dimensions.iter() {
-							total *= dim;
-						}
-						(total, var_type)
-					},
-					_ => (1, &var.var_type),
-				};
-				match var.storage_class {
-					StorageClass::Uniform => {
-						if pass_for_cap {
-							match var_type {
-								VariableType::Struct(_) => {
-									num_buffer_info += total_element_count;
-									num_wds += 1;
-								}
-								VariableType::Image(_) => {
-									num_texel_buffer_views += total_element_count;
-									num_wds += 1;
-								}
-								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
-							}
-						} else {
-							match var_type {
-								VariableType::Struct(_) => {
-									let buffers: Vec<_> = shader.get_desc_props_uniform_buffers(&var.var_name, total_element_count)?.iter().collect();
-									if buffers.len() != total_element_count {
-										return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-											var.var_type,
-											if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-											buffers.len()
-										)));
-									}
-									let buffer_info_index = self.buffer_info.len();
-									for buffer in buffers.iter() {
-										let lock = buffer.read().unwrap();
-										self.buffer_info.push(VkDescriptorBufferInfo {
-											buffer: lock.get_vk_buffer(),
-											offset: 0,
-											range: lock.get_size(),
-										});
-									}
-									self.write_descriptor_sets.push(VkWriteDescriptorSet {
-										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-										pNext: null(),
-										dstSet: descriptor_sets,
-										dstBinding: binding,
-										dstArrayElement: 0,
-										descriptorCount: total_element_count as u32,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
-										pImageInfo: null(),
-										pBufferInfo: &self.buffer_info[buffer_info_index],
-										pTexelBufferView: null(),
-									});
-								}
-								VariableType::Image(_) => {
-									let buffers: Vec<_> = shader.get_desc_props_uniform_texel_buffers(&var.var_name, total_element_count)?.iter().collect();
-									if buffers.len() != total_element_count {
-										return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-											var.var_type,
-											if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-											buffers.len()
-										)));
-									}
-									let texel_buffer_views_index = self.texel_buffer_views.len();
-									for buffer in buffers.iter() {
-										self.texel_buffer_views.push(buffer.get_vk_buffer_view());
-									}
-									self.write_descriptor_sets.push(VkWriteDescriptorSet {
-										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-										pNext: null(),
-										dstSet: descriptor_sets,
-										dstBinding: binding,
-										dstArrayElement: 0,
-										descriptorCount: total_element_count as u32,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
-										pImageInfo: null(),
-										pBufferInfo: null(),
-										pTexelBufferView: &self.texel_buffer_views[texel_buffer_views_index],
-									});
-								}
-								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
-							}
-						}
+		let mut processed_vars = HashSet::new();
+		let desc_props = descriptor_sets.desc_props.clone();
+		for (_, shader) in shaders.iter_shaders() {
+			for var in shader.get_vars() {
+				if let VariableLayout::Descriptor{set, binding, input_attachment_index: iai} = var.layout {
+					let var_ident = format!("{set}_{binding}_{iai:?}_{}", var.var_name);
+					if processed_vars.contains(&var_ident) {
+						continue;
+					} else {
+						processed_vars.insert(var_ident);
 					}
-					StorageClass::StorageBuffer => {
-						if pass_for_cap {
-							match var_type {
-								VariableType::Struct(_) => {
-									num_buffer_info += total_element_count;
-									num_wds += 1;
-								}
-								VariableType::Image(_) => {
-									num_texel_buffer_views += total_element_count;
-									num_wds += 1;
-								}
-								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
+					let mut dimensions = Vec::new();
+					let (total_element_count, var_type) = match &var.var_type {
+						VariableType::Array(array_info) => {
+							let var_type = through_array(array_info, &mut dimensions);
+							let mut total = 1;
+							for dim in dimensions.iter() {
+								total *= dim;
 							}
-						} else {
-							match var_type {
-								VariableType::Struct(_) => {
-									let buffers: Vec<_> = shader.get_desc_props_storage_buffers(&var.var_name, total_element_count)?.iter().collect();
-									if buffers.len() != total_element_count {
-										return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-											var.var_type,
-											if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-											buffers.len()
-										)));
-									}
-									let buffer_info_index = self.buffer_info.len();
-									for buffer in buffers.iter() {
-										let lock = buffer.read().unwrap();
-										self.buffer_info.push(VkDescriptorBufferInfo {
-											buffer: lock.get_vk_buffer(),
-											offset: 0,
-											range: lock.get_size(),
-										});
-									}
-									self.write_descriptor_sets.push(VkWriteDescriptorSet {
-										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-										pNext: null(),
-										dstSet: descriptor_sets,
-										dstBinding: binding,
-										dstArrayElement: 0,
-										descriptorCount: total_element_count as u32,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
-										pImageInfo: null(),
-										pBufferInfo: &self.buffer_info[buffer_info_index],
-										pTexelBufferView: null(),
-									});
-								}
-								VariableType::Image(_) => {
-									let buffers: Vec<_> = shader.get_desc_props_storage_texel_buffers(&var.var_name, total_element_count)?.iter().collect();
-									if buffers.len() != total_element_count {
-										return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-											var.var_type,
-											if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-											buffers.len()
-										)));
-									}
-									let texel_buffer_views_index = self.texel_buffer_views.len();
-									for buffer in buffers.iter() {
-										self.texel_buffer_views.push(buffer.get_vk_buffer_view());
-									}
-									self.write_descriptor_sets.push(VkWriteDescriptorSet {
-										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-										pNext: null(),
-										dstSet: descriptor_sets,
-										dstBinding: binding,
-										dstArrayElement: 0,
-										descriptorCount: total_element_count as u32,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
-										pImageInfo: null(),
-										pBufferInfo: null(),
-										pTexelBufferView: &self.texel_buffer_views[texel_buffer_views_index],
-									});
-								}
-								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
-							}
-						}
-					}
-					StorageClass::UniformConstant => {
-						match var_type {
-							VariableType::Literal(literal_type) => {
-								if literal_type == "sampler" {
-									if pass_for_cap {
-										num_image_info += total_element_count;
+							(total, var_type)
+						},
+						_ => (1, &var.var_type),
+					};
+					match var.storage_class {
+						StorageClass::Uniform => {
+							if pass_for_cap {
+								match var_type {
+									VariableType::Struct(_) => {
+										num_buffer_info += total_element_count;
 										num_wds += 1;
 									}
-									else {
-										let samplers: Vec<VkSampler> = shader.get_desc_props_samplers(&var.var_name, total_element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
-										let image_info_index = self.image_info.len();
-										for sampler in samplers.iter() {
-											self.image_info.push(VkDescriptorImageInfo {
-												sampler: *sampler,
-												imageView: null(),
-												imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+									VariableType::Image(_) => {
+										num_texel_buffer_views += total_element_count;
+										num_wds += 1;
+									}
+									others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
+								}
+							} else {
+								match var_type {
+									VariableType::Struct(_) => {
+										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?.iter().collect();
+										if buffers.len() != total_element_count {
+											return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
+												var.var_type,
+												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
+												buffers.len()
+											)));
+										}
+										let buffer_info_index = self.buffer_info.len();
+										for buffer in buffers.iter() {
+											let lock = buffer.read().unwrap();
+											self.buffer_info.push(VkDescriptorBufferInfo {
+												buffer: lock.get_vk_buffer(),
+												offset: 0,
+												range: lock.get_size(),
 											});
 										}
 										self.write_descriptor_sets.push(VkWriteDescriptorSet {
 											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
 											pNext: null(),
-											dstSet: descriptor_sets,
+											dstSet: *descriptor_sets.get(&set).unwrap(),
 											dstBinding: binding,
 											dstArrayElement: 0,
 											descriptorCount: total_element_count as u32,
-											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
+											pImageInfo: null(),
+											pBufferInfo: &self.buffer_info[buffer_info_index],
+											pTexelBufferView: null(),
+										});
+									}
+									VariableType::Image(_) => {
+										let buffers: Vec<_> = desc_props.get_desc_props_uniform_texel_buffers(set, binding, total_element_count)?.iter().collect();
+										if buffers.len() != total_element_count {
+											return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
+												var.var_type,
+												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
+												buffers.len()
+											)));
+										}
+										let texel_buffer_views_index = self.texel_buffer_views.len();
+										for buffer in buffers.iter() {
+											self.texel_buffer_views.push(buffer.get_vk_buffer_view());
+										}
+										self.write_descriptor_sets.push(VkWriteDescriptorSet {
+											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+											pNext: null(),
+											dstSet: *descriptor_sets.get(&set).unwrap(),
+											dstBinding: binding,
+											dstArrayElement: 0,
+											descriptorCount: total_element_count as u32,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_TEXEL_BUFFER,
+											pImageInfo: null(),
+											pBufferInfo: null(),
+											pTexelBufferView: &self.texel_buffer_views[texel_buffer_views_index],
+										});
+									}
+									others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform {}: {others:?}", var.var_name))),
+								}
+							}
+						}
+						StorageClass::StorageBuffer => {
+							if pass_for_cap {
+								match var_type {
+									VariableType::Struct(_) => {
+										num_buffer_info += total_element_count;
+										num_wds += 1;
+									}
+									VariableType::Image(_) => {
+										num_texel_buffer_views += total_element_count;
+										num_wds += 1;
+									}
+									others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
+								}
+							} else {
+								match var_type {
+									VariableType::Struct(_) => {
+										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?.iter().collect();
+										if buffers.len() != total_element_count {
+											return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
+												var.var_type,
+												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
+												buffers.len()
+											)));
+										}
+										let buffer_info_index = self.buffer_info.len();
+										for buffer in buffers.iter() {
+											let lock = buffer.read().unwrap();
+											self.buffer_info.push(VkDescriptorBufferInfo {
+												buffer: lock.get_vk_buffer(),
+												offset: 0,
+												range: lock.get_size(),
+											});
+										}
+										self.write_descriptor_sets.push(VkWriteDescriptorSet {
+											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+											pNext: null(),
+											dstSet: *descriptor_sets.get(&set).unwrap(),
+											dstBinding: binding,
+											dstArrayElement: 0,
+											descriptorCount: total_element_count as u32,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
+											pImageInfo: null(),
+											pBufferInfo: &self.buffer_info[buffer_info_index],
+											pTexelBufferView: null(),
+										});
+									}
+									VariableType::Image(_) => {
+										let buffers: Vec<_> = desc_props.get_desc_props_storage_texel_buffers(set, binding, total_element_count)?.iter().collect();
+										if buffers.len() != total_element_count {
+											return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
+												var.var_type,
+												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
+												buffers.len()
+											)));
+										}
+										let texel_buffer_views_index = self.texel_buffer_views.len();
+										for buffer in buffers.iter() {
+											self.texel_buffer_views.push(buffer.get_vk_buffer_view());
+										}
+										self.write_descriptor_sets.push(VkWriteDescriptorSet {
+											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+											pNext: null(),
+											dstSet: *descriptor_sets.get(&set).unwrap(),
+											dstBinding: binding,
+											dstArrayElement: 0,
+											descriptorCount: total_element_count as u32,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_TEXEL_BUFFER,
+											pImageInfo: null(),
+											pBufferInfo: null(),
+											pTexelBufferView: &self.texel_buffer_views[texel_buffer_views_index],
+										});
+									}
+									others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of storage buffer {}: {others:?}", var.var_name))),
+								}
+							}
+						}
+						StorageClass::UniformConstant => {
+							match var_type {
+								VariableType::Literal(literal_type) => {
+									if literal_type == "sampler" {
+										if pass_for_cap {
+											num_image_info += total_element_count;
+											num_wds += 1;
+										}
+										else {
+											let samplers: Vec<VkSampler> = desc_props.get_desc_props_samplers(set, binding, total_element_count)?.iter().map(|s|s.get_vk_sampler()).collect();
+											let image_info_index = self.image_info.len();
+											for sampler in samplers.iter() {
+												self.image_info.push(VkDescriptorImageInfo {
+													sampler: *sampler,
+													imageView: null(),
+													imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+												});
+											}
+											self.write_descriptor_sets.push(VkWriteDescriptorSet {
+												sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+												pNext: null(),
+												dstSet: *descriptor_sets.get(&set).unwrap(),
+												dstBinding: binding,
+												dstArrayElement: 0,
+												descriptorCount: total_element_count as u32,
+												descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_SAMPLER,
+												pImageInfo: &self.image_info[image_info_index],
+												pBufferInfo: null(),
+												pTexelBufferView: null(),
+											});
+										}
+									} else {
+										return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant input {literal_type}.")));
+									}
+								}
+								VariableType::Image(_) => {
+									if pass_for_cap {
+										num_image_info += total_element_count;
+										num_wds += 1;
+									} else {
+										let textures: Vec<&TextureForSample> = desc_props.get_desc_props_textures(set, binding, total_element_count)?.iter().collect();
+										let image_info_index = self.image_info.len();
+										for texture in textures.iter() {
+											self.image_info.push(VkDescriptorImageInfo {
+												sampler: texture.sampler.get_vk_sampler(),
+												imageView: texture.texture.read().unwrap().get_vk_image_view(),
+												imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+											});
+										}
+										self.write_descriptor_sets.push(VkWriteDescriptorSet {
+											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
+											pNext: null(),
+											dstSet: *descriptor_sets.get(&set).unwrap(),
+											dstBinding: binding,
+											dstArrayElement: 0,
+											descriptorCount: total_element_count as u32,
+											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
 											pImageInfo: &self.image_info[image_info_index],
 											pBufferInfo: null(),
 											pTexelBufferView: null(),
 										});
 									}
-								} else {
-									return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant input {literal_type}.")));
 								}
+								others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {others:?}", var.var_name))),
 							}
-							VariableType::Image(_) => {
-								if pass_for_cap {
-									num_image_info += total_element_count;
-									num_wds += 1;
-								} else {
-									let textures: Vec<&TextureForSample> = shader.get_desc_props_textures(&var.var_name, total_element_count)?.iter().collect();
-									let image_info_index = self.image_info.len();
-									for texture in textures.iter() {
-										self.image_info.push(VkDescriptorImageInfo {
-											sampler: texture.sampler.get_vk_sampler(),
-											imageView: texture.texture.read().unwrap().get_vk_image_view(),
-											imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
-										});
-									}
-									self.write_descriptor_sets.push(VkWriteDescriptorSet {
-										sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
-										pNext: null(),
-										dstSet: descriptor_sets,
-										dstBinding: binding,
-										dstArrayElement: 0,
-										descriptorCount: total_element_count as u32,
-										descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SAMPLER,
-										pImageInfo: &self.image_info[image_info_index],
-										pBufferInfo: null(),
-										pTexelBufferView: null(),
-									});
-								}
-							}
-							others => return Err(VulkanError::ShaderInputTypeUnsupported(format!("Unknown type of uniform constant {}: {others:?}", var.var_name))),
 						}
+						// Ignore other storage classes
+						_ => {}
 					}
-					// Ignore other storage classes
-					_ => {}
 				}
 			}
 		}
@@ -382,10 +392,10 @@ impl WriteDescriptorSets {
 	}
 
 	/// Build inputs to the pipeline
-	pub fn build(device: Arc<VulkanDevice>, descriptor_sets: VkDescriptorSet, shader: &VulkanShader) -> Result<(), VulkanError> {
+	pub fn build(device: Arc<VulkanDevice>, descriptor_sets: &DescriptorSets, shaders: &DrawShaders) -> Result<(), VulkanError> {
 		let mut ret = Self::new();
-		ret.pass(descriptor_sets, shader, true)?;
-		assert!(ret.pass(descriptor_sets, shader, false)?, "The vector pointer changed while pushing data into it, but its capacity should be enough not to trigger the internal memory reallocation. Redesign of the code is needed.");
+		ret.pass(descriptor_sets, shaders, true)?;
+		assert!(ret.pass(descriptor_sets, shaders, false)?, "The vector pointer changed while pushing data into it, but its capacity should be enough not to trigger the internal memory reallocation. Redesign of the code is needed.");
 		if !ret.write_descriptor_sets.is_empty() {
 			device.vkcore.vkUpdateDescriptorSets(device.get_vk_device(), ret.write_descriptor_sets.len() as u32, ret.write_descriptor_sets.as_ptr(), 0, null())?;
 		}
