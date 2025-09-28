@@ -309,6 +309,16 @@ pub trait GenericMesh: Debug {
 
 	/// Flush all buffers that needs to be flushed to use
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+
+	/// Get the index type
+	fn get_index_type(&self) -> VkIndexType {
+		match self.get_index_stride() {
+			1 => VkIndexType::VK_INDEX_TYPE_UINT8,
+			2 => VkIndexType::VK_INDEX_TYPE_UINT16,
+			4 => VkIndexType::VK_INDEX_TYPE_UINT32,
+			_ => panic!("Unsupported index type: {}", self.get_index_type_name()),
+		}
+	}
 }
 
 impl<BV, V, BE, E, BI, I, BC, C> GenericMesh for Mesh<BV, V, BE, E, BI, I, BC, C>
