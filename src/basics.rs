@@ -601,6 +601,9 @@ impl Drop for VulkanMemory {
 	}
 }
 
+unsafe impl Send for VulkanMemory {}
+unsafe impl Sync for VulkanMemory {}
+
 /// The state that indicates the Vulkan memory is currently mapped
 #[derive(Debug)]
 pub struct MappedMemory<'a> {
@@ -975,11 +978,11 @@ pub struct StagingBuffer {
 	/// The `VulkanDevice` is the associated device
 	pub device: Arc<VulkanDevice>,
 
-	/// The device memory
-	pub memory: VulkanMemory,
-
 	/// The buffer
 	pub buffer: Arc<VulkanBuffer>,
+
+	/// The device memory
+	pub memory: Arc<VulkanMemory>,
 
 	/// The address of the data
 	pub(crate) address: *mut c_void,
@@ -989,9 +992,9 @@ impl StagingBuffer {
 	/// Create a new staging buffer
 	pub fn new(device: Arc<VulkanDevice>, size: VkDeviceSize) -> Result<Self, VulkanError> {
 		let buffer = Arc::new(VulkanBuffer::new(device.clone(), size, VkBufferUsageFlagBits::VK_BUFFER_USAGE_TRANSFER_SRC_BIT as VkBufferUsageFlags)?);
-		let memory = VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
+		let memory = Arc::new(VulkanMemory::new(device.clone(), &buffer.get_memory_requirements()?,
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT as VkMemoryPropertyFlags |
-			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?;
+			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?);
 		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
 		let mut address: *mut c_void = null_mut();
 		let mut mapping_state_lock = memory.mapping_state.lock().unwrap();
@@ -1002,8 +1005,8 @@ impl StagingBuffer {
 		drop(mapping_state_lock);
 		Ok(Self {
 			device,
-			memory,
 			buffer,
+			memory,
 			address,
 		})
 	}
@@ -1056,8 +1059,8 @@ impl StagingBuffer {
 impl Debug for StagingBuffer {
 	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
 		f.debug_struct("StagingBuffer")
-		.field("memory", &self.memory)
 		.field("buffer", &self.buffer)
+		.field("memory", &self.memory)
 		.field("address", &self.address)
 		.finish()
 	}
