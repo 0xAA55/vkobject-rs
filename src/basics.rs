@@ -99,6 +99,16 @@ pub fn filter_no_staging_buffer(result: Result<(), VulkanError>) -> Result<(), V
 	}
 }
 
+/// Print the error info and proceed to run
+pub fn proceed_run<E: Debug>(result: Result<(), E>) {
+	match result {
+		Ok(_) => {}
+		Err(e) => {
+			eprintln!("Error occured: `{e:?}` proceed to run.");
+		}
+	}
+}
+
 /// The wrapper for the `VkPipelineCache`
 pub struct VulkanPipelineCache {
 	/// The `VulkanDevice` is the associated device
@@ -162,7 +172,7 @@ impl Debug for VulkanPipelineCache {
 
 impl Drop for VulkanPipelineCache {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyPipelineCache(self.device.get_vk_device(), self.pipeline_cache, null()).unwrap()
+		proceed_run(self.device.vkcore.vkDestroyPipelineCache(self.device.get_vk_device(), self.pipeline_cache, null()))
 	}
 }
 
@@ -331,8 +341,7 @@ impl Debug for VulkanSemaphore {
 
 impl Drop for VulkanSemaphore {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
-		vkcore.vkDestroySemaphore(self.device.get_vk_device(), self.semaphore, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroySemaphore(self.device.get_vk_device(), self.semaphore, null()))
 	}
 }
 
@@ -477,8 +486,7 @@ impl Debug for VulkanFence {
 
 impl Drop for VulkanFence {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
-		vkcore.vkDestroyFence(self.device.get_vk_device(), self.fence, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyFence(self.device.get_vk_device(), self.fence, null()))
 	}
 }
 
@@ -609,7 +617,7 @@ impl Debug for VulkanMemory {
 
 impl Drop for VulkanMemory {
 	fn drop(&mut self) {
-		self.device.vkcore.vkFreeMemory(self.device.get_vk_device(), self.memory, null()).unwrap();
+		proceed_run(self.device.vkcore.vkFreeMemory(self.device.get_vk_device(), self.memory, null()))
 	}
 }
 
@@ -655,7 +663,7 @@ impl Drop for MappedMemory<'_> {
 		let mut mapping_state_lock = self.memory.mapping_state.lock().unwrap();
 		mapping_state_lock.map_count -= 1;
 		if mapping_state_lock.map_count == 0 {
-			self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory).unwrap();
+			proceed_run(self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory))
 		}
 	}
 }
@@ -901,7 +909,7 @@ impl Debug for VulkanBufferView {
 
 impl Drop for VulkanBufferView {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyBufferView(self.device.get_vk_device(), self.buffer_view, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyBufferView(self.device.get_vk_device(), self.buffer_view, null()))
 	}
 }
 
@@ -971,7 +979,7 @@ impl Debug for VulkanBuffer {
 
 impl Drop for VulkanBuffer {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyBuffer(self.device.get_vk_device(), self.buffer, null()))
 	}
 }
 
@@ -1083,7 +1091,7 @@ impl Drop for StagingBuffer {
 		let mut mapping_state_lock = self.memory.mapping_state.lock().unwrap();
 		mapping_state_lock.map_count -= 1;
 		if mapping_state_lock.map_count == 0 {
-			self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()).unwrap();
+			proceed_run(self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()))
 		}
 	}
 }
@@ -1174,6 +1182,6 @@ impl Debug for VulkanSampler {
 
 impl Drop for VulkanSampler {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroySampler(self.device.get_vk_device(), self.sampler, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroySampler(self.device.get_vk_device(), self.sampler, null()))
 	}
 }

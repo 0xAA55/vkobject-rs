@@ -552,10 +552,10 @@ impl Drop for VulkanContextScene<'_> {
 	fn drop(&mut self) {
 		if self.present_image_index.is_some() {
 			if !self.present_queued {
-				self.present().unwrap();
+				proceed_run(self.present())
 			}
 		} else {
-			self.pool_in_use.submit().unwrap();
+			proceed_run(self.pool_in_use.submit())
 		}
 	}
 }

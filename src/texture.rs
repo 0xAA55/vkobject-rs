@@ -717,11 +717,11 @@ impl Drop for VulkanTexture {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
 		let vkdevice = self.device.get_vk_device();
-		vkcore.vkDestroyImageView(vkdevice, self.image_view, null()).unwrap();
+		proceed_run(vkcore.vkDestroyImageView(vkdevice, self.image_view, null()));
 
 		// Only destroy the image if it was owned by the struct.
 		if self.memory.is_some() {
-			vkcore.vkDestroyImage(vkdevice, self.image, null()).unwrap();
+			proceed_run(vkcore.vkDestroyImage(vkdevice, self.image, null()));
 		}
 	}
 }

@@ -291,7 +291,7 @@ impl Clone for VulkanDevice {
 
 impl Drop for VulkanDevice {
 	fn drop(&mut self) {
-		self.vkcore.vkDestroyDevice(self.device, null()).unwrap();
+		proceed_run(self.vkcore.vkDestroyDevice(self.device, null()))
 	}
 }
 

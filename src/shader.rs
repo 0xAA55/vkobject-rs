@@ -1132,7 +1132,7 @@ impl Debug for VulkanShader {
 
 impl Drop for VulkanShader {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyShaderModule(self.device.get_vk_device(), self.shader, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyShaderModule(self.device.get_vk_device(), self.shader, null()))
 	}
 }
 

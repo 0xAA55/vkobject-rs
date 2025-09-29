@@ -1055,7 +1055,7 @@ impl Debug for PipelineBuilder {
 impl Drop for PipelineBuilder {
 	fn drop(&mut self) {
 		if !self.pipeline_layout.is_null() {
-			self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()).unwrap();
+			proceed_run(self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()))
 		}
 	}
 }
@@ -1368,8 +1368,8 @@ impl Debug for Pipeline {
 
 impl Drop for Pipeline {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()).unwrap();
-		self.device.vkcore.vkDestroyPipeline(self.device.get_vk_device(), self.pipeline, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()));
+		proceed_run(self.device.vkcore.vkDestroyPipeline(self.device.get_vk_device(), self.pipeline, null()));
 	}
 }
 
