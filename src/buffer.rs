@@ -220,6 +220,11 @@ where
 			_phantom: PhantomData,
 		})
 	}
+
+	/// Flush to GPU
+	pub fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.buffer.upload_staging_buffer(cmdbuf, 0, self.buffer.get_size())
+	}
 }
 
 impl<U> AsRef<U> for UniformBuffer<U>
@@ -253,7 +258,7 @@ pub trait GenericUniformBuffer: Debug {
 	fn get_staging_buffer_address(&self) -> *mut c_void;
 
 	/// Upload to GPU
-	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+	fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
 }
 
 impl<U> GenericUniformBuffer for UniformBuffer<U>
@@ -271,7 +276,7 @@ where
 		self.buffer.staging_buffer.as_ref().unwrap().get_address()
 	}
 
-	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+	fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
 	}
 }
@@ -288,7 +293,7 @@ pub trait GenericStorageBuffer: Debug {
 	fn get_staging_buffer_address(&self) -> *mut c_void;
 
 	/// Upload to GPU
-	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+	fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
 }
 
 /// The trait that the struct of uniform must implement
@@ -355,7 +360,7 @@ where
 		self.buffer.staging_buffer.as_ref().unwrap().get_address()
 	}
 
-	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+	fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
 	}
 }
