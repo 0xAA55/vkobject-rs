@@ -20,7 +20,7 @@ pub struct VulkanFramebuffer {
 
 impl VulkanFramebuffer {
 	/// Create the `VulkanFramebuffer`
-	pub(crate) fn new_from_views(device: Arc<VulkanDevice>, extent: &VkExtent2D, renderpass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
+	pub fn new_from_views(device: Arc<VulkanDevice>, extent: &VkExtent2D, renderpass: VkRenderPass, attachments: &[VkImageView]) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let framebuffer_ci = VkFramebufferCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO,
@@ -43,7 +43,7 @@ impl VulkanFramebuffer {
 	}
 
 	/// Create the `VulkanFramebuffer` from a bunch of textures
-	pub(crate) fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, renderpass: &VulkanRenderPass, attachments: &[Arc<VulkanTexture>]) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, extent: &VkExtent2D, renderpass: &VulkanRenderPass, attachments: &[Arc<VulkanTexture>]) -> Result<Self, VulkanError> {
 		let attachments: Vec<VkImageView> = attachments.iter().map(|t|t.get_vk_image_view()).collect();
 		Self::new_from_views(device, extent, renderpass.get_vk_renderpass(), &attachments)
 	}
