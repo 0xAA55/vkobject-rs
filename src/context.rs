@@ -396,6 +396,11 @@ impl<'a> VulkanContextScene<'a> {
 		self.pool_in_use.cmdbuf
 	}
 
+	/// Get the render target extent
+	pub fn get_rendertarget_extent(&self) -> &VkExtent2D {
+		self.pool_in_use.rt_props.as_ref().unwrap().get_extent()
+	}
+
 	/// Setup viewport
 	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
 		let viewport = VkViewport {
@@ -413,7 +418,7 @@ impl<'a> VulkanContextScene<'a> {
 
 	/// Set the viewport size to the swapchain image size
 	pub fn set_viewport_swapchain(&self, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
-		let extent = self.pool_in_use.rt_props.as_ref().unwrap().get_extent();
+		let extent = self.get_rendertarget_extent();
 		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
 	}
 
@@ -432,7 +437,7 @@ impl<'a> VulkanContextScene<'a> {
 
 	/// Set scissor to the swapchain image size
 	pub fn set_scissor_swapchain(&self) -> Result<(), VulkanError> {
-		self.set_scissor(*self.pool_in_use.rt_props.as_ref().unwrap().get_extent())
+		self.set_scissor(*self.get_rendertarget_extent())
 	}
 
 	/// Clear draw buffer

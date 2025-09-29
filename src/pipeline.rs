@@ -1277,7 +1277,7 @@ impl Pipeline {
 			for i in first_set..=last_set {
 				if let Some(set) = descriptor_sets_map.get(&i) {
 					if let Some(first_set) = &prev_set {
-						descriptor_sets_to_bind.get_mut(&first_set).unwrap().push(*set);
+						descriptor_sets_to_bind.get_mut(first_set).unwrap().push(*set);
 					} else {
 						prev_set = Some(i);
 						descriptor_sets_to_bind.insert(i, vec![*set]);

@@ -850,7 +850,7 @@ impl VulkanBufferView {
 		buffer.device.vkcore.vkCreateBufferView(buffer.device.get_vk_device(), &buffer_view_ci, null(), &mut buffer_view)?;
 		Ok(Self {
 			device: buffer.device.clone(),
-			buffer: buffer.clone(),
+			buffer,
 			buffer_view,
 			range: *range,
 		})
