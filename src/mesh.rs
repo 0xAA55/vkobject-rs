@@ -115,6 +115,9 @@ where
 		Ok(())
 	}
 
+	/// Discard staging buffer if the buffer's staging buffer is discardable
+	fn discard_staging_buffer(&mut self) {}
+
 	/// Get the number of the items in the buffer
 	fn len(&self) -> usize;
 
@@ -163,8 +166,11 @@ where
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.upload_staging_buffer(cmdbuf)?;
-		self.discard_staging_buffer();
 		Ok(())
+	}
+
+	fn discard_staging_buffer(&mut self) {
+		self.discard_staging_buffer()
 	}
 
 	fn len(&self) -> usize {
