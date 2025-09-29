@@ -484,52 +484,60 @@ impl VulkanTexture {
 
 	/// Upload the staging buffer data to the texture
 	pub fn upload_staging_buffer(&self, cmdbuf: VkCommandBuffer, offset: &VkOffset3D, extent: &VkExtent3D) -> Result<(), VulkanError> {
-		let copy_region = VkBufferImageCopy {
-			bufferOffset: 0,
-			bufferRowLength: 0,
-			bufferImageHeight: 0,
-			imageSubresource: VkImageSubresourceLayers {
-				aspectMask: if self.is_depth_stencil() {
-					VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
-					VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
-				} else {
-					VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+		if let Some(ref staging_buffer) = self.staging_buffer {
+			let copy_region = VkBufferImageCopy {
+				bufferOffset: 0,
+				bufferRowLength: 0,
+				bufferImageHeight: 0,
+				imageSubresource: VkImageSubresourceLayers {
+					aspectMask: if self.is_depth_stencil() {
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+					} else {
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+					},
+					mipLevel: 0,
+					baseArrayLayer: 0,
+					layerCount: 1,
 				},
-				mipLevel: 0,
-				baseArrayLayer: 0,
-				layerCount: 1,
-			},
-			imageOffset: *offset,
-			imageExtent: *extent,
-		};
+				imageOffset: *offset,
+				imageExtent: *extent,
+			};
 
-		self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, self.staging_buffer.as_ref().unwrap().get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
-		Ok(())
+			self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
+			Ok(())
+		} else {
+			Err(VulkanError::NoStagingBuffer)
+		}
 	}
 
 	/// Upload the staging buffer data to the texture
 	pub fn upload_staging_buffer_multi(&self, cmdbuf: VkCommandBuffer, regions: &[TextureRegion]) -> Result<(), VulkanError> {
-		let copy_regions: Vec<VkBufferImageCopy> = regions.iter().map(|r| VkBufferImageCopy {
-			bufferOffset: 0,
-			bufferRowLength: 0,
-			bufferImageHeight: 0,
-			imageSubresource: VkImageSubresourceLayers {
-				aspectMask: if self.is_depth_stencil() {
-					VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
-					VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
-				} else {
-					VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+		if let Some(ref staging_buffer) = self.staging_buffer {
+			let copy_regions: Vec<VkBufferImageCopy> = regions.iter().map(|r| VkBufferImageCopy {
+				bufferOffset: 0,
+				bufferRowLength: 0,
+				bufferImageHeight: 0,
+				imageSubresource: VkImageSubresourceLayers {
+					aspectMask: if self.is_depth_stencil() {
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_DEPTH_BIT as VkImageAspectFlags |
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_STENCIL_BIT as VkImageAspectFlags
+					} else {
+						VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
+					},
+					mipLevel: 0,
+					baseArrayLayer: 0,
+					layerCount: 1,
 				},
-				mipLevel: 0,
-				baseArrayLayer: 0,
-				layerCount: 1,
-			},
-			imageOffset: r.offset,
-			imageExtent: r.extent,
-		}).collect();
+				imageOffset: r.offset,
+				imageExtent: r.extent,
+			}).collect();
 
-		self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, self.staging_buffer.as_ref().unwrap().get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy_regions.len() as u32, copy_regions.as_ptr())?;
-		Ok(())
+			self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy_regions.len() as u32, copy_regions.as_ptr())?;
+			Ok(())
+		} else {
+			Err(VulkanError::NoStagingBuffer)
+		}
 	}
 
 	/// Get the `VkImage`
