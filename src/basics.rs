@@ -88,6 +88,17 @@ impl VulkanError {
 	}
 }
 
+/// Filter out `NoStagingBuffer` error from a `Result`
+pub fn filter_no_staging_buffer(result: Result<(), VulkanError>) -> Result<(), VulkanError> {
+	match result {
+		Ok(_) => result,
+		Err(ref vke) => match vke {
+			VulkanError::NoStagingBuffer => Ok(()),
+			_ => result,
+		}
+	}
+}
+
 /// The wrapper for the `VkPipelineCache`
 pub struct VulkanPipelineCache {
 	/// The `VulkanDevice` is the associated device
