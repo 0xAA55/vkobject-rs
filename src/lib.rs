@@ -102,6 +102,7 @@ mod tests {
 	use std::{
 		collections::HashMap,
 		path::PathBuf,
+		sync::{Arc, Mutex},
 	};
 
 	const TEST_TIME: f64 = 10.0;
@@ -132,6 +133,14 @@ mod tests {
 		}
 
 		pub fn run(&mut self, test_time: Option<f64>) -> Result<(), VulkanError> {
+			let device = self.ctx.device.clone();
+			let draw_shaders = Arc::new(DrawShaders::new(
+				Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/test.vsh")), false, "main", OptimizationLevel::Performance, false)?),
+				None,
+				None,
+				None,
+				Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false)?),
+			));
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
