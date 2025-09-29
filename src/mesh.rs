@@ -110,7 +110,7 @@ where
 	/// Must be able to get the `VkBuffer` handle
 	fn get_vk_buffer(&self) -> VkBuffer;
 
-	/// Must be able to flush
+	/// Flush staging buffer data to GPU
 	fn flush(&mut self, _cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		Ok(())
 	}
