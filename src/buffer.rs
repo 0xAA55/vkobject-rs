@@ -96,30 +96,41 @@ impl Buffer {
 
 	/// Retrieve the data from the staging buffer
 	pub fn get_staging_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
-		self.staging_buffer.as_mut().unwrap().get_data(data, offset, size)?;
-		Ok(())
+		if let Some(ref mut staging_buffer) = self.staging_buffer {
+			staging_buffer.get_data(data, offset, size)
+		} else {
+			Err(VulkanError::NoStagingBuffer)
+		}
 	}
 
 	/// Upload the data from the staging buffer
 	pub fn upload_staging_buffer(&self, cmdbuf: VkCommandBuffer, offset: VkDeviceSize, size: VkDeviceSize) -> Result<(), VulkanError> {
-		let copy_region = VkBufferCopy {
-			srcOffset: offset,
-			dstOffset: offset,
-			size: size as VkDeviceSize,
-		};
-		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.staging_buffer.as_ref().unwrap().get_vk_buffer(), self.buffer.get_vk_buffer(), 1, &copy_region)?;
-		Ok(())
+		if let Some(ref staging_buffer) = self.staging_buffer {
+			let copy_region = VkBufferCopy {
+				srcOffset: offset,
+				dstOffset: offset,
+				size: size as VkDeviceSize,
+			};
+			self.device.vkcore.vkCmdCopyBuffer(cmdbuf, staging_buffer.get_vk_buffer(), self.buffer.get_vk_buffer(), 1, &copy_region)?;
+			Ok(())
+		} else {
+			Err(VulkanError::NoStagingBuffer)
+		}
 	}
 
 	/// Upload the data from the staging buffer
 	pub fn upload_staging_buffer_multi(&self, cmdbuf: VkCommandBuffer, regions: &[BufferRegion]) -> Result<(), VulkanError> {
-		let copy_regions: Vec<VkBufferCopy> = regions.iter().map(|r|VkBufferCopy {
-			srcOffset: r.offset,
-			dstOffset: r.offset,
-			size: r.size as VkDeviceSize,
-		}).collect();
-		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.staging_buffer.as_ref().unwrap().get_vk_buffer(), self.buffer.get_vk_buffer(), copy_regions.len() as u32, copy_regions.as_ptr())?;
-		Ok(())
+		if let Some(ref staging_buffer) = self.staging_buffer {
+			let copy_regions: Vec<VkBufferCopy> = regions.iter().map(|r|VkBufferCopy {
+				srcOffset: r.offset,
+				dstOffset: r.offset,
+				size: r.size as VkDeviceSize,
+			}).collect();
+			self.device.vkcore.vkCmdCopyBuffer(cmdbuf, staging_buffer.get_vk_buffer(), self.buffer.get_vk_buffer(), copy_regions.len() as u32, copy_regions.as_ptr())?;
+			Ok(())
+		} else {
+			Err(VulkanError::NoStagingBuffer)
+		}
 	}
 
 	/// Download the data to the staging buffer
