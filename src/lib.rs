@@ -102,6 +102,7 @@ mod tests {
 	use std::{
 		collections::HashMap,
 		path::PathBuf,
+		slice::from_raw_parts_mut,
 		sync::{Arc, Mutex},
 	};
 
@@ -192,6 +193,15 @@ mod tests {
 				let cur_frame_time = self.glfw.get_time();
 				let run_time = cur_frame_time - start_time;
 				let scene = self.ctx.begin_scene(0, None)?;
+				let cmdbuf = scene.get_cmdbuf();
+				let extent = scene.get_rendertarget_extent();
+
+				let ui_data = unsafe {from_raw_parts_mut(uniform_input.get_staging_buffer_address() as *mut UniformInput, 1)};
+				ui_data[0] = UniformInput {
+					resolution: Vec3::new(extent.width as f32, extent.height as f32, 1.0),
+					time: run_time as f32,
+				};
+				uniform_input.flush(cmdbuf)?;
 
 				scene.set_viewport_swapchain(0.0, 1.0)?;
 				scene.set_scissor_swapchain()?;
