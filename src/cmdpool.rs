@@ -86,6 +86,15 @@ impl VulkanCommandPool {
 		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[buffer_index], &begin_info).unwrap();
 		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], rt_props, self.fence_is_signaling.clone())
 	}
+
+	/// Wait for the submit fence to be signaled
+	pub fn wait_for_submit(&mut self, timeout: u64) -> Result<(), VulkanError> {
+		if self.fence_is_signaling.fetch_and(false, Ordering::Relaxed) {
+			self.submit_fence.wait(timeout)?;
+			self.submit_fence.unsignal()?;
+		}
+		Ok(())
+	}
 }
 
 impl Debug for VulkanCommandPool {
