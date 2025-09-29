@@ -188,6 +188,7 @@ mod tests {
 	}
 
 	unsafe impl Send for TestInstance {}
+	unsafe impl Sync for TestInstance {}
 
 	#[test]
 	fn test() {
