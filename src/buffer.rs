@@ -196,6 +196,14 @@ impl Debug for Buffer {
 pub trait UniformStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
 impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
 
+#[macro_export]
+macro_rules! derive_uniform_buffer_type {
+	($item: item) => {
+		#[derive(Iterable, Default, Debug, Clone, Copy)]
+		$item
+	};
+}
+
 /// The uniform buffer
 #[derive(Debug, Clone)]
 pub struct UniformBuffer<U>
