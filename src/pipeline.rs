@@ -1328,7 +1328,7 @@ impl Pipeline {
 		let index_count = mesh_lock.mesh.get_index_count() as u32;
 		let instance_count = mesh_lock.mesh.get_instance_count() as u32;
 		let command_count = mesh_lock.mesh.get_command_count() as u32;
-		let index_type = mesh_lock.mesh.get_index_type();
+		let index_type = mesh_lock.mesh.get_index_type().unwrap_or(VkIndexType::VK_INDEX_TYPE_UINT16);
 		let command_stride = mesh_lock.mesh.get_command_stride() as u32;
 		drop(mesh_lock);
 		if let Some(index_buffer) = index_buffer {

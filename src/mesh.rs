@@ -323,11 +323,12 @@ pub trait GenericMesh: Debug {
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
 
 	/// Get the index type
-	fn get_index_type(&self) -> VkIndexType {
+	fn get_index_type(&self) -> Option<VkIndexType> {
 		match self.get_index_stride() {
-			1 => VkIndexType::VK_INDEX_TYPE_UINT8,
-			2 => VkIndexType::VK_INDEX_TYPE_UINT16,
-			4 => VkIndexType::VK_INDEX_TYPE_UINT32,
+			0 => None,
+			1 => Some(VkIndexType::VK_INDEX_TYPE_UINT8),
+			2 => Some(VkIndexType::VK_INDEX_TYPE_UINT16),
+			4 => Some(VkIndexType::VK_INDEX_TYPE_UINT32),
 			_ => panic!("Unsupported index type: {}", self.get_index_type_name()),
 		}
 	}
