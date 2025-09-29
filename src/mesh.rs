@@ -242,10 +242,10 @@ where
 
 	/// Upload staging buffers to GPU
 	pub fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
-		self.vertices.flush(cmdbuf)?;
-		if let Some(ref mut indices) = self.indices {indices.flush(cmdbuf)?;}
-		if let Some(ref mut instances) = self.instances {instances.flush(cmdbuf)?;}
-		if let Some(ref mut commands) = self.commands {commands.flush(cmdbuf)?;}
+		filter_no_staging_buffer(self.vertices.flush(cmdbuf))?;
+		if let Some(ref mut indices) = self.indices {filter_no_staging_buffer(indices.flush(cmdbuf))?;}
+		if let Some(ref mut instances) = self.instances {filter_no_staging_buffer(instances.flush(cmdbuf))?;}
+		if let Some(ref mut commands) = self.commands {filter_no_staging_buffer(commands.flush(cmdbuf))?;}
 		Ok(())
 	}
 }
