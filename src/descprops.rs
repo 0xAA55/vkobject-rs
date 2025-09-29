@@ -176,9 +176,9 @@ pub struct DescriptorProps {
 
 impl DescriptorProps {
 	/// Create a new `DescriptorProps`
-	pub fn new() -> Self {
+	pub fn new(sets: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>>) -> Self {
 		Self {
-			sets: HashMap::new(),
+			sets,
 		}
 	}
 
