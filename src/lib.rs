@@ -210,7 +210,7 @@ mod tests {
 				let b = ((cur_frame_time * 1.5).sin() * 0.5 + 0.5) as f32;
 				scene.clear(Vec4::new(r, g, b, 1.0), 1.0, 0)?;
 
-				drop(scene);
+				scene.finish();
 				self.num_frames += 1;
 
 				let new_time_in_sec = run_time.floor() as u64;
