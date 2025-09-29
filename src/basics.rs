@@ -470,6 +470,16 @@ impl Drop for VulkanFence {
 	}
 }
 
+/// The mapping info of the memory
+#[derive(Default, Debug, Clone)]
+pub struct MemoryMappingState {
+	/// The mapped address
+	pub(crate) mapped_address: *mut c_void,
+
+	/// The map counter
+	pub(crate) map_count: u32,
+}
+
 /// The memory object that temporarily stores the `VkDeviceMemory`
 pub struct VulkanMemory {
 	/// The `VulkanDevice` is the associated device
@@ -481,11 +491,8 @@ pub struct VulkanMemory {
 	/// The allocated size of the memory
 	size: VkDeviceSize,
 
-	/// The mapped address
-	mapped_address: *mut c_void,
-
-	/// The map counter
-	pub(crate) map_count: Mutex<u32>,
+	/// The mapping info
+	mapping_state: Mutex<MemoryMappingState>,
 }
 
 /// The direction of manipulating data
@@ -511,8 +518,7 @@ impl VulkanMemory {
 			device,
 			memory,
 			size: mem_reqs.size,
-			mapped_address: null_mut(),
-			map_count: Mutex::new(0),
+			mapping_state: Mutex::new(MemoryMappingState::default()),
 		};
 		Ok(ret)
 	}
@@ -528,24 +534,24 @@ impl VulkanMemory {
 	}
 
 	/// Map the memory
-	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
-		let mut map_count_lock = self.map_count.lock().unwrap();
-		if *map_count_lock == 0 {
-			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut self.mapped_address)?;
+	pub fn map<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+		let mut mapping_state_lock = self.mapping_state.lock().unwrap();
+		if mapping_state_lock.map_count == 0 {
+			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut mapping_state_lock.mapped_address)?;
 		}
-		*map_count_lock += 1;
-		Ok(MappedMemory::new(self, (self.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size))
+		mapping_state_lock.map_count += 1;
+		Ok(MappedMemory::new(self, (mapping_state_lock.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size))
 	}
 
 	/// Map the memory as a slice
-	pub fn map_as_slice<'a, T>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
+	pub fn map_as_slice<'a, T>(&'a self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
 	where
 		T: Sized + Clone + Copy {
 		Ok(TypedMappedMemory::new(self.map(offset, size)?))
 	}
 
 	/// Provide data for the memory, or retrieve data from the memory
-	pub fn manipulate_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
+	pub fn manipulate_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
 		let map_guard = self.map(offset, size)?;
 		match direction {
 			DataDirection::SetData => unsafe {copy(data as *const u8, map_guard.address as *mut u8, size)},
@@ -555,12 +561,12 @@ impl VulkanMemory {
 	}
 
 	/// Provide data for the memory
-	pub fn set_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn set_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.manipulate_data(data as *mut c_void, offset, size, DataDirection::SetData)
 	}
 
 	/// Retrieve data from the memory
-	pub fn get_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn get_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.manipulate_data(data, offset, size, DataDirection::GetData)
 	}
 
@@ -584,6 +590,7 @@ impl Debug for VulkanMemory {
 		f.debug_struct("VulkanMemory")
 		.field("memory", &self.memory)
 		.field("size", &self.size)
+		.field("mapping_state", &self.mapping_state)
 		.finish()
 	}
 }
@@ -630,9 +637,9 @@ impl<'a> MappedMemory<'a> {
 
 impl Drop for MappedMemory<'_> {
 	fn drop(&mut self) {
-		let mut map_count_lock = self.memory.map_count.lock().unwrap();
-		*map_count_lock -= 1;
-		if *map_count_lock == 0 {
+		let mut mapping_state_lock = self.memory.mapping_state.lock().unwrap();
+		mapping_state_lock.map_count -= 1;
+		if mapping_state_lock.map_count == 0 {
 			self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory).unwrap();
 		}
 	}
@@ -987,10 +994,12 @@ impl StagingBuffer {
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?;
 		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
 		let mut address: *mut c_void = null_mut();
-		let map_count_lock = memory.map_count.lock().unwrap();
-		assert_eq!(*map_count_lock, 0, "The newly created `VulkanMemory` must be unmapped.");
-		*map_count_lock += 1;
+		let mut mapping_state_lock = memory.mapping_state.lock().unwrap();
+		assert_eq!(mapping_state_lock.map_count, 0, "The newly created `VulkanMemory` must be unmapped.");
+		mapping_state_lock.map_count += 1;
 		device.vkcore.vkMapMemory(device.get_vk_device(), memory.get_vk_memory(), 0, size, 0, &mut address)?;
+		mapping_state_lock.mapped_address = address;
+		drop(mapping_state_lock);
 		Ok(Self {
 			device,
 			memory,
@@ -1056,9 +1065,9 @@ impl Debug for StagingBuffer {
 
 impl Drop for StagingBuffer {
 	fn drop(&mut self) {
-		let map_count_lock = memory.map_count.lock().unwrap();
-		*map_count_lock -= 1;
-		if *map_count_lock == 0 {
+		let mut mapping_state_lock = self.memory.mapping_state.lock().unwrap();
+		mapping_state_lock.map_count -= 1;
+		if mapping_state_lock.map_count == 0 {
 			self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()).unwrap();
 		}
 	}
