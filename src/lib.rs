@@ -180,8 +180,6 @@ mod tests {
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
-			let vsh = VulkanShader::new_from_source_file_or_cache(self.ctx.device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/test.vsh")), false, "main", OptimizationLevel::Performance, false, HashMap::new())?;
-			let fsh = VulkanShader::new_from_source_file_or_cache(self.ctx.device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false, HashMap::new())?;
 			while !self.window.should_close() {
 				let cur_frame_time = self.glfw.get_time();
 				let run_time = cur_frame_time - start_time;
