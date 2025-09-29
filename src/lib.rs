@@ -116,6 +116,13 @@ mod tests {
 		pub num_frames: u64,
 	}
 
+	derive_uniform_buffer_type! {
+		pub struct UniformInput {
+			resolution: Vec3,
+			time: f32,
+		}
+	}
+
 	impl TestInstance {
 		pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode) -> Result<Self, VulkanError> {
 			let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
@@ -141,6 +148,10 @@ mod tests {
 				None,
 				Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false)?),
 			));
+			let uniform_input: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInput>::new(device.clone())?);
+			let desc_prop = vec![uniform_input.clone()];
+			let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
+			let desc_props = Arc::new(DescriptorProps::new(desc_props));
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
