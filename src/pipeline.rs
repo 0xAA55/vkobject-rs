@@ -535,6 +535,7 @@ impl DescriptorSets {
 			};
 			let mut descriptor_set_array: Vec<VkDescriptorSet> = Vec::with_capacity(layout_array.len());
 			device.vkcore.vkAllocateDescriptorSets(device.get_vk_device(), &desc_sets_ai, descriptor_set_array.as_mut_ptr())?;
+			unsafe {descriptor_set_array.set_len(layout_array.len())};
 			let descriptor_sets: BTreeMap<u32, VkDescriptorSet> = layout_bindings.keys().enumerate().map(|(index, set)|(*set, descriptor_set_array[index])).collect();
 			let ret = Self {
 				device: device.clone(),
