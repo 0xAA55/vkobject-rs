@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use std::{
 	collections::HashMap,
+	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	ptr::null,
 	sync::{Arc,
@@ -76,9 +77,14 @@ impl DescriptorPool {
 		let pool_sizes: Vec<VkDescriptorPoolSize> = capacity.typed_capacity.iter().map(|(&type_, &count)| VkDescriptorPoolSize {type_, descriptorCount: count}).collect();
 		let pool_capacity: Arc<HashMap<VkDescriptorType, u32>> = Arc::new(capacity.typed_capacity.iter().map(|(&t, &c)|(t, c)).collect());
 		let pool_usage: Arc<HashMap<VkDescriptorType, AtomicU32>> = Arc::new(capacity.typed_capacity.iter().map(|(&type_, _)|(type_, AtomicU32::new(0))).collect());
+		let inline_uniform_block_ci = VkDescriptorPoolInlineUniformBlockCreateInfo {
+		    sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_INLINE_UNIFORM_BLOCK_CREATE_INFO,
+		    pNext: null(),
+		    maxInlineUniformBlockBindings: 100,
+		};
 		let pool_ci = VkDescriptorPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
-			pNext: null(),
+			pNext: &inline_uniform_block_ci as *const VkDescriptorPoolInlineUniformBlockCreateInfo as *const c_void,
 			flags: 0,
 			maxSets: capacity.max_sets,
 			poolSizeCount: pool_sizes.len() as u32,
