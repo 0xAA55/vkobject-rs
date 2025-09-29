@@ -557,7 +557,7 @@ impl<'a> VulkanContextScene<'a> {
 				1, &barrier
 			)?;
 		}
-		self.pool_in_use.submit().unwrap();
+		self.pool_in_use.submit()?;
 		match self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap()) {
 			Ok(_) => Ok(()),
 			Err(e) => if let Some(ve) = e.is_vkerror() {

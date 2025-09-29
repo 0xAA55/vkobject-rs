@@ -82,8 +82,8 @@ impl VulkanCommandPool {
 			pInheritanceInfo: null(),
 		};
 		let buffer_index = self.index_of_buffer.fetch_add(1, Ordering::Relaxed) % self.cmd_buffers.len();
-		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[buffer_index], 0).unwrap();
-		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[buffer_index], &begin_info).unwrap();
+		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[buffer_index], 0)?;
+		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[buffer_index], &begin_info)?;
 		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], rt_props, self.fence_is_signaling.clone())
 	}
 
