@@ -391,10 +391,12 @@ impl<'a> VulkanContextScene<'a> {
 		})
 	}
 
+	/// Get the current command buffer in use
 	pub fn get_cmdbuf(&self) -> VkCommandBuffer {
 		self.pool_in_use.cmdbuf
 	}
 
+	/// Setup viewport
 	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
 		let viewport = VkViewport {
 			x,
@@ -409,11 +411,13 @@ impl<'a> VulkanContextScene<'a> {
 		Ok(())
 	}
 
+	/// Set the viewport size to the swapchain image size
 	pub fn set_viewport_swapchain(&self, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
 		let extent = self.pool_in_use.rt_props.as_ref().unwrap().get_extent();
 		self.set_viewport(0.0, 0.0, extent.width as f32, extent.height as f32, min_depth, max_depth)
 	}
 
+	/// Set scissor
 	pub fn set_scissor(&self, extent: VkExtent2D) -> Result<(), VulkanError> {
 		let scissor = VkRect2D {
 			offset: VkOffset2D {
@@ -426,10 +430,12 @@ impl<'a> VulkanContextScene<'a> {
 		Ok(())
 	}
 
+	/// Set scissor to the swapchain image size
 	pub fn set_scissor_swapchain(&self) -> Result<(), VulkanError> {
 		self.set_scissor(*self.pool_in_use.rt_props.as_ref().unwrap().get_extent())
 	}
 
+	/// Clear draw buffer
 	pub fn clear(&self, color: Vec4, depth: f32, stencil: u32) -> Result<(), VulkanError> {
 		let cmdbuf = self.pool_in_use.cmdbuf;
 		for image in self.pool_in_use.rt_props.as_ref().unwrap().attachments.iter() {
@@ -465,6 +471,7 @@ impl<'a> VulkanContextScene<'a> {
 		Ok(())
 	}
 
+	/// Present the image, make it to be visible
 	pub fn present(&mut self) -> Result<(), VulkanError> {
 		if self.present_queued {
 			panic!("Duplicated call to `VulkanContextScene::present()`.");
@@ -521,6 +528,7 @@ impl<'a> VulkanContextScene<'a> {
 		Ok(())
 	}
 
+	/// Finish up
 	pub fn finish(self) {}
 }
 
