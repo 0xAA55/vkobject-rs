@@ -116,6 +116,12 @@ mod tests {
 		pub num_frames: u64,
 	}
 
+	derive_vertex_type! {
+		pub struct VertexType {
+			pub position: Vec2,
+		}
+	}
+
 	derive_uniform_buffer_type! {
 		pub struct UniformInput {
 			resolution: Vec3,
@@ -152,6 +158,21 @@ mod tests {
 			let desc_prop = vec![uniform_input.clone()];
 			let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
 			let desc_props = Arc::new(DescriptorProps::new(desc_props));
+			let vertices_data = vec![
+				VertexType {
+					position: Vec2::new(-1.0, -1.0),
+				},
+				VertexType {
+					position: Vec2::new( 1.0, -1.0),
+				},
+				VertexType {
+					position: Vec2::new(-1.0,  1.0),
+				},
+				VertexType {
+					position: Vec2::new( 1.0,  1.0),
+				},
+			];
+			let vertices = BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?;
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
