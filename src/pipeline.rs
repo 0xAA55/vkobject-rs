@@ -640,6 +640,7 @@ unsafe impl Send for DescriptorSets {}
 unsafe impl Sync for DescriptorSets {}
 
 /// Build a pipeline step by step
+#[derive(Clone)]
 pub struct PipelineBuilder {
 	/// The associated device
 	pub device: Arc<VulkanDevice>,
