@@ -89,9 +89,10 @@ impl VulkanCommandPool {
 
 	/// Wait for the submit fence to be signaled
 	pub fn wait_for_submit(&self, timeout: u64) -> Result<(), VulkanError> {
-		if self.fence_is_signaling.fetch_and(false, Ordering::Relaxed) {
+		if self.fence_is_signaling.fetch_or(false, Ordering::Acquire) {
 			self.submit_fence.wait(timeout)?;
 			self.submit_fence.unsignal()?;
+			self.fence_is_signaling.store(false, Ordering::Release);
 		}
 		Ok(())
 	}
