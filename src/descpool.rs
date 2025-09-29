@@ -85,7 +85,7 @@ impl DescriptorPool {
 		let pool_ci = VkDescriptorPoolCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DESCRIPTOR_POOL_CREATE_INFO,
 			pNext: &inline_uniform_block_ci as *const VkDescriptorPoolInlineUniformBlockCreateInfo as *const c_void,
-			flags: 0,
+			flags: VkDescriptorPoolCreateFlagBits::VK_DESCRIPTOR_POOL_CREATE_FREE_DESCRIPTOR_SET_BIT as VkDescriptorPoolCreateFlags,
 			maxSets: capacity.max_sets,
 			poolSizeCount: pool_sizes.len() as u32,
 			pPoolSizes: pool_sizes.as_ptr(),
