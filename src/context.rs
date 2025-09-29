@@ -391,6 +391,10 @@ impl<'a> VulkanContextScene<'a> {
 		})
 	}
 
+	pub fn get_cmdbuf(&self) -> VkCommandBuffer {
+		self.pool_in_use.cmdbuf
+	}
+
 	pub fn set_viewport(&self, x: f32, y: f32, width: f32, height: f32, min_depth: f32, max_depth: f32) -> Result<(), VulkanError> {
 		let viewport = VkViewport {
 			x,
