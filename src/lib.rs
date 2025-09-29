@@ -177,6 +177,8 @@ mod tests {
 			let mesh = Arc::new(Mutex::new(GenericMeshWithMaterial::new(Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None)));
 			mesh.lock().unwrap().mesh.flush(pool_in_use.cmdbuf)?;
 			drop(pool_in_use);
+			self.ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
+			mesh.lock().unwrap().mesh.discard_staging_buffers();
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
