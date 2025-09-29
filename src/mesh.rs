@@ -254,6 +254,14 @@ where
 		if let Some(ref mut commands) = self.commands {filter_no_staging_buffer(commands.flush(cmdbuf))?;}
 		Ok(())
 	}
+
+	/// Discard staging buffers if the data will never be modified.
+	pub fn discard_staging_buffers(&mut self) {
+		self.vertices.discard_staging_buffer();
+		if let Some(ref mut indices) = self.indices {indices.discard_staging_buffer();}
+		if let Some(ref mut instances) = self.instances {instances.discard_staging_buffer();}
+		if let Some(ref mut commands) = self.commands {commands.discard_staging_buffer();}
+	}
 }
 
 /// The most typical static mesh type: use `BufferWithType` for vertices and elements(indices), use `BufferVec` for instances and draw commands
@@ -329,6 +337,9 @@ pub trait GenericMesh: Debug {
 
 	/// Flush all buffers that needs to be flushed to use
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError>;
+
+	/// Discard staging buffers if the data will never be modified.
+	fn discard_staging_buffers(&mut self);
 
 	/// Get the index type
 	fn get_index_type(&self) -> Option<VkIndexType> {
@@ -450,6 +461,10 @@ where
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.flush(cmdbuf)
+	}
+
+	fn discard_staging_buffers(&mut self) {
+		self.discard_staging_buffers()
 	}
 }
 
