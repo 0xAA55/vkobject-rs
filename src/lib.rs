@@ -91,6 +91,7 @@ pub mod prelude {
 	pub use crate::descprops::*;
 	pub use crate::pipeline::*;
 	pub use crate::derive_vertex_type;
+	pub use crate::derive_uniform_buffer_type;
 }
 
 #[cfg(test)]
