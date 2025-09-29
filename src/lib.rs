@@ -146,69 +146,17 @@ mod tests {
 			})
 		}
 
-		pub fn run(&mut self, test_time: Option<f64>) -> Result<(), VulkanError> {
-			let device = self.ctx.device.clone();
-			let draw_shaders = Arc::new(DrawShaders::new(
-				Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/test.vsh")), false, "main", OptimizationLevel::Performance, false)?),
-				None,
-				None,
-				None,
-				Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false)?),
-			));
-			let uniform_input: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInput>::new(device.clone())?);
-			let desc_prop = vec![uniform_input.clone()];
-			let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
-			let desc_props = Arc::new(DescriptorProps::new(desc_props));
-			let pool_in_use = self.ctx.cmdpools[0].use_pool(None)?;
-			let vertices_data = vec![
-				VertexType {
-					position: Vec2::new(-1.0, -1.0),
-				},
-				VertexType {
-					position: Vec2::new( 1.0, -1.0),
-				},
-				VertexType {
-					position: Vec2::new(-1.0,  1.0),
-				},
-				VertexType {
-					position: Vec2::new( 1.0,  1.0),
-				},
-			];
-			let vertices = BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?;
-			let mesh = Arc::new(Mutex::new(GenericMeshWithMaterial::new(Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None)));
-			mesh.lock().unwrap().mesh.flush(pool_in_use.cmdbuf)?;
-			drop(pool_in_use);
-			self.ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
-			mesh.lock().unwrap().mesh.discard_staging_buffers();
-			let pipeline = self.ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
-			.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
-			.set_depth_test(false)
-			.set_depth_write(false)
-			.build()?;
-
+		pub fn run(&mut self,
+			test_time: Option<f64>,
+			mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError>
+		) -> Result<(), VulkanError> {
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
 			while !self.window.should_close() {
 				let cur_frame_time = self.glfw.get_time();
 				let run_time = cur_frame_time - start_time;
-				let scene = self.ctx.begin_scene(0, None)?;
-				let cmdbuf = scene.get_cmdbuf();
-				let extent = scene.get_rendertarget_extent();
-
-				let ui_data = unsafe {from_raw_parts_mut(uniform_input.get_staging_buffer_address() as *mut UniformInput, 1)};
-				ui_data[0] = UniformInput {
-					resolution: Vec3::new(extent.width as f32, extent.height as f32, 1.0),
-					time: run_time as f32,
-				};
-				uniform_input.flush(cmdbuf)?;
-
-				scene.set_viewport_swapchain(0.0, 1.0)?;
-				scene.set_scissor_swapchain()?;
-				scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
-				pipeline.draw(cmdbuf)?;
-				scene.end_renderpass()?;
-				scene.finish();
+				on_render(&mut self.ctx, run_time)?;
 				self.num_frames += 1;
 
 				let new_time_in_sec = run_time.floor() as u64;
@@ -244,6 +192,85 @@ mod tests {
 	#[test]
 	fn test() {
 		let mut inst = Box::new(TestInstance::new(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).unwrap());
-		inst.run(Some(TEST_TIME)).unwrap();
+
+		struct Resources {
+			uniform_input: Arc<dyn GenericUniformBuffer>,
+			pipeline: Pipeline,
+		}
+
+		impl Resources {
+			pub fn new(ctx: &mut VulkanContext) -> Result<Self, VulkanError> {
+				let device = ctx.device.clone();
+				let draw_shaders = Arc::new(DrawShaders::new(
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/test.vsh")), false, "main", OptimizationLevel::Performance, false)?),
+					None,
+					None,
+					None,
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false)?),
+				));
+				let uniform_input: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInput>::new(device.clone())?);
+				let desc_prop = vec![uniform_input.clone()];
+				let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
+				let desc_props = Arc::new(DescriptorProps::new(desc_props));
+				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
+				let vertices_data = vec![
+					VertexType {
+						position: Vec2::new(-1.0, -1.0),
+					},
+					VertexType {
+						position: Vec2::new( 1.0, -1.0),
+					},
+					VertexType {
+						position: Vec2::new(-1.0,  1.0),
+					},
+					VertexType {
+						position: Vec2::new( 1.0,  1.0),
+					},
+				];
+				let vertices = BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?;
+				let mesh = Arc::new(Mutex::new(GenericMeshWithMaterial::new(Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None)));
+				mesh.lock().unwrap().mesh.flush(pool_in_use.cmdbuf)?;
+				drop(pool_in_use);
+				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
+				mesh.lock().unwrap().mesh.discard_staging_buffers();
+				let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
+				.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
+				.set_depth_test(false)
+				.set_depth_write(false)
+				.build()?;
+				Ok(Self {
+					uniform_input,
+					pipeline,
+				})
+			}
+
+			pub fn draw(&self, ctx: &mut VulkanContext, run_time: f64) -> Result<(), VulkanError> {
+				let scene = ctx.begin_scene(0, None)?;
+				let cmdbuf = scene.get_cmdbuf();
+				let extent = scene.get_rendertarget_extent();
+
+				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input.get_staging_buffer_address() as *mut UniformInput, 1)};
+				ui_data[0] = UniformInput {
+					resolution: Vec3::new(extent.width as f32, extent.height as f32, 1.0),
+					time: run_time as f32,
+				};
+				self.uniform_input.flush(cmdbuf)?;
+
+				scene.set_viewport_swapchain(0.0, 1.0)?;
+				scene.set_scissor_swapchain()?;
+				scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
+				self.pipeline.draw(cmdbuf)?;
+				scene.end_renderpass()?;
+				scene.finish();
+				Ok(())
+			}
+		}
+
+		let resources = Resources::new(&mut inst.ctx).unwrap();
+
+		inst.run(Some(TEST_TIME),
+		|ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+			resources.draw(ctx, run_time)
+		}).unwrap();
 	}
 }
