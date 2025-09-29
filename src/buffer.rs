@@ -43,7 +43,7 @@ impl Buffer {
 			staging_buffer: None,
 		};
 		if let Some(data) = data {
-			ret.set_staging_data(data, 0, size as usize)?;
+			unsafe {ret.set_staging_data(data, 0, size as usize)?};
 		}
 		Ok(ret)
 	}
@@ -88,14 +88,22 @@ impl Buffer {
 	}
 
 	/// Update new data to the buffer
-	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	///
+	/// # Safety
+	///
+	/// You must provide a valid pointer `data`, otherwise the behavior of this function is undefined.
+	pub unsafe fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.ensure_staging_buffer()?;
 		self.staging_buffer.as_mut().unwrap().set_data(data, offset, size)?;
 		Ok(())
 	}
 
 	/// Retrieve the data from the staging buffer
-	pub fn get_staging_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	///
+	/// # Safety
+	///
+	/// You must provide a valid pointer `data`, otherwise the behavior of this function is undefined.
+	pub unsafe fn get_staging_data(&mut self, data: *mut c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		if let Some(ref mut staging_buffer) = self.staging_buffer {
 			staging_buffer.get_data(data, offset, size)
 		} else {

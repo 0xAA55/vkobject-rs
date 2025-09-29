@@ -79,7 +79,7 @@ where
 
 	/// Set data
 	pub fn set_data(&mut self, index: usize, data: T) -> Result<(), VulkanError> {
-		self.buffer.set_staging_data(&data as *const T as *const c_void, (index * size_of::<T>()) as VkDeviceSize, size_of::<T>())
+		unsafe {self.buffer.set_staging_data(&data as *const T as *const c_void, (index * size_of::<T>()) as VkDeviceSize, size_of::<T>())}
 	}
 
 	/// Upload staging buffer data to buffer
