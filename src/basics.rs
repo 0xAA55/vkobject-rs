@@ -531,9 +531,9 @@ impl VulkanMemory {
 	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		let mut map_count_lock = self.map_count.lock().unwrap();
 		if *map_count_lock == 0 {
-			*map_count_lock += 1;
 			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut self.mapped_address)?;
 		}
+		*map_count_lock += 1;
 		Ok(MappedMemory::new(self, (self.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size))
 	}
 
@@ -541,12 +541,7 @@ impl VulkanMemory {
 	pub fn map_as_slice<'a, T>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
 	where
 		T: Sized + Clone + Copy {
-		let mut map_count_lock = self.map_count.lock().unwrap();
-		if *map_count_lock == 0 {
-			*map_count_lock += 1;
-			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut self.mapped_address)?;
-		}
-		Ok(TypedMappedMemory::new(MappedMemory::new(self, (self.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size)))
+		Ok(TypedMappedMemory::new(self.map(offset, size)?))
 	}
 
 	/// Provide data for the memory, or retrieve data from the memory
@@ -992,6 +987,9 @@ impl StagingBuffer {
 			VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_HOST_COHERENT_BIT as VkMemoryPropertyFlags)?;
 		memory.bind_vk_buffer(buffer.get_vk_buffer())?;
 		let mut address: *mut c_void = null_mut();
+		let map_count_lock = memory.map_count.lock().unwrap();
+		assert_eq!(*map_count_lock, 0, "The newly created `VulkanMemory` must be unmapped.");
+		*map_count_lock += 1;
 		device.vkcore.vkMapMemory(device.get_vk_device(), memory.get_vk_memory(), 0, size, 0, &mut address)?;
 		Ok(Self {
 			device,
@@ -1058,7 +1056,11 @@ impl Debug for StagingBuffer {
 
 impl Drop for StagingBuffer {
 	fn drop(&mut self) {
-		self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()).unwrap();
+		let map_count_lock = memory.map_count.lock().unwrap();
+		*map_count_lock -= 1;
+		if *map_count_lock == 0 {
+			self.device.vkcore.vkUnmapMemory(self.device.get_vk_device(), self.get_vk_memory()).unwrap();
+		}
 	}
 }
 
