@@ -1368,6 +1368,7 @@ impl Debug for Pipeline {
 
 impl Drop for Pipeline {
 	fn drop(&mut self) {
+		proceed_run(self.device.wait_idle());
 		proceed_run(self.device.vkcore.vkDestroyPipelineLayout(self.device.get_vk_device(), self.pipeline_layout, null()));
 		proceed_run(self.device.vkcore.vkDestroyPipeline(self.device.get_vk_device(), self.pipeline, null()));
 	}
