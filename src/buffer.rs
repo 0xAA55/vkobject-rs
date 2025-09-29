@@ -78,7 +78,7 @@ impl Buffer {
 
 	/// Get the size
 	pub fn get_size(&self) -> VkDeviceSize {
-		self.memory.get_size()
+		self.buffer.get_size()
 	}
 
 	/// Get the address of the staging buffer memory data
