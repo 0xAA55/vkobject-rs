@@ -158,6 +158,7 @@ mod tests {
 			let desc_prop = vec![uniform_input.clone()];
 			let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
 			let desc_props = Arc::new(DescriptorProps::new(desc_props));
+			let pool_in_use = self.ctx.cmdpools[0].use_pool(None)?;
 			let vertices_data = vec![
 				VertexType {
 					position: Vec2::new(-1.0, -1.0),
@@ -173,6 +174,9 @@ mod tests {
 				},
 			];
 			let vertices = BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?;
+			let mesh = Arc::new(Mutex::new(GenericMeshWithMaterial::new(Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None)));
+			mesh.lock().unwrap().mesh.flush(pool_in_use.cmdbuf)?;
+			drop(pool_in_use);
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
