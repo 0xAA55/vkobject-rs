@@ -2,7 +2,7 @@
 use crate::prelude::*;
 use std::{
 	collections::HashMap,
-	sync::{Arc, RwLock},
+	sync::Arc,
 };
 
 /// The properties for the descriptor set
@@ -15,10 +15,10 @@ pub enum DescriptorProp {
 	Images(Vec<TextureForSample>),
 
 	/// The props for the storage buffer
-	StorageBuffers(Vec<RwLock<Box<dyn GenericStorageBuffer>>>),
+	StorageBuffers(Vec<Arc<dyn GenericStorageBuffer>>),
 
 	/// The props for the uniform buffers
-	UniformBuffers(Vec<RwLock<Box<dyn GenericUniformBuffer>>>),
+	UniformBuffers(Vec<Arc<dyn GenericUniformBuffer>>),
 
 	/// The props for the storage texel buffer
 	StorageTexelBuffers(Vec<VulkanBufferView>),
@@ -47,7 +47,7 @@ impl DescriptorProp {
 	}
 
 	/// Get uniform buffers
-	pub fn get_uniform_buffers(&self) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
+	pub fn get_uniform_buffers(&self) -> Result<&[Arc<dyn GenericUniformBuffer>], VulkanError> {
 		if let Self::UniformBuffers(uniform_buffers) = self {
 			Ok(uniform_buffers)
 		} else {
@@ -56,7 +56,7 @@ impl DescriptorProp {
 	}
 
 	/// Get storage buffers
-	pub fn get_storage_buffers(&self) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
+	pub fn get_storage_buffers(&self) -> Result<&[Arc<dyn GenericStorageBuffer>], VulkanError> {
 		if let Self::StorageBuffers(uniform_buffers) = self {
 			Ok(uniform_buffers)
 		} else {
@@ -101,7 +101,7 @@ impl DescriptorProp {
 	}
 
 	/// Unwrap for uniform buffers
-	pub fn unwrap_uniform_buffers(&self) -> &[RwLock<Box<dyn GenericUniformBuffer>>] {
+	pub fn unwrap_uniform_buffers(&self) -> &[Arc<dyn GenericUniformBuffer>] {
 		if let Self::UniformBuffers(uniform_buffers) = self {
 			uniform_buffers
 		} else {
@@ -110,7 +110,7 @@ impl DescriptorProp {
 	}
 
 	/// Unwrap for storage buffers
-	pub fn unwrap_storage_buffers(&self) -> &[RwLock<Box<dyn GenericStorageBuffer>>] {
+	pub fn unwrap_storage_buffers(&self) -> &[Arc<dyn GenericStorageBuffer>] {
 		if let Self::StorageBuffers(storage_buffers) = self {
 			storage_buffers
 		} else {
@@ -220,7 +220,7 @@ impl DescriptorProps {
 	}
 
 	/// Get specific number of uniform buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_uniform_buffers(&self, set: u32, binding: u32, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericUniformBuffer>>], VulkanError> {
+	pub fn get_desc_props_uniform_buffers(&self, set: u32, binding: u32, desired_count: usize) -> Result<&[Arc<dyn GenericUniformBuffer>], VulkanError> {
 		let uniform_buffers = self.get(set, binding).ok_or(VulkanError::MissingShaderInputs(format!("layout(set = {set}, binding = {binding})")))?.get_uniform_buffers()?;
 		if uniform_buffers.len() != desired_count {
 			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} uniform buffer(s) is needed for `layout(set = {set}, binding = {binding})`, but {} uniform buffer(s) were provided.", uniform_buffers.len())));
@@ -229,7 +229,7 @@ impl DescriptorProps {
 	}
 
 	/// Get specific number of uniform buffers from a `HashMap<String, DescriptorProp>`
-	pub fn get_desc_props_storage_buffers(&self, set: u32, binding: u32, desired_count: usize) -> Result<&[RwLock<Box<dyn GenericStorageBuffer>>], VulkanError> {
+	pub fn get_desc_props_storage_buffers(&self, set: u32, binding: u32, desired_count: usize) -> Result<&[Arc<dyn GenericStorageBuffer>], VulkanError> {
 		let storage_buffers = self.get(set, binding).ok_or(VulkanError::MissingShaderInputs(format!("layout(set = {set}, binding = {binding})")))?.get_storage_buffers()?;
 		if storage_buffers.len() != desired_count {
 			return Err(VulkanError::ShaderInputLengthMismatch(format!("{desired_count} storage buffer(s) is needed for `layout(set = {set}, binding = {binding})`, but {} storage buffer(s) were provided.", storage_buffers.len())));

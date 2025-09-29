@@ -178,11 +178,10 @@ impl WriteDescriptorSets {
 										}
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
-											let lock = buffer.read().unwrap();
 											self.buffer_info.push(VkDescriptorBufferInfo {
-												buffer: lock.get_vk_buffer(),
+												buffer: buffer.get_vk_buffer(),
 												offset: 0,
-												range: lock.get_size(),
+												range: buffer.get_size(),
 											});
 										}
 										self.write_descriptor_sets.push(VkWriteDescriptorSet {
@@ -254,11 +253,10 @@ impl WriteDescriptorSets {
 										}
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
-											let lock = buffer.read().unwrap();
 											self.buffer_info.push(VkDescriptorBufferInfo {
-												buffer: lock.get_vk_buffer(),
+												buffer: buffer.get_vk_buffer(),
 												offset: 0,
-												range: lock.get_size(),
+												range: buffer.get_size(),
 											});
 										}
 										self.write_descriptor_sets.push(VkWriteDescriptorSet {
