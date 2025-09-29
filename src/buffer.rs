@@ -308,6 +308,14 @@ pub trait GenericStorageBuffer: Debug {
 pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
 impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
 
+#[macro_export]
+macro_rules! derive_storage_buffer_type {
+	($item: item) => {
+		#[derive(Iterable, Default, Debug, Clone, Copy)]
+		$item
+	};
+}
+
 /// The storage buffer
 #[derive(Debug, Clone)]
 pub struct StorageBuffer<S>
