@@ -113,10 +113,10 @@ impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
 		if self.fence_is_signaling.fetch_or(false, Ordering::Relaxed) {
-			self.submit_fence.wait(u64::MAX).unwrap();
-			self.submit_fence.unsignal().unwrap();
+			proceed_run(self.submit_fence.wait(u64::MAX));
+			proceed_run(self.submit_fence.unsignal());
 		}
-		vkcore.vkDestroyCommandPool(self.device.get_vk_device(), *self.pool.lock().unwrap(), null()).unwrap();
+		proceed_run(vkcore.vkDestroyCommandPool(self.device.get_vk_device(), *self.pool.lock().unwrap(), null()));
 	}
 }
 
@@ -249,7 +249,7 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 impl Drop for VulkanCommandPoolInUse<'_> {
 	fn drop(&mut self) {
 		if !self.submitted {
-			self.submit().unwrap();
+			proceed_run(self.submit())
 		}
 	}
 }

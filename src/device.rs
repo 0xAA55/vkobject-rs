@@ -179,7 +179,7 @@ impl VulkanDevice {
 
 		let mut device: VkDevice = null();
 		vkcore.vkCreateDevice(gpu.get_vk_physical_device(), &device_ci, null(), &mut device)?;
-		let device = ResourceGuard::new(device, |&d|vkcore.vkDestroyDevice(d, null()).unwrap());
+		let device = ResourceGuard::new(device, |&d|proceed_run(vkcore.vkDestroyDevice(d, null())));
 
 		let mut queue: VkQueue = null();
 		vkcore.vkGetDeviceQueue(*device, queue_family_index, 0, &mut queue)?;

@@ -46,7 +46,7 @@ impl DescriptorSetLayout {
 
 impl Drop for DescriptorSetLayout {
 	fn drop(&mut self) {
-		self.device.vkcore.vkDestroyDescriptorSetLayout(self.device.get_vk_device(), self.descriptor_set_layout, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyDescriptorSetLayout(self.device.get_vk_device(), self.descriptor_set_layout, null()));
 	}
 }
 
@@ -619,7 +619,7 @@ impl Clone for DescriptorSets {
 impl Drop for DescriptorSets {
 	fn drop(&mut self) {
 		let descriptor_set_array: Vec<VkDescriptorSet> = self.descriptor_sets.values().copied().collect();
-		self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), descriptor_set_array.len() as u32, descriptor_set_array.as_ptr()).unwrap();
+		proceed_run(self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), descriptor_set_array.len() as u32, descriptor_set_array.as_ptr()));
 	}
 }
 

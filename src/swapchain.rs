@@ -233,7 +233,7 @@ impl VulkanSwapchain {
 
 		let mut swapchain: VkSwapchainKHR = null();
 		vkcore.vkCreateSwapchainKHR(vk_device, &swapchain_ci, null(), &mut swapchain)?;
-		let swapchain = ResourceGuard::new(swapchain, |&s|vkcore.vkDestroySwapchainKHR(vk_device, s, null()).unwrap());
+		let swapchain = ResourceGuard::new(swapchain, |&s|proceed_run(vkcore.vkDestroySwapchainKHR(vk_device, s, null())));
 		let mut num_images = 0u32;
 		vkcore.vkGetSwapchainImagesKHR(vk_device, *swapchain, &mut num_images, null_mut())?;
 		let mut vk_images = Vec::<VkImage>::with_capacity(num_images as usize);
@@ -413,9 +413,8 @@ impl Debug for VulkanSwapchain {
 
 impl Drop for VulkanSwapchain {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
 		self.images.clear();
-		vkcore.vkDestroySwapchainKHR(self.device.get_vk_device(), self.swapchain, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroySwapchainKHR(self.device.get_vk_device(), self.swapchain, null()));
 	}
 }
 
