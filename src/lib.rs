@@ -179,6 +179,12 @@ mod tests {
 			drop(pool_in_use);
 			self.ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 			mesh.lock().unwrap().mesh.discard_staging_buffers();
+			let pipeline = self.ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
+			.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
+			.set_depth_test(false)
+			.set_depth_write(false)
+			.build()?;
+
 			let start_time = self.glfw.get_time();
 			let mut time_in_sec: u64 = 0;
 			let mut num_frames_prev: u64 = 0;
