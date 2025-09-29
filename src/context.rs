@@ -526,7 +526,7 @@ impl<'a> VulkanContextScene<'a> {
 			pNext: null(),
 			srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
 			dstAccessMask: 0,
-			oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+			oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
 			newLayout: VkImageLayout::VK_IMAGE_LAYOUT_PRESENT_SRC_KHR,
 			srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
 			dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
