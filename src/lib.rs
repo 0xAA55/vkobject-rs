@@ -205,11 +205,8 @@ mod tests {
 
 				scene.set_viewport_swapchain(0.0, 1.0)?;
 				scene.set_scissor_swapchain()?;
-				let r = (cur_frame_time.sin() * 0.5 + 0.5) as f32;
-				let g = (cur_frame_time.cos() * 0.5 + 0.5) as f32;
-				let b = ((cur_frame_time * 1.5).sin() * 0.5 + 0.5) as f32;
-				scene.clear(Vec4::new(r, g, b, 1.0), 1.0, 0)?;
-
+				scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
+				scene.end_renderpass()?;
 				scene.finish();
 				self.num_frames += 1;
 
