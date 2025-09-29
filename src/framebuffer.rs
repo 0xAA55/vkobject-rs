@@ -47,6 +47,10 @@ impl VulkanFramebuffer {
 		let attachments: Vec<VkImageView> = attachments.iter().map(|t|t.get_vk_image_view()).collect();
 		Self::new_from_views(device, extent, renderpass.get_vk_renderpass(), &attachments)
 	}
+	/// Get the `VkFramebuffer`
+	pub(crate) fn get_vk_framebuffer(&self) -> VkFramebuffer {
+		self.framebuffer
+	}
 }
 
 impl Debug for VulkanFramebuffer {

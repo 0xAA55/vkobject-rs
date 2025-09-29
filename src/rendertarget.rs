@@ -50,6 +50,14 @@ impl RenderTargetProps {
 	pub fn get_extent(&self) -> &VkExtent2D {
 		&self.extent
 	}
+
+	pub(crate) fn get_vk_renderpass(&self) -> VkRenderPass {
+		self.renderpass.get_vk_renderpass()
+	}
+
+	pub(crate) fn get_vk_framebuffer(&self) -> VkFramebuffer {
+		self.framebuffer.get_vk_framebuffer()
+	}
 }
 
 impl Drop for RenderTargetProps {
