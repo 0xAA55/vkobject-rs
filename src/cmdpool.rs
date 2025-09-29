@@ -89,7 +89,7 @@ impl VulkanCommandPool {
 
 	/// Wait for the submit fence to be signaled
 	pub fn wait_for_submit(&self, timeout: u64) -> Result<(), VulkanError> {
-		if self.fence_is_signaling.fetch_or(false, Ordering::Acquire) {
+		if self.fence_is_signaling.load(Ordering::Acquire) {
 			self.submit_fence.wait(timeout)?;
 			self.submit_fence.unsignal()?;
 			self.fence_is_signaling.store(false, Ordering::Release);
@@ -113,7 +113,7 @@ impl Debug for VulkanCommandPool {
 impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
-		if self.fence_is_signaling.fetch_or(false, Ordering::Relaxed) {
+		if self.fence_is_signaling.load(Ordering::Acquire) {
 			proceed_run(self.submit_fence.wait(u64::MAX));
 			proceed_run(self.submit_fence.unsignal());
 		}
@@ -217,7 +217,7 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 				pSignalSemaphores: release_semaphores.as_ptr(),
 			};
 			let submits = [submit_info];
-			if self.fence_is_signaling.fetch_or(true, Ordering::Relaxed) {
+			if self.fence_is_signaling.fetch_or(true, Ordering::AcqRel) {
 				self.submit_fence.wait(u64::MAX)?;
 				self.submit_fence.unsignal()?;
 			}
