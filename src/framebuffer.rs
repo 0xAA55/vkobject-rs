@@ -70,7 +70,9 @@ impl Debug for VulkanFramebuffer {
 
 impl Drop for VulkanFramebuffer {
 	fn drop(&mut self) {
-		let vkcore = self.device.vkcore.clone();
-		vkcore.vkDestroyFramebuffer(self.device.get_vk_device(), self.framebuffer, null()).unwrap();
+		proceed_run(self.device.vkcore.vkDestroyFramebuffer(self.device.get_vk_device(), self.framebuffer, null()))
 	}
 }
+
+unsafe impl Send for VulkanFramebuffer {}
+unsafe impl Sync for VulkanFramebuffer {}
