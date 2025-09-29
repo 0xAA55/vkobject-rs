@@ -225,6 +225,7 @@ where
 	E: BufferVecItem + 'static,
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
+	/// Create the mesh from the buffers
 	pub fn new(primitive_type: VkPrimitiveTopology, vertices: BV, indices: Option<BE>, instances: Option<BI>, commands: Option<BC>) -> Self {
 		Self {
 			primitive_type,
@@ -239,6 +240,7 @@ where
 		}
 	}
 
+	/// Upload staging buffers to GPU
 	pub fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.vertices.flush(cmdbuf)?;
 		if let Some(ref mut indices) = self.indices {indices.flush(cmdbuf)?;}
