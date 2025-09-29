@@ -476,6 +476,46 @@ impl<'a> VulkanContextScene<'a> {
 		Ok(())
 	}
 
+	/// Begin the renderpass
+	pub fn begin_renderpass(&self, clear_color: Vec4, clear_depth: f32, clear_stencil: u32) -> Result<(), VulkanError> {
+		let rt_props = self.pool_in_use.rt_props.as_ref().unwrap();
+		let mut clear_values: Vec<VkClearValue> = Vec::with_capacity(rt_props.attachments.len());
+		for image in rt_props.attachments.iter() {
+			if !image.is_depth_stencil() {
+				clear_values.push(VkClearValue {color: VkClearColorValue {
+					float32: [clear_color.x, clear_color.y, clear_color.z, clear_color.w],
+				}});
+			} else {
+				clear_values.push(VkClearValue {depthStencil: VkClearDepthStencilValue {
+					depth: clear_depth,
+					stencil: clear_stencil,
+				}});
+			}
+		}
+		let renderpass_bi = VkRenderPassBeginInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO,
+			pNext: null(),
+			renderPass: rt_props.get_vk_renderpass(),
+			framebuffer: rt_props.get_vk_framebuffer(),
+			renderArea: VkRect2D {
+				offset: VkOffset2D {
+					x: 0,
+					y: 0,
+				},
+				extent: *rt_props.get_extent(),
+			},
+			clearValueCount: clear_values.len() as u32,
+			pClearValues: clear_values.as_ptr(),
+		};
+		self.vkcore.vkCmdBeginRenderPass(self.pool_in_use.cmdbuf, &renderpass_bi, VkSubpassContents::VK_SUBPASS_CONTENTS_INLINE)?;
+		Ok(())
+	}
+
+	/// End the renderpass
+	pub fn end_renderpass(&self) -> Result<(), VulkanError> {
+		Ok(self.vkcore.vkCmdEndRenderPass(self.pool_in_use.cmdbuf)?)
+	}
+
 	/// Present the image, make it to be visible
 	pub fn present(&mut self) -> Result<(), VulkanError> {
 		if self.present_queued {
