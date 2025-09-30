@@ -1096,6 +1096,7 @@ impl Drop for StagingBuffer {
 	}
 }
 
+/// The sampler for the shader to sample a texture
 pub struct VulkanSampler {
 	/// The device holds all of the resource
 	pub device: Arc<VulkanDevice>,
