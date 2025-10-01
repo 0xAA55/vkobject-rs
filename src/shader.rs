@@ -19,6 +19,7 @@ use std::{
 #[cfg(feature = "shaderc")]
 pub use shaderc::OptimizationLevel;
 
+/// The shader analyzer
 pub mod shader_analyzer {
 	use super::*;
 	use rspirv::{
