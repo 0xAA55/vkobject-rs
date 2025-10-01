@@ -5,7 +5,10 @@ use std::{
 	ptr::null,
 	sync::{
 		Arc,
-		atomic::{AtomicBool, AtomicUsize, Ordering},
+		atomic::{
+			AtomicUsize,
+			Ordering
+		},
 		Mutex,
 		MutexGuard
 	},
@@ -27,9 +30,6 @@ pub struct VulkanCommandPool {
 
 	/// The fence for the command pool
 	pub submit_fence: Arc<VulkanFence>,
-
-	/// The state of the fence: is the fence would be signaled or not?
-	pub fence_is_signaling: Arc<AtomicBool>,
 }
 
 unsafe impl Send for VulkanCommandPool {}
@@ -68,7 +68,6 @@ impl VulkanCommandPool {
 			index_of_buffer: AtomicUsize::new(0),
 			cmd_buffers,
 			submit_fence,
-			fence_is_signaling: Arc::new(AtomicBool::new(false)),
 		})
 	}
 
@@ -84,16 +83,13 @@ impl VulkanCommandPool {
 		let buffer_index = self.index_of_buffer.fetch_add(1, Ordering::Relaxed) % self.cmd_buffers.len();
 		self.device.vkcore.vkResetCommandBuffer(self.cmd_buffers[buffer_index], 0)?;
 		self.device.vkcore.vkBeginCommandBuffer(self.cmd_buffers[buffer_index], &begin_info)?;
-		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], rt_props, self.fence_is_signaling.clone())
+		VulkanCommandPoolInUse::new(self, pool_lock, self.cmd_buffers[buffer_index], rt_props)
 	}
 
 	/// Wait for the submit fence to be signaled
 	pub fn wait_for_submit(&self, timeout: u64) -> Result<(), VulkanError> {
-		if self.fence_is_signaling.load(Ordering::Acquire) {
-			self.submit_fence.wait(timeout)?;
-			self.submit_fence.unsignal()?;
-			self.fence_is_signaling.store(false, Ordering::Release);
-		}
+		self.submit_fence.wait(timeout)?;
+		self.submit_fence.unsignal()?;
 		Ok(())
 	}
 }
@@ -105,7 +101,6 @@ impl Debug for VulkanCommandPool {
 		.field("cmd_buffers", &self.cmd_buffers)
 		.field("index_of_buffer", &self.index_of_buffer)
 		.field("submit_fence", &self.submit_fence)
-		.field("fence_is_signaling", &self.fence_is_signaling)
 		.finish()
 	}
 }
@@ -113,10 +108,8 @@ impl Debug for VulkanCommandPool {
 impl Drop for VulkanCommandPool {
 	fn drop(&mut self) {
 		let vkcore = self.device.vkcore.clone();
-		if self.fence_is_signaling.load(Ordering::Acquire) {
-			proceed_run(self.submit_fence.wait(u64::MAX));
-			proceed_run(self.submit_fence.unsignal());
-		}
+		proceed_run(self.submit_fence.wait(u64::MAX));
+		proceed_run(self.submit_fence.unsignal());
 		proceed_run(vkcore.vkDestroyCommandPool(self.device.get_vk_device(), *self.pool.lock().unwrap(), null()));
 	}
 }
@@ -138,9 +131,6 @@ pub struct VulkanCommandPoolInUse<'a> {
 	/// The fence indicating if all commands were submitted
 	pub submit_fence: Arc<VulkanFence>,
 
-	/// If the fence would be signaled
-	pub fence_is_signaling: Arc<AtomicBool>,
-
 	/// Is recording commands ended
 	pub(crate) ended: bool,
 
@@ -150,7 +140,7 @@ pub struct VulkanCommandPoolInUse<'a> {
 
 impl<'a> VulkanCommandPoolInUse<'a> {
 	/// Create a RAII binding to the `VulkanCommandPool` in use
-	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, rt_props: Option<Arc<RenderTargetProps>>, fence_is_signaling: Arc<AtomicBool>) -> Result<Self, VulkanError> {
+	fn new(cmdpool: &VulkanCommandPool, pool_lock: MutexGuard<'a, VkCommandPool>, cmdbuf: VkCommandBuffer, rt_props: Option<Arc<RenderTargetProps>>) -> Result<Self, VulkanError> {
 		let device = cmdpool.device.clone();
 		let submit_fence = cmdpool.submit_fence.clone();
 		Ok(Self {
@@ -159,7 +149,6 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			pool_lock,
 			rt_props,
 			submit_fence,
-			fence_is_signaling,
 			ended: false,
 			submitted: false,
 		})
@@ -217,11 +206,10 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 				pSignalSemaphores: release_semaphores.as_ptr(),
 			};
 			let submits = [submit_info];
-			if self.fence_is_signaling.fetch_or(true, Ordering::AcqRel) {
-				self.submit_fence.wait(u64::MAX)?;
-				self.submit_fence.unsignal()?;
-			}
+			self.submit_fence.wait(u64::MAX)?;
+			self.submit_fence.unsignal()?;
 			vkcore.vkQueueSubmit(self.device.get_vk_queue(), submits.len() as u32, submits.as_ptr(), self.submit_fence.get_vk_fence())?;
+			self.submit_fence.set_is_being_signaled();
 			self.submitted = true;
 			Ok(())
 		} else {
@@ -240,7 +228,6 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 		.field("pool_lock", &self.pool_lock)
 		.field("rt_props", &self.rt_props)
 		.field("submit_fence", &self.submit_fence)
-		.field("fence_is_signaling", &self.fence_is_signaling)
 		.field("ended", &self.ended)
 		.field("submitted", &self.submitted)
 		.finish()
