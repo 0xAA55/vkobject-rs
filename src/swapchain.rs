@@ -111,6 +111,9 @@ pub struct VulkanSwapchain {
 
 	/// The semaphores for acquiring new frame image
 	acquire_semaphores: Vec<Arc<Mutex<VulkanSemaphore>>>,
+
+	/// The fence for acquiring new frame image
+	acquire_fence: VulkanFence,
 }
 
 impl VulkanSwapchain {
@@ -259,6 +262,7 @@ impl VulkanSwapchain {
 		for _ in 0..cpu_renderer_threads {
 			acquire_semaphores.push(Arc::new(Mutex::new(VulkanSemaphore::new(device.clone())?)));
 		}
+		let acquire_fence = VulkanFence::new(device.clone())?;
 		let swapchain = swapchain.release();
 
 		Ok(Self {
@@ -276,6 +280,7 @@ impl VulkanSwapchain {
 			renderpass,
 			images,
 			acquire_semaphores,
+			acquire_fence,
 		})
 	}
 
@@ -364,7 +369,10 @@ impl VulkanSwapchain {
 		let vkdevice = self.device.get_vk_device();
 		let mut cur_image_index = 0u32;
 		let sem = self.acquire_semaphores[thread_index].lock().unwrap().get_vk_semaphore();
+		self.acquire_fence.wait(u64::MAX)?;
+		self.acquire_fence.unsignal()?;
 		vkcore.vkAcquireNextImageKHR(vkdevice, self.swapchain, timeout, sem, null(), &mut cur_image_index)?;
+		self.acquire_fence.set_is_being_signaled();
 		let image = self.get_image(cur_image_index as usize);
 		swap(&mut *self.acquire_semaphores[thread_index].lock().unwrap(), &mut *image.rt_props.acquire_semaphore.lock().unwrap());
 		Ok(cur_image_index as usize)
