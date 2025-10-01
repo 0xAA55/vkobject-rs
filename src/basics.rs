@@ -14,6 +14,10 @@ use std::{
 	sync::{
 		Arc,
 		Mutex,
+		atomic::{
+			AtomicBool,
+			Ordering,
+		},
 	},
 };
 
@@ -352,6 +356,9 @@ pub struct VulkanFence {
 
 	/// The fence handle
 	fence: VkFence,
+
+	/// Is the fence being signaled?
+	is_being_signaled: AtomicBool,
 }
 
 unsafe impl Send for VulkanFence {}
@@ -371,12 +378,18 @@ impl VulkanFence {
 		Ok(Self{
 			device,
 			fence,
+			is_being_signaled: AtomicBool::new(false),
 		})
 	}
 
 	/// Get the `VkFence`
 	pub(crate) fn get_vk_fence(&self) -> VkFence {
 		self.fence
+	}
+
+	/// Set the fence is being signaled
+	pub fn set_is_being_signaled(&self) {
+		self.is_being_signaled.store(true, Ordering::Release)
 	}
 
 	/// Check if the fence is signaled or not
@@ -434,10 +447,14 @@ impl VulkanFence {
 
 	/// Wait for the fence to be signaled
 	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
+		if self.is_being_signaled.fetch_or(false, Ordering::Acquire) == false {
+			return Ok(())
+		}
 		let vk_device = self.device.get_vk_device();
 		let fences = [self.fence];
 		let vkcore = self.device.vkcore.clone();
 		vkcore.vkWaitForFences(vk_device, 1, fences.as_ptr(), 0, timeout)?;
+		self.is_being_signaled.store(false, Ordering::Release);
 		Ok(())
 	}
 
@@ -455,10 +472,18 @@ impl VulkanFence {
 		if fences.is_empty() {
 			Ok(())
 		} else {
+			for fence in fences.iter() {
+				if fence.is_being_signaled.load(Ordering::Acquire) == false {
+					return Ok(());
+				}
+			}
 			let vkcore = fences[0].device.vkcore.clone();
 			let vk_device = fences[0].device.get_vk_device();
-			let fences: Vec<VkFence> = fences.iter().map(|f|f.get_vk_fence()).collect();
-			vkcore.vkWaitForFences(vk_device, fences.len() as u32, fences.as_ptr(), if any {0} else {1}, timeout)?;
+			let vk_fences: Vec<VkFence> = fences.iter().map(|f|f.get_vk_fence()).collect();
+			vkcore.vkWaitForFences(vk_device, vk_fences.len() as u32, vk_fences.as_ptr(), if any {0} else {1}, timeout)?;
+			for fence in fences.iter() {
+				fence.is_being_signaled.store(false, Ordering::Release);
+			}
 			Ok(())
 		}
 	}
