@@ -5,7 +5,14 @@ use std::{
 	fmt::{self, Debug, Formatter},
 	mem::{MaybeUninit, swap},
 	ptr::{null, null_mut},
-	sync::{Arc, Mutex},
+	sync::{
+		Arc,
+		Mutex,
+		atomic::{
+			AtomicBool,
+			Ordering,
+		},
+	},
 };
 
 /// An image of a swapchain
@@ -114,6 +121,9 @@ pub struct VulkanSwapchain {
 
 	/// The fence for acquiring new frame image
 	acquire_fence: VulkanFence,
+
+	/// Is present failed because `VK_ERROR_OUT_OF_DATE_KHR`?
+	pub need_recreate_swapchain: AtomicBool,
 }
 
 impl VulkanSwapchain {
@@ -281,6 +291,7 @@ impl VulkanSwapchain {
 			images,
 			acquire_semaphores,
 			acquire_fence,
+			need_recreate_swapchain: AtomicBool::new(false),
 		})
 	}
 
@@ -371,7 +382,15 @@ impl VulkanSwapchain {
 		let sem = self.acquire_semaphores[thread_index].lock().unwrap().get_vk_semaphore();
 		self.acquire_fence.wait(u64::MAX)?;
 		self.acquire_fence.unsignal()?;
-		vkcore.vkAcquireNextImageKHR(vkdevice, self.swapchain, timeout, sem, null(), &mut cur_image_index)?;
+		match vkcore.vkAcquireNextImageKHR(vkdevice, self.swapchain, timeout, sem, self.acquire_fence.get_vk_fence(), &mut cur_image_index) {
+			Ok(_) => {}
+			Err(ve) => {
+				if let VkError::VkErrorOutOfDateKhr(_) = ve {
+					self.need_recreate_swapchain.store(true, Ordering::Release);
+				};
+				Err(ve)?
+			}
+		}
 		self.acquire_fence.set_is_being_signaled();
 		let image = self.get_image(cur_image_index as usize);
 		swap(&mut *self.acquire_semaphores[thread_index].lock().unwrap(), &mut *image.rt_props.acquire_semaphore.lock().unwrap());
@@ -395,8 +414,15 @@ impl VulkanSwapchain {
 			pResults: null_mut(),
 		};
 
-		vkcore.vkQueuePresentKHR(self.device.get_vk_queue(), &present_info)?;
-		Ok(())
+		match vkcore.vkQueuePresentKHR(self.device.get_vk_queue(), &present_info) {
+			Ok(_) => Ok(()),
+			Err(ve) => {
+				if let VkError::VkErrorOutOfDateKhr(_) = ve {
+					self.need_recreate_swapchain.store(true, Ordering::Release);
+				};
+				Err(ve)?
+			}
+		}
 	}
 }
 
