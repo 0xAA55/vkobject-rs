@@ -302,7 +302,6 @@ impl VulkanContext {
 			present_image_index = None;
 			self.cmdpools[pool_index].use_pool(Some(rt_props))?
 		} else {
-			swapchain = Some(self.swapchain.clone());
 			loop {
 				if self.swapchain.need_recreate_swapchain.load(Ordering::Acquire) {
 					self.on_resize()?;
@@ -310,6 +309,7 @@ impl VulkanContext {
 				match self.swapchain.acquire_next_image(pool_index, u64::MAX) {
 					Ok(index) => {
 						present_image_index = Some(index);
+						swapchain = Some(self.swapchain.clone());
 						break;
 					}
 					Err(e) => if let Some(ve) = e.is_vkerror() {
