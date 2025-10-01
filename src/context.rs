@@ -273,7 +273,8 @@ impl VulkanContext {
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
 	pub fn recreate_swapchain(&mut self, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, self.cpu_renderer_threads, is_vr, Some(self.swapchain.get_vk_swapchain()))?);
+		let old_swapchain = self.swapchain.clone();
+		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, self.cpu_renderer_threads, is_vr, Some(old_swapchain.get_vk_swapchain()))?);
 		Ok(())
 	}
 
