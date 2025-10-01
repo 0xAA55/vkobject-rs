@@ -28,6 +28,66 @@ pub enum DescriptorProp {
 }
 
 impl DescriptorProp {
+	/// Create as a sampler
+	pub fn new_sampler(sampler: Arc<VulkanSampler>) -> Self {
+		Self::Samplers(vec![sampler])
+	}
+
+	/// Create as samplers
+	pub fn new_samplers(samplers: Vec<Arc<VulkanSampler>>) -> Self {
+		Self::Samplers(samplers)
+	}
+
+	/// Create as a texture
+	pub fn new_texture(texture: TextureForSample) -> Self {
+		Self::Images(vec![texture])
+	}
+
+	/// Create as textures
+	pub fn new_textures(textures: Vec<TextureForSample>) -> Self {
+		Self::Images(textures)
+	}
+
+	/// Create as a storage buffer
+	pub fn new_storage_buffer(storage_buffer: Arc<dyn GenericStorageBuffer>) -> Self {
+		Self::StorageBuffers(vec![storage_buffer])
+	}
+
+	/// Create as storage buffers
+	pub fn new_storage_buffers(storage_buffers: Vec<Arc<dyn GenericStorageBuffer>>) -> Self {
+		Self::StorageBuffers(storage_buffers)
+	}
+
+	/// Create as a uniform buffer
+	pub fn new_uniform_buffer(uniform_buffer: Arc<dyn GenericUniformBuffer>) -> Self {
+		Self::UniformBuffers(vec![uniform_buffer])
+	}
+
+	/// Create as uniform buffers
+	pub fn new_uniform_buffers(uniform_buffers: Vec<Arc<dyn GenericUniformBuffer>>) -> Self {
+		Self::UniformBuffers(uniform_buffers)
+	}
+
+	/// Create as a storage texel buffer
+	pub fn new_storage_texel_buffer(storage_texel_buffer: VulkanBufferView) -> Self {
+		Self::StorageTexelBuffers(vec![storage_texel_buffer])
+	}
+
+	/// Create as storage texel buffers
+	pub fn new_storage_texel_buffers(storage_texel_buffers: Vec<VulkanBufferView>) -> Self {
+		Self::StorageTexelBuffers(storage_texel_buffers)
+	}
+
+	/// Create as a uniform texel buffer
+	pub fn new_uniform_texel_buffer(uniform_texel_buffer: VulkanBufferView) -> Self {
+		Self::UniformTexelBuffers(vec![uniform_texel_buffer])
+	}
+
+	/// Create as uniform texel buffers
+	pub fn new_uniform_texel_buffers(uniform_texel_buffers: Vec<VulkanBufferView>) -> Self {
+		Self::UniformTexelBuffers(uniform_texel_buffers)
+	}
+
 	/// Get samplers
 	pub fn get_samplers(&self) -> Result<&[Arc<VulkanSampler>], VulkanError> {
 		if let Self::Samplers(samplers) = self {
