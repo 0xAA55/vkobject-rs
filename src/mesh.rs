@@ -468,6 +468,13 @@ where
 	}
 }
 
+/// Obj file parse error
+#[derive(Debug, Clone)]
+pub struct ObjParseError {
+	pub line_number: usize,
+	pub message: String,
+}
+
 /// A Mesh with a material
 #[derive(Debug)]
 pub struct GenericMeshWithMaterial {
