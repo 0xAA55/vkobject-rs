@@ -4,7 +4,7 @@ use std::{
 	collections::{BTreeMap, HashMap, HashSet, hash_map::Entry},
 	fmt::{self, Debug, Formatter},
 	ptr::null,
-	sync::{Arc, Mutex},
+	sync::Arc,
 };
 use struct_iterable::Iterable;
 use shader_analyzer::*;
@@ -645,7 +645,7 @@ pub struct PipelineBuilder {
 	pub device: Arc<VulkanDevice>,
 
 	/// The meshes to draw
-	pub mesh: Arc<Mutex<GenericMeshWithMaterial>>,
+	pub mesh: Arc<GenericMeshWithMaterial>,
 
 	/// The shaders to use
 	pub shaders: Arc<DrawShaders>,
@@ -683,7 +683,7 @@ pub struct PipelineBuilder {
 
 impl PipelineBuilder {
 	/// Create the `PipelineBuilder`
-	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, desc_props: Arc<DescriptorProps>, renderpass: Arc<VulkanRenderPass>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, mesh: Arc<GenericMeshWithMaterial>, shaders: Arc<DrawShaders>, desc_pool: Arc<DescriptorPool>, desc_props: Arc<DescriptorProps>, renderpass: Arc<VulkanRenderPass>, pipeline_cache: Arc<VulkanPipelineCache>) -> Result<Self, VulkanError> {
 		let descriptor_sets = Arc::new(DescriptorSets::new(device.clone(), desc_pool.clone(), shaders.clone(), desc_props.clone())?);
 		let mut desc_set_layouts: Vec<VkDescriptorSetLayout> = Vec::with_capacity(5);
 		let mut push_constant_ranges: Vec<VkPushConstantRange> = Vec::with_capacity(5);
@@ -1068,7 +1068,7 @@ pub struct Pipeline {
 	pub device: Arc<VulkanDevice>,
 
 	/// The meshes to draw
-	pub mesh: Arc<Mutex<GenericMeshWithMaterial>>,
+	pub mesh: Arc<GenericMeshWithMaterial>,
 
 	/// The shaders to use
 	pub shaders: Arc<DrawShaders>,
@@ -1316,19 +1316,17 @@ impl Pipeline {
 		let vkcore = &self.device.vkcore;
 		self.bind_descriptor_sets(cmdbuf)?;
 		vkcore.vkCmdBindPipeline(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline)?;
-		let mut mesh_lock = self.mesh.lock().unwrap();
-		mesh_lock.mesh.flush(cmdbuf)?;
-		let vertex_buffer = mesh_lock.mesh.get_vk_vertex_buffer();
-		let index_buffer = mesh_lock.mesh.get_vk_index_buffer();
-		let instance_buffer = mesh_lock.mesh.get_vk_instance_buffer();
-		let command_buffer = mesh_lock.mesh.get_vk_command_buffer();
-		let vertex_count = mesh_lock.mesh.get_vertex_count() as u32;
-		let index_count = mesh_lock.mesh.get_index_count() as u32;
-		let instance_count = mesh_lock.mesh.get_instance_count() as u32;
-		let command_count = mesh_lock.mesh.get_command_count() as u32;
-		let index_type = mesh_lock.mesh.get_index_type().unwrap_or(VkIndexType::VK_INDEX_TYPE_UINT16);
-		let command_stride = mesh_lock.mesh.get_command_stride() as u32;
-		drop(mesh_lock);
+		self.mesh.mesh.flush(cmdbuf)?;
+		let vertex_buffer = self.mesh.mesh.get_vk_vertex_buffer();
+		let index_buffer = self.mesh.mesh.get_vk_index_buffer();
+		let instance_buffer = self.mesh.mesh.get_vk_instance_buffer();
+		let command_buffer = self.mesh.mesh.get_vk_command_buffer();
+		let vertex_count = self.mesh.mesh.get_vertex_count() as u32;
+		let index_count = self.mesh.mesh.get_index_count() as u32;
+		let instance_count = self.mesh.mesh.get_instance_count() as u32;
+		let command_count = self.mesh.mesh.get_command_count() as u32;
+		let index_type = self.mesh.mesh.get_index_type().unwrap_or(VkIndexType::VK_INDEX_TYPE_UINT16);
+		let command_stride = self.mesh.mesh.get_command_stride() as u32;
 		if let Some(index_buffer) = index_buffer {
 			vkcore.vkCmdBindIndexBuffer(cmdbuf, index_buffer, 0, index_type)?;
 		}
