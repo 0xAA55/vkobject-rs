@@ -1,0 +1,7 @@
+newmtl avocado
+illum 2
+Ka 1.000 1.000 1.000
+Kd 1.000 1.000 1.000
+Ks 0.000 0.000 0.000
+map_Kd albedo.jpg
+norm normal.jpg
