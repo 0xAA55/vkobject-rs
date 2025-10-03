@@ -62,6 +62,9 @@ pub mod descprops;
 /// The pipeline object to wiring up buffers from a mesh, shaders, rendertargets together.
 pub mod pipeline;
 
+/// The module for loading OBJ meshes
+pub mod wavefrontobj;
+
 extern crate nalgebra_glm as glm;
 
 /// The common things for you to use
@@ -90,6 +93,7 @@ pub mod prelude {
 	pub use crate::mesh::*;
 	pub use crate::descprops::*;
 	pub use crate::pipeline::*;
+	pub use crate::wavefrontobj::*;
 	pub use crate::derive_vertex_type;
 	pub use crate::derive_uniform_buffer_type;
 	pub use crate::derive_storage_buffer_type;
