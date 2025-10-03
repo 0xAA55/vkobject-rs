@@ -2,10 +2,13 @@
 use crate::prelude::*;
 use std::{
 	any::{Any, TypeId, type_name},
+	collections::BTreeMap,
 	ffi::c_void,
 	fmt::Debug,
+	fs::read,
 	marker::PhantomData,
 	mem::{size_of, size_of_val},
+	path::PathBuf,
 	sync::{Arc, Mutex},
 	vec::IntoIter,
 };
@@ -493,5 +496,26 @@ impl GenericMeshWithMaterial {
 			material,
 		}
 	}
+
+	/// Load the `obj` file and create the meshset, all the materials were also loaded.
+	pub fn create_meshset_from_obj(device: Arc<VulkanDevice>, path: &PathBuf, cmdbuf: VkCommandBuffer) -> Result<BTreeMap<String, Self>, VulkanError> {
+		let bytes = read(path)?;
+		let obj_string = unsafe {str::from_utf8_unchecked(&bytes)};
+		let objset = wavefront_obj::obj::parse(obj_string)?;
+		dbg!(&objset);
+		let mut ret = BTreeMap::new();
+		for obj in objset.objects.iter() {
+			//
+		}
+		Ok(ret)
+	}
 }
 
+#[test]
+fn test_obj() {
+	let path = PathBuf::from("assets/testobj/avocado.obj");
+	let bytes = read(path).unwrap();
+	let obj_string = unsafe {str::from_utf8_unchecked(&bytes)};
+	let objset = wavefront_obj::obj::parse(obj_string).unwrap();
+	dbg!(&objset);
+}
