@@ -479,15 +479,15 @@ pub struct ObjParseError {
 #[derive(Debug)]
 pub struct GenericMeshWithMaterial {
 	/// The mesh
-	pub mesh: Box<dyn GenericMesh>,
+	pub mesh: Arc<dyn GenericMesh>,
 
 	/// The material
-	pub material: Option<Box<dyn Material>>,
+	pub material: Option<Arc<dyn Material>>,
 }
 
 impl GenericMeshWithMaterial {
 	/// Create an instance for the `GenericMeshWithMaterial`
-	pub fn new(mesh: Box<dyn GenericMesh>, material: Option<Box<dyn Material>>) -> Self {
+	pub fn new(mesh: Arc<dyn GenericMesh>, material: Option<Arc<dyn Material>>) -> Self {
 		Self {
 			mesh,
 			material,
