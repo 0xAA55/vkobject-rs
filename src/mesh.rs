@@ -498,9 +498,9 @@ impl GenericMeshWithMaterial {
 
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
 	pub fn create_meshset_from_obj<P: AsRef<Path>>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer) -> Result<BTreeMap<String, Self>, VulkanError> {
-		let obj = ObjMesh::from_file(path);
+		let obj = ObjMesh::<f32>::from_file(path);
 		dbg!(&obj);
-		let mut ret = BTreeMap::new();
+		let ret = BTreeMap::new();
 		Ok(ret)
 	}
 }
