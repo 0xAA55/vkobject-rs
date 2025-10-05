@@ -121,7 +121,7 @@ pub enum ObjMaterialComponent {
 }
 
 /// The legacy illumination model material
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ObjMaterialLegacy {
 	/// Base brightness
 	pub ambient: ObjMaterialComponent,
@@ -143,6 +143,20 @@ pub struct ObjMaterialLegacy {
 
 	/// The other type of components
 	pub others: HashMap<String, ObjMaterialComponent>,
+}
+
+impl Default for ObjMaterialLegacy {
+	fn default() -> Self {
+		Self {
+			ambient: ObjMaterialComponent::default(),
+			diffuse: ObjMaterialComponent::default(),
+			specular: ObjMaterialComponent::default(),
+			specular_power: ObjMaterialComponent::Luminance(1.0),
+			normal: ObjMaterialComponent::default(),
+			emissive: ObjMaterialComponent::default(),
+			others: HashMap::new(),
+		}
+	}
 }
 
 /// The physically based rendering illumination model material
