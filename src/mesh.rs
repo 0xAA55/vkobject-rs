@@ -5,10 +5,9 @@ use std::{
 	collections::BTreeMap,
 	ffi::c_void,
 	fmt::Debug,
-	fs::read,
 	marker::PhantomData,
 	mem::{size_of, size_of_val},
-	path::PathBuf,
+	path::Path,
 	sync::{Arc, Mutex},
 	vec::IntoIter,
 };
@@ -498,10 +497,9 @@ impl GenericMeshWithMaterial {
 	}
 
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
-	pub fn create_meshset_from_obj(device: Arc<VulkanDevice>, path: &PathBuf, cmdbuf: VkCommandBuffer) -> Result<BTreeMap<String, Self>, VulkanError> {
-		let bytes = read(path)?;
-		let obj_string = unsafe {str::from_utf8_unchecked(&bytes)};
-		dbg!(&objset);
+	pub fn create_meshset_from_obj<P: AsRef<Path>>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer) -> Result<BTreeMap<String, Self>, VulkanError> {
+		let obj = ObjMesh::from_file(path);
+		dbg!(&obj);
 		let mut ret = BTreeMap::new();
 		Ok(ret)
 	}
@@ -509,7 +507,7 @@ impl GenericMeshWithMaterial {
 
 #[test]
 fn test_obj() {
-	let path = PathBuf::from("assets/testobj/avocado.obj");
-	let bytes = read(path).unwrap();
-	let obj_string = unsafe {str::from_utf8_unchecked(&bytes)};
+	let path = "assets/testobj/avocado.obj";
+	let obj = ObjMesh::from_file(path);
+	dbg!(&obj);
 }
