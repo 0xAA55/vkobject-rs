@@ -14,8 +14,8 @@ use std::{
 };
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecItem: Copy + Sized + Default + Debug {}
-impl<T> BufferVecItem for T where T: Copy + Sized + Default + Debug {}
+pub trait BufferVecItem: Copy + Sized + Default + Debug + 'static {}
+impl<T> BufferVecItem for T where T: Copy + Sized + Default + Debug + 'static {}
 
 /// The advanced buffer object that could be used as a vector
 pub struct BufferVec<T: BufferVecItem> {
@@ -548,8 +548,8 @@ where
 }
 
 /// The trait that the struct of uniform must implement
-pub trait TexelBufferDataType: Copy + Clone + Sized + Default + Debug {}
-impl<T> TexelBufferDataType for T where T: Copy + Clone + Sized + Default + Debug {}
+pub trait TexelBufferDataType: Copy + Clone + Sized + Default + Debug + 'static {}
+impl<T> TexelBufferDataType for T where T: Copy + Clone + Sized + Default + Debug + 'static {}
 
 pub type TexelBuffer<T> = BufferVec<T>;
 
