@@ -25,7 +25,7 @@ use std::{
 #[derive(Debug, Clone)]
 pub enum VulkanError {
 	VkError(VkError),
-	IOError((String, ErrorKind)),
+	IOError{kind: ErrorKind, what: String},
 	ChooseGpuFailed,
 	NoGoodQueueForSurface(&'static str),
 	NoGoodDepthStencilFormat,
@@ -55,7 +55,10 @@ impl From<VkError> for VulkanError {
 
 impl From<io::Error> for VulkanError {
 	fn from(e: io::Error) -> Self {
-		Self::IOError((format!("{e:?}"), e.kind()))
+		Self::IOError {
+			kind: e.kind(),
+			what: format!("{e:?}"),
+		}
 	}
 }
 
