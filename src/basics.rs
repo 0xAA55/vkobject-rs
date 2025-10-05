@@ -44,7 +44,7 @@ pub enum VulkanError {
 	ShaderInputTypeMismatch(String),
 	ShaderInputLengthMismatch(String),
 	ShaderInputTypeUnsupported(String),
-	BadObjFile{line: u32, what: String},
+	BadObjFile{line: usize, what: String},
 }
 
 impl From<VkError> for VulkanError {
