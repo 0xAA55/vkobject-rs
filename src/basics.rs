@@ -470,7 +470,7 @@ impl VulkanFence {
 
 	/// Wait for the fence to be signaled
 	pub fn wait(&self, timeout: u64) -> Result<(), VulkanError> {
-		if self.is_being_signaled.fetch_or(false, Ordering::Acquire) == false {
+		if !self.is_being_signaled.fetch_or(false, Ordering::Acquire) {
 			return Ok(())
 		}
 		let vk_device = self.device.get_vk_device();
@@ -496,7 +496,7 @@ impl VulkanFence {
 			Ok(())
 		} else {
 			for fence in fences.iter() {
-				if fence.is_being_signaled.load(Ordering::Acquire) == false {
+				if !fence.is_being_signaled.load(Ordering::Acquire) {
 					return Ok(());
 				}
 			}

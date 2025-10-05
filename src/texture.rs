@@ -389,7 +389,7 @@ impl VulkanTexture {
 	/// Get the pitch, the bytes per row of the texture
 	pub fn get_pitch(&self) -> Result<usize, VulkanError> {
 		let subresource = VkImageSubresource {
-		    aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+			aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
 			mipLevel: 0,
 			arrayLayer: 0,
 		};

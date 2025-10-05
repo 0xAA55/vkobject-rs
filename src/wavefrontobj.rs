@@ -334,7 +334,7 @@ where
 }
 
 /// Trim line and remove comments
-fn concentrate_line<'a>(line: &'a str) -> &'a str {
+fn concentrate_line(line: &str) -> &str {
 	let line = line.trim_start();
 	let line = if let Some(pos) = line.find('#') {
 		&line[0..pos]
@@ -389,8 +389,8 @@ where
 					}
 				}
 			}
-			if line.starts_with("v ") {
-				let value = line["v ".len()..].trim();
+			if let Some(data) = line.strip_prefix("v ") {
+				let value = data.trim();
 				let mut parts: Vec<&str> = value.split_whitespace().collect();
 				while parts.len() < 3 {
 					parts.push(" 0.0");
@@ -399,8 +399,8 @@ where
 				let y = parts[1].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[1])})?;
 				let z = parts[2].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[2])})?;
 				vertices.push(TVec3::new(x, y, z));
-			} else if line.starts_with("vt ") {
-				let value = line["vt ".len()..].trim();
+			} else if let Some(data) = line.strip_prefix("vt ") {
+				let value = data.trim();
 				let mut parts: Vec<&str> = value.split_whitespace().collect();
 				while parts.len() < 3 {
 					parts.push(" 0.0");
@@ -409,8 +409,8 @@ where
 				let y = parts[1].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[1])})?;
 				let z = parts[2].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[2])})?;
 				normals.push(TVec3::new(x, y, z));
-			} else if line.starts_with("vn ") {
-				let value = line["vn ".len()..].trim();
+			} else if let Some(data) = line.strip_prefix("vn ") {
+				let value = data.trim();
 				let mut parts: Vec<&str> = value.split_whitespace().collect();
 				while parts.len() < 3 {
 					parts.push(" 0.0");
@@ -421,7 +421,7 @@ where
 				texcoords.push(TVec3::new(x, y, z));
 			} else if line.starts_with("f ") {
 				let value = line["f ".len()..].trim();
-				let mut parts: Vec<&str> = value.split_whitespace().collect();
+				let parts: Vec<&str> = value.split_whitespace().collect();
 				if parts.len() < 3 {
 					return Err(ObjError::ParseError {line: line_number, what: format!("Insufficient index count for a face.")});
 				}
@@ -494,9 +494,9 @@ impl ObjMaterialLoader {
 
 	/// Process a line of the material
 	pub fn process_line(&mut self, line_number: usize, line: &str) -> Result<(), ObjError> {
-		if line.starts_with("newmtl ") {
+		if let Some(material_name) = line.strip_prefix("newmtl ") {
 			self.finish_material();
-			self.cur_material_name = line["newmtl ".len()..].trim().to_string();
+			self.cur_material_name = material_name.trim().to_string();
 			Ok(())
 		} else if let Some((key, value)) = line.split_once(' ') {
 			self.cur_material_fields.insert(key.to_string(), (line_number, value.to_string()));
@@ -521,10 +521,10 @@ impl ObjMaterialLoader {
 		for slot in pbr_slots {
 			let pure_color = slot;
 			let mapped_color = format!("map_{slot}");
-			if self.cur_material_fields.get(&*pure_color).is_some() {
+			if self.cur_material_fields.contains_key(pure_color) {
 				return true;
 			}
-			if self.cur_material_fields.get(&mapped_color).is_some() {
+			if self.cur_material_fields.contains_key(&mapped_color) {
 				return true;
 			}
 		}
@@ -572,9 +572,9 @@ impl ObjMaterialLoader {
 		for (key, value) in self.cur_material_fields.iter() {
 			let (line_number, value) = value;
 			let mut is_map = false;
-			let slot_name = if key.starts_with("map_") {
+			let slot_name = if let Some(suffix) = key.strip_prefix("map_") {
 				is_map = true;
-				key["map_".len()..].to_string()
+				suffix.to_string()
 			} else {
 				key.to_string()
 			};
