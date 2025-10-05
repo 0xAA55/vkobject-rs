@@ -44,7 +44,7 @@ pub enum VulkanError {
 	ShaderInputTypeMismatch(String),
 	ShaderInputLengthMismatch(String),
 	ShaderInputTypeUnsupported(String),
-	BadObjFile(ObjParseError),
+	BadObjFile{line: u32, what: String},
 }
 
 impl From<VkError> for VulkanError {
@@ -68,12 +68,22 @@ impl From<rspirv::binary::ParseState> for VulkanError {
 	}
 }
 
-impl From<wavefront_obj::ParseError> for VulkanError {
-	fn from(s: wavefront_obj::ParseError) -> Self {
-		Self::BadObjFile(ObjParseError {
-			line_number: s.line_number,
-			message: s.message,
-		})
+impl From<ObjError> for VulkanError {
+	fn from(s: ObjError) -> Self {
+		match s {
+			ObjError::ParseError {line, what} => {
+				Self::BadObjFile {
+					line,
+					what,
+				}
+			}
+			ObjError::IOError {kind, what} => {
+				Self::IOError {
+					kind,
+					what,
+				}
+			}
+		}
 	}
 }
 
