@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	any::Any,
 	collections::{HashMap, BTreeSet},
 	fmt::Debug,
 	sync::Arc,
@@ -74,7 +75,7 @@ impl Default for MaterialComponent {
 }
 
 /// The `Material` trait helps the `MaterialLegacy` struct or the `MaterialPbr` struct to be able to turn into an object
-pub trait Material: Debug {
+pub trait Material: Debug + Any {
 	/// Get the ambient color
 	fn get_ambient(&self) -> Option<&MaterialComponent>;
 

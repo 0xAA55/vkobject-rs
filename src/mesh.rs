@@ -14,8 +14,8 @@ use std::{
 use struct_iterable::Iterable;
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecStructItem: Copy + Clone + Sized + Default + Debug + Iterable {}
-impl<T> BufferVecStructItem for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+pub trait BufferVecStructItem: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
+impl<T> BufferVecStructItem for T where T: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
 
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
@@ -106,7 +106,7 @@ where
 }
 
 /// The trait for the mesh to hold buffers
-pub trait BufferForDraw<T>: Debug + Clone
+pub trait BufferForDraw<T>: Debug + Clone + Any
 where
 	T: BufferVecItem {
 	/// Must be able to get the `VkBuffer` handle
@@ -273,7 +273,7 @@ pub type StaticMesh<V, E, I, C> = Mesh<BufferWithType<V>, V, BufferWithType<E>, 
 pub type DynamicMesh<V, E, I, C> = Mesh<BufferVec<V>, V, BufferVec<E>, E, BufferVec<I>, I, BufferVec<C>, C>;
 
 /// The trait for a mesh
-pub trait GenericMesh: Debug {
+pub trait GenericMesh: Debug + Any {
 	/// Get the vertex buffer
 	fn get_vk_vertex_buffer(&self) -> VkBuffer;
 

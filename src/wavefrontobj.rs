@@ -1,5 +1,6 @@
 
 use std::{
+	any::Any,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::{self, Debug, Formatter},
 	fs::File,
@@ -204,7 +205,7 @@ impl Default for ObjMaterialComponent {
 }
 
 /// The `Material` trait helps the `MaterialLegacy` struct or the `MaterialPbr` struct to be able to turn into an object
-pub trait ObjMaterial: Debug {
+pub trait ObjMaterial: Debug + Any {
 	/// Get the ambient color
 	fn get_ambient(&self) -> Option<&ObjMaterialComponent>;
 
