@@ -3,10 +3,13 @@ use crate::prelude::*;
 use std::{
 	any::TypeId,
 	cmp::max,
-	ffi::c_void,
+	ffi::{c_void, OsStr},
 	fmt::{self, Debug, Formatter},
+	fs::read,
+	io::Cursor,
 	mem::{MaybeUninit, size_of},
 	ops::Deref,
+	path::{Path, PathBuf},
 	ptr::{copy, null},
 	sync::Arc,
 };
@@ -377,6 +380,32 @@ impl VulkanTexture {
 		};
 		ret.upload_staging_buffer(cmdbuf, &offset, &update_extent)?;
 		Ok(ret)
+	}
+
+	/// Create a texture from image loaded from file path right away
+	pub fn new_from_path<P: AsRef<Path>>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, path: P, channel_is_normalized: bool, with_mipmap: bool, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
+		let image_data = read(&path)?;
+		let pb = PathBuf::from(path.as_ref());
+		if pb.extension().and_then(OsStr::to_str).map(|s| {let s = s.to_lowercase(); s != "jpg" && s != "jpeg"}).unwrap_or(true) {
+			use image::DynamicImage;
+			let img = image::ImageReader::new(Cursor::new(&image_data)).with_guessed_format()?.decode()?;
+			match img {
+				DynamicImage::ImageLuma8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLumaA8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgb8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLuma16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLumaA16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgb16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgb32F(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba32F(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				_ => Err(VulkanError::LoadImageFailed(format!("Unknown image type: {img:?}")))
+			}
+		} else {
+			let img: image::RgbImage = turbojpeg::decompress_image(&image_data).unwrap();
+			Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage)
+		}
 	}
 
 	/// Get the size of the image
