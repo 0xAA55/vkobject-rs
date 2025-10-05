@@ -481,7 +481,7 @@ pub struct ObjParseError {
 #[derive(Debug)]
 pub struct GenericMeshWithMaterial {
 	/// The mesh
-	pub mesh: Arc<dyn GenericMesh>,
+	pub geometry: Arc<dyn GenericMesh>,
 
 	/// The material
 	pub material: Option<Arc<dyn Material>>,
@@ -489,9 +489,9 @@ pub struct GenericMeshWithMaterial {
 
 impl GenericMeshWithMaterial {
 	/// Create an instance for the `GenericMeshWithMaterial`
-	pub fn new(mesh: Arc<dyn GenericMesh>, material: Option<Arc<dyn Material>>) -> Self {
+	pub fn new(geometry: Arc<dyn GenericMesh>, material: Option<Arc<dyn Material>>) -> Self {
 		Self {
-			mesh,
+			geometry,
 			material,
 		}
 	}
@@ -499,7 +499,6 @@ impl GenericMeshWithMaterial {
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
 	pub fn create_meshset_from_obj<P: AsRef<Path>>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer) -> Result<BTreeMap<String, Self>, VulkanError> {
 		let obj = ObjMesh::<f32>::from_file(path);
-		dbg!(&obj);
 		let ret = BTreeMap::new();
 		Ok(ret)
 	}
@@ -508,6 +507,6 @@ impl GenericMeshWithMaterial {
 #[test]
 fn test_obj() {
 	let path = "assets/testobj/avocado.obj";
-	let obj = ObjMesh::from_file(path);
-	dbg!(&obj);
+	let obj = ObjMesh::<f32>::from_file(path).unwrap();
+	dbg!(&obj.materials);
 }

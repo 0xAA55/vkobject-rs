@@ -233,11 +233,11 @@ mod tests {
 					},
 				];
 				let vertices = Arc::new(Mutex::new(BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?));
-				let mesh = Arc::new(Mutex::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None)));
-				mesh.lock().unwrap().mesh.flush(pool_in_use.cmdbuf)?;
+				let mesh = Arc::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None));
+				mesh.geometry.flush(pool_in_use.cmdbuf)?;
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
-				mesh.lock().unwrap().mesh.discard_staging_buffers();
+				mesh.geometry.discard_staging_buffers();
 				let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
 				.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
 				.set_depth_test(false)

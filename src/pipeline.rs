@@ -1124,11 +1124,11 @@ impl Pipeline {
 		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
 		let mut mesh_vertex_inputs: HashMap<String, MemberInfo> = HashMap::new();
 		let mut mesh_instance_inputs: HashMap<String, MemberInfo> = HashMap::new();
-		let vertex_stride = mesh.mesh.get_vertex_stride();
-		let instance_stride = mesh.mesh.get_instance_stride();
-		let topology = mesh.mesh.get_primitive_type();
+		let vertex_stride = mesh.geometry.get_vertex_stride();
+		let instance_stride = mesh.geometry.get_instance_stride();
+		let topology = mesh.geometry.get_primitive_type();
 		let mut cur_vertex_offset = 0;
-		for (name, var) in mesh.mesh.iter_vertex_buffer_struct_members() {
+		for (name, var) in mesh.geometry.iter_vertex_buffer_struct_members() {
 			if let Some(info) = type_id_to_info.get(&var.type_id()) {
 				mesh_vertex_inputs.insert(name.to_string(), MemberInfo {
 					name,
@@ -1143,7 +1143,7 @@ impl Pipeline {
 				panic!("Unknown member {:?} of the vertex struct: `{:?}`", var, var.type_id());
 			}
 		}
-		if let Some(instance_member_iter) = mesh.mesh.iter_instance_buffer_struct_members() {
+		if let Some(instance_member_iter) = mesh.geometry.iter_instance_buffer_struct_members() {
 			let mut cur_instance_offset = 0;
 			for (name, var) in instance_member_iter {
 				if let Some(info) = type_id_to_info.get(&var.type_id()) {
@@ -1314,17 +1314,17 @@ impl Pipeline {
 		let vkcore = &self.device.vkcore;
 		self.bind_descriptor_sets(cmdbuf)?;
 		vkcore.vkCmdBindPipeline(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline)?;
-		self.mesh.mesh.flush(cmdbuf)?;
-		let vertex_buffer = self.mesh.mesh.get_vk_vertex_buffer();
-		let index_buffer = self.mesh.mesh.get_vk_index_buffer();
-		let instance_buffer = self.mesh.mesh.get_vk_instance_buffer();
-		let command_buffer = self.mesh.mesh.get_vk_command_buffer();
-		let vertex_count = self.mesh.mesh.get_vertex_count() as u32;
-		let index_count = self.mesh.mesh.get_index_count() as u32;
-		let instance_count = self.mesh.mesh.get_instance_count() as u32;
-		let command_count = self.mesh.mesh.get_command_count() as u32;
-		let index_type = self.mesh.mesh.get_index_type().unwrap_or(VkIndexType::VK_INDEX_TYPE_UINT16);
-		let command_stride = self.mesh.mesh.get_command_stride() as u32;
+		self.mesh.geometry.flush(cmdbuf)?;
+		let vertex_buffer = self.mesh.geometry.get_vk_vertex_buffer();
+		let index_buffer = self.mesh.geometry.get_vk_index_buffer();
+		let instance_buffer = self.mesh.geometry.get_vk_instance_buffer();
+		let command_buffer = self.mesh.geometry.get_vk_command_buffer();
+		let vertex_count = self.mesh.geometry.get_vertex_count() as u32;
+		let index_count = self.mesh.geometry.get_index_count() as u32;
+		let instance_count = self.mesh.geometry.get_instance_count() as u32;
+		let command_count = self.mesh.geometry.get_command_count() as u32;
+		let index_type = self.mesh.geometry.get_index_type().unwrap_or(VkIndexType::VK_INDEX_TYPE_UINT16);
+		let command_stride = self.mesh.geometry.get_command_stride() as u32;
 		if let Some(index_buffer) = index_buffer {
 			vkcore.vkCmdBindIndexBuffer(cmdbuf, index_buffer, 0, index_type)?;
 		}
