@@ -1124,12 +1124,11 @@ impl Pipeline {
 		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
 		let mut mesh_vertex_inputs: HashMap<String, MemberInfo> = HashMap::new();
 		let mut mesh_instance_inputs: HashMap<String, MemberInfo> = HashMap::new();
-		let mesh_lock = mesh.lock().unwrap();
-		let vertex_stride = mesh_lock.mesh.get_vertex_stride();
-		let instance_stride = mesh_lock.mesh.get_instance_stride();
-		let topology = mesh_lock.mesh.get_primitive_type();
+		let vertex_stride = mesh.mesh.get_vertex_stride();
+		let instance_stride = mesh.mesh.get_instance_stride();
+		let topology = mesh.mesh.get_primitive_type();
 		let mut cur_vertex_offset = 0;
-		for (name, var) in mesh_lock.mesh.iter_vertex_buffer_struct_members() {
+		for (name, var) in mesh.mesh.iter_vertex_buffer_struct_members() {
 			if let Some(info) = type_id_to_info.get(&var.type_id()) {
 				mesh_vertex_inputs.insert(name.to_string(), MemberInfo {
 					name,
@@ -1144,7 +1143,7 @@ impl Pipeline {
 				panic!("Unknown member {:?} of the vertex struct: `{:?}`", var, var.type_id());
 			}
 		}
-		if let Some(instance_member_iter) = mesh_lock.mesh.iter_instance_buffer_struct_members() {
+		if let Some(instance_member_iter) = mesh.mesh.iter_instance_buffer_struct_members() {
 			let mut cur_instance_offset = 0;
 			for (name, var) in instance_member_iter {
 				if let Some(info) = type_id_to_info.get(&var.type_id()) {
@@ -1162,7 +1161,6 @@ impl Pipeline {
 				}
 			}
 		}
-		drop(mesh_lock);
 		let mut vertex_input_bindings: Vec<VkVertexInputBindingDescription> = Vec::with_capacity(2);
 		vertex_input_bindings.push(VkVertexInputBindingDescription {
 			binding: 0,

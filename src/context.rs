@@ -6,7 +6,6 @@ use std::{
 	ptr::null,
 	sync::{
 		Arc,
-		Mutex,
 		atomic::Ordering,
 	},
 };
@@ -266,7 +265,7 @@ impl VulkanContext {
 	}
 
 	/// Create a pipeline builder
-	pub fn create_pipeline_builder(&self, mesh: Arc<Mutex<GenericMeshWithMaterial>>, shaders: Arc<DrawShaders>, desc_props: Arc<DescriptorProps>) -> Result<PipelineBuilder, VulkanError> {
+	pub fn create_pipeline_builder(&self, mesh: Arc<GenericMeshWithMaterial>, shaders: Arc<DrawShaders>, desc_props: Arc<DescriptorProps>) -> Result<PipelineBuilder, VulkanError> {
 		PipelineBuilder::new(self.device.clone(), mesh, shaders, self.desc_pool.clone(), desc_props, self.swapchain.renderpass.clone(), self.pipeline_cache.clone())
 	}
 
