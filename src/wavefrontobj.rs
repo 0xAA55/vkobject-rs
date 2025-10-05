@@ -1,10 +1,10 @@
 
 use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
-	fmt::Debug,
+	fmt::{self, Debug, Formatter},
 	fs::File,
 	io::{self, BufRead, BufReader, ErrorKind},
-	path::Path,
+	path::{Path, PathBuf},
 	str::FromStr,
 	sync::{Arc, OnceLock, RwLock},
 };
@@ -95,7 +95,7 @@ pub struct ObjSmoothGroup {
 #[derive(Default, Debug, Clone)]
 pub struct ObjMaterialGroup {
 	/// The optional smooth group of the geometry in bitfields. If the group doesn't provide, its value is 0 means no smoothing.
-	pub smooth_group: BTreeMap<i32, ObjSmoothGroup>,
+	pub smooth_group: BTreeMap<i32, Arc<RwLock<ObjSmoothGroup>>>,
 }
 
 /// The group subset of the OBJ file
@@ -408,7 +408,7 @@ where
 	F: Clone + Copy + Sized + FromStr {
 	/// Parse an OBJ file.
 	pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, ObjError> {
-		let reader = BufReader::new(File::open(path)?);
+		let reader = BufReader::new(File::open(&path)?);
 		let mut vertices: Vec<TVec3<F>> = Vec::new();
 		let mut normals: Vec<TVec3<F>> = Vec::new();
 		let mut texcoords: Vec<TVec3<F>> = Vec::new();
@@ -419,6 +419,7 @@ where
 		let mut group_name = String::from("");
 		let mut material_name = String::from("");
 		let mut smoothing_group = 0;
+		let mut last_smoothing_group = None;
 		for (line_number, line) in reader.lines().enumerate() {
 			let line = line?;
 			let line = concentrate_line(&line);
@@ -478,37 +479,81 @@ where
 				let y = parts[1].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[1])})?;
 				let z = parts[2].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[2])})?;
 				texcoords.push(TVec3::new(x, y, z));
-			} else if line.starts_with("f ") {
+			} else if line.starts_with("f ") || line.starts_with("l ") {
 				let value = line["f ".len()..].trim();
 				let parts: Vec<&str> = value.split_whitespace().collect();
 				if parts.len() < 3 {
-					return Err(ObjError::ParseError {line: line_number, what: format!("Insufficient index count for a face.")});
+					eprintln!("Parse line `{line_number}` error: `{line}`: Insufficient index count for a face.");
+					continue;
 				}
-				let object = if let Some(object) = objects.get_mut(&object_name) {
-					object
+				if last_smoothing_group.is_none() {
+					let object = if let Some(object) = objects.get_mut(&object_name) {
+						object
+					} else {
+						objects.insert(object_name.clone(), ObjObjects::default());
+						objects.get_mut(&object_name).unwrap()
+					};
+					let group = if let Some(group) = object.groups.get_mut(&group_name) {
+						group
+					} else {
+						object.groups.insert(group_name.clone(), ObjGroups::default());
+						object.groups.get_mut(&group_name).unwrap()
+					};
+					let matgroup = if let Some(matgroup) = group.material_groups.get_mut(&material_name) {
+						matgroup
+					} else {
+						group.material_groups.insert(material_name.clone(), ObjMaterialGroup::default());
+						group.material_groups.get_mut(&material_name).unwrap()
+					};
+					let smthgroup = if let Some(smthgroup) = matgroup.smooth_group.get_mut(&smoothing_group) {
+						smthgroup
+					} else {
+						matgroup.smooth_group.insert(smoothing_group, Arc::new(RwLock::new(ObjSmoothGroup::default())));
+						matgroup.smooth_group.get_mut(&smoothing_group).unwrap()
+					};
+					last_smoothing_group = Some(smthgroup.clone());
+				}
+				let mut group_lock = last_smoothing_group.as_ref().unwrap().write().unwrap();
+				if line.starts_with("f ") {
+					// Process as triangle strip
+					let mut vtn_indices: Vec<ObjVTNIndex> = Vec::with_capacity(parts.len());
+					for part in parts.iter() {
+						vtn_indices.push(ObjVTNIndex::parse(line_number, part)?);
+					}
+					for i in 0..(parts.len() - 2) {
+						match (i & 1) == 0 {
+							true  => group_lock.triangles.push((vtn_indices[i], vtn_indices[i + 1], vtn_indices[i + 2])),
+							false => group_lock.triangles.push((vtn_indices[i], vtn_indices[i + 2], vtn_indices[i + 1])),
+						}
+					}
 				} else {
-					objects.insert(object_name.clone(), ObjObjects::default());
-					objects.get_mut(&object_name).unwrap()
-				};
-				let group = if let Some(group) = object.get_mut(&group_name) {
-					group
-				} else {
-					object.insert(group_name.clone(), ObjGroups::default());
-					object.get_mut(&group_name).unwrap()
-				};
-				let matgroup = if let Some(matgroup) = group.get_mut(&material_name) {
-					matgroup
-				} else {
-					group.insert(material_name.clone(), ObjMaterialGroup::default());
-					group.get_mut(&material_name).unwrap()
-				};
-				let smthgroup = if let Some(smthgroup) = matgroup.get_mut(&smoothing_group) {
-					smthgroup
-				} else {
-					matgroup.insert(smoothing_group.clone(), ObjMaterialGroup::default());
-					matgroup.get_mut(&smoothing_group).unwrap()
-				};
-
+					// Process as line link
+					let mut indices: Vec<u32> = Vec::with_capacity(parts.len());
+					for part in parts.iter() {
+						match part.parse() {
+							Ok(index) => indices.push(index),
+							Err(e) => {
+								eprintln!("Parse line {line_number} error: `{line}`: {e:?}");
+								continue;
+							}
+						}
+					}
+					group_lock.lines.push(indices);
+				}
+			} else if let Some(data) = line.strip_prefix("o ") {
+				object_name = data.trim().to_string();
+				last_smoothing_group = None;
+			} else if let Some(data) = line.strip_prefix("g ") {
+				group_name = data.trim().to_string();
+				last_smoothing_group = None;
+			} else if let Some(data) = line.strip_prefix("usemtl ") {
+				material_name = data.trim().to_string();
+				last_smoothing_group = None;
+			} else if let Some(data) = line.strip_prefix("s ") {
+				smoothing_group = data.trim().parse().unwrap_or(0);
+				last_smoothing_group = None;
+			} else {
+				eprintln!("Ignoring line `{line_number}`: unknown `{line}`");
 			}
 		}
 		Ok(Self {
