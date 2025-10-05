@@ -115,7 +115,7 @@ pub struct ObjObjects {
 /// The material component
 #[derive(Debug, Clone)]
 pub enum ObjMaterialComponent {
-	Texture(String),
+	Texture(PathBuf),
 	Color(Vec4),
 	Luminance(f32),
 }
@@ -512,8 +512,11 @@ where
 }
 
 /// The material loader for the OBJ mesh
-#[derive(Default, Debug, Clone)]
+#[derive(Debug, Clone)]
 pub struct ObjMaterialLoader {
+	/// The path of the MTL file
+	pub path: PathBuf,
+
 	/// The materials of the OBJ file
 	pub materials: BTreeMap<String, Arc<RwLock<dyn ObjMaterial>>>,
 
@@ -527,8 +530,13 @@ pub struct ObjMaterialLoader {
 impl ObjMaterialLoader {
 	/// Parse a MTL file
 	pub fn from_file<P: AsRef<Path>>(path: P) -> Result<BTreeMap<String, Arc<RwLock<dyn ObjMaterial>>>, ObjError> {
-		let reader = BufReader::new(File::open(path)?);
-		let mut ret = Self::default();
+		let reader = BufReader::new(File::open(&path)?);
+		let mut ret = Self {
+			path: PathBuf::from(path.as_ref()),
+			materials: BTreeMap::new(),
+			cur_material_name: String::default(),
+			cur_material_fields: BTreeMap::new(),
+		};
 		for (line_number, line) in reader.lines().enumerate() {
 			let line = line?;
 			let line = concentrate_line(&line);
@@ -631,17 +639,22 @@ impl ObjMaterialLoader {
 				is_map = true;
 			}
 			if is_map {
-				let value: &str = &*value;
-				mat_lock.set_by_name(&slot_name, ObjMaterialComponent::Texture(slot_map.get(&value).unwrap_or(&value).to_string()));
+				let slot_name: &str = &slot_name;
+				let slot_name_mapped = slot_map.get(&slot_name).unwrap_or(&slot_name).to_string();
+				let mut texture_file_path = self.path.clone();
+				texture_file_path.set_file_name(value);
+				mat_lock.set_by_name(&slot_name_mapped, ObjMaterialComponent::Texture(texture_file_path));
 			} else {
+				let slot_name: &str = &slot_name;
+				let slot_name_mapped = slot_map.get(&slot_name).unwrap_or(&slot_name).to_string();
 				let parts: Vec<&str> = value.split_whitespace().collect();
 				if parts.len() == 3 {
 					let r = if let Ok(number) = parts[0].parse::<f32>() {number} else {eprintln!("Ignored material line in {line_number}: {key} {value}"); continue;};
 					let g = if let Ok(number) = parts[1].parse::<f32>() {number} else {eprintln!("Ignored material line in {line_number}: {key} {value}"); continue;};
 					let b = if let Ok(number) = parts[2].parse::<f32>() {number} else {eprintln!("Ignored material line in {line_number}: {key} {value}"); continue;};
-					mat_lock.set_by_name(&slot_name, ObjMaterialComponent::Color(Vec4::new(r, g, b, 1.0)));
+					mat_lock.set_by_name(&slot_name_mapped, ObjMaterialComponent::Color(Vec4::new(r, g, b, 1.0)));
 				} else if let Ok(number) = value.parse::<f32>() {
-					mat_lock.set_by_name(&slot_name, ObjMaterialComponent::Luminance(number));
+					mat_lock.set_by_name(&slot_name_mapped, ObjMaterialComponent::Luminance(number));
 				} else {
 					eprintln!("Ignored material line in {line_number}: {key} {value}");
 				}
