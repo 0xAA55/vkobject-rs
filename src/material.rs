@@ -15,6 +15,17 @@ pub enum MaterialComponent {
 	Luminance(f32),
 }
 
+impl MaterialComponent {
+	/// Convert an `ObjMaterialComponent` into `MaterialComponent`, the texture will be loaded after the command buffer is submitted. The load command will be issued immediately.
+	pub fn from_obj(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, obj_comp: &ObjMaterialComponent) -> Result<Self, VulkanError> {
+		match obj_comp {
+			ObjMaterialComponent::Texture(path) => Ok(MaterialComponent::Texture(Arc::new(VulkanTexture::new_from_path(device, cmdbuf, path, true, true, 0)?))),
+			ObjMaterialComponent::Color(color) => Ok(MaterialComponent::Color(*color)),
+			ObjMaterialComponent::Luminance(lum) => Ok(MaterialComponent::Luminance(*lum)),
+		}
+	}
+}
+
 /// The legacy illumination model material
 #[derive(Default, Debug, Clone)]
 pub struct MaterialLegacy {
@@ -117,6 +128,19 @@ pub trait Material: Debug + Any {
 
 	/// Set a componnet by the name of the component
 	fn set_by_name(&mut self, name: &str, texture: MaterialComponent);
+}
+
+/// Convert `&dyn ObjMaterial` into the `Arc<dyn Material>`, all textures were loaded and constants were also converted
+pub fn create_material_from_obj_material(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, objmat: &dyn ObjMaterial) -> Result<Arc<dyn Material>, VulkanError> {
+	let mut ret: Box<dyn Material> = if (objmat as &dyn Any).downcast_ref::<ObjMaterialLegacy>().is_some() {
+		Box::new(MaterialLegacy::default())
+	} else {
+		Box::new(MaterialPbr::default())
+	};
+	for entry in objmat.get_names().iter() {
+		ret.set_by_name(&entry, MaterialComponent::from_obj(device.clone(), cmdbuf, objmat.get_by_name(&entry).unwrap())?);
+	}
+	Ok(Arc::from(ret))
 }
 
 impl Material for MaterialLegacy {

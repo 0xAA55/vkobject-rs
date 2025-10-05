@@ -36,6 +36,7 @@ pub enum VulkanError {
 	NoStagingBuffer,
 	ImageTypeSizeNotMatch(String),
 	ImagePixelFormatNotSupported,
+	LoadImageFailed(String),
 	ShaderCompilationError(String),
 	ShaderParseIdUnknown(String),
 	ShaderParseTypeUnknown(String),
@@ -93,6 +94,19 @@ impl From<shaderc::Error> for VulkanError {
 		match e {
 			shaderc::Error::CompilationError(_, desc) => Self::ShaderCompilationError(desc),
 			_ => Self::ShaderCompilationError(format!("{e:?}")),
+		}
+	}
+}
+
+impl From<image::error::ImageError> for VulkanError {
+	fn from(e: image::error::ImageError) -> Self {
+		use image::error::ImageError::*;
+		match e {
+			IoError(ioe) => Self::IOError {
+				kind: ioe.kind(),
+				what: format!("{ioe:?}"),
+			},
+			_ => Self::LoadImageFailed(format!("{e:?}")),
 		}
 	}
 }
