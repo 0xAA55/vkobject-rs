@@ -426,14 +426,29 @@ where
 			if line.is_empty() {
 				continue;
 			}
-			if line.starts_with("mtllib ") {
-				for (mat_name, mat_data) in ObjMaterialLoader::from_file(line["mtllib ".len()..].trim())?.iter() {
-					materials.insert(mat_name.to_string(), mat_data.clone());
+			if let Some(data) = line.strip_prefix("mtllib ") {
+				let mtllib_fn = data.trim();
+				let mut mtllib_path = PathBuf::from(path.as_ref());
+				mtllib_path.set_file_name(mtllib_fn);
+				match ObjMaterialLoader::from_file(&mtllib_path) {
+					Ok(matlib) => {
+						for (mat_name, mat_data) in matlib.iter() {
+							materials.insert(mat_name.to_string(), mat_data.clone());
+						}
+					}
+					Err(e) => {
+						eprintln!("Parse material library `{mtllib_fn}` from `{}` failed: {e:?}", mtllib_path.display());
+					}
 				}
 				continue;
 			} else if line.starts_with("newmtl ") {
 				if mat_loader.is_none() {
-					mat_loader = Some(ObjMaterialLoader::default());
+					mat_loader = Some(ObjMaterialLoader {
+						path: PathBuf::from(path.as_ref()),
+						materials: BTreeMap::new(),
+						cur_material_name: String::default(),
+						cur_material_fields: BTreeMap::new(),
+					});
 				}
 				mat_loader.as_mut().unwrap().process_line(line_number, line)?;
 				continue;
