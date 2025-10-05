@@ -41,8 +41,43 @@ pub struct ObjVTNIndex {
 }
 
 impl ObjVTNIndex {
+	/// Parse the string into a VTN index, the string should be like `1/2/3`
 	pub fn parse(line_number: usize, s: &str) -> Result<Self, ObjError> {
-		
+		let mut parts: Vec<&str> = s.split('/').collect();
+		while parts.len() < 3 {
+			parts.push("");
+		}
+		if parts.len() > 3 {
+			return Err(ObjError::ParseError {
+				line: line_number,
+				what: format!("Unknown line which could be splitted into {} parts: `{s}`", parts.len()),
+			});
+		}
+		let v = parts[0].parse::<u32>().ok().ok_or(ObjError::ParseError {
+			line: line_number,
+			what: format!("Parse vertex index failed from the data `{s}`"),
+		})?;
+		let vt = if parts[1].is_empty() {
+			0
+		} else {
+			parts[1].parse::<u32>().ok().ok_or(ObjError::ParseError {
+				line: line_number,
+				what: format!("Parse texcoord index failed from the data `{s}`"),
+			})?
+		};
+		let vn = if parts[2].is_empty() {
+			0
+		} else {
+			parts[2].parse::<u32>().ok().ok_or(ObjError::ParseError {
+				line: line_number,
+				what: format!("Parse normal index failed from the data `{s}`"),
+			})?
+		};
+		Ok(Self {
+			v,
+			vt,
+			vn,
+		})
 	}
 }
 
