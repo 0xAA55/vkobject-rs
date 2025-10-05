@@ -113,11 +113,21 @@ pub struct ObjObjects {
 }
 
 /// The material component
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub enum ObjMaterialComponent {
 	Texture(PathBuf),
 	Color(Vec4),
 	Luminance(f32),
+}
+
+impl Debug for ObjMaterialComponent {
+	fn fmt(&self, f: &mut Formatter) -> fmt::Result {
+		match self {
+			Self::Texture(filename) => write!(f, "Texture(\"{}\")", filename.display()),
+			Self::Color(c) => write!(f, "Color({}, {}, {}, {})", c.x, c.y, c.z, c.w),
+			Self::Luminance(lum) => write!(f, "Luminance({lum})"),
+		}
+	}
 }
 
 /// The legacy illumination model material
