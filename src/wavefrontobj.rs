@@ -29,7 +29,7 @@ impl From<io::Error> for ObjError {
 }
 
 /// The index of the OBJ file faces
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjVTNIndex {
 	/// Vertex, 0 is illegal
 	pub v: u32,
