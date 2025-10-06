@@ -117,6 +117,10 @@ pub struct ObjObjects {
 pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + 'static {}
 impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + 'static {}
 
+/// The trait for indices type
+pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Debug + 'static {}
+impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Debug + 'static {}
+
 /// The material component
 #[derive(Clone)]
 pub enum ObjMaterialComponent {
