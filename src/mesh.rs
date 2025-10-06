@@ -319,6 +319,30 @@ where
 		}
 	}
 
+	/// Create the index buffer
+	pub fn create_index_buffer(&mut self, cmdbuf: VkCommandBuffer, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		let device = self.vertices.read().unwrap().get_device();
+		let data_slice = unsafe {slice::from_raw_parts(data as *const E, size / size_of::<E>())};
+		self.indices = Some(Arc::new(RwLock::new(BE::create(device, data_slice, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_INDEX_BUFFER_BIT as VkBufferUsageFlags)?)));
+		Ok(())
+	}
+
+	/// Create the instance buffer
+	pub fn create_instance_buffer(&mut self, cmdbuf: VkCommandBuffer, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		let device = self.vertices.read().unwrap().get_device();
+		let data_slice = unsafe {slice::from_raw_parts(data as *const I, size / size_of::<I>())};
+		self.instances = Some(Arc::new(RwLock::new(BI::create(device, data_slice, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?)));
+		Ok(())
+	}
+
+	/// Create the command buffer
+	pub fn create_command_buffer(&mut self, cmdbuf: VkCommandBuffer, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		let device = self.vertices.read().unwrap().get_device();
+		let data_slice = unsafe {slice::from_raw_parts(data as *const C, size / size_of::<C>())};
+		self.commands = Some(Arc::new(RwLock::new(BC::create(device, data_slice, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_INDIRECT_BUFFER_BIT as VkBufferUsageFlags)?)));
+		Ok(())
+	}
+
 	/// Upload staging buffers to GPU
 	pub fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		filter_no_staging_buffer(self.vertices.write().unwrap().flush(cmdbuf))?;
@@ -356,6 +380,15 @@ pub trait GenericMesh: Debug + Any {
 
 	/// Get the command buffer
 	fn get_vk_command_buffer(&self) -> Option<VkBuffer>;
+
+	/// Create the index buffer
+	fn create_index_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
+
+	/// Create the instance buffer
+	fn create_instance_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
+
+	/// Create the command buffer
+	fn create_command_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
 
 	/// Get the primitive type
 	fn get_primitive_type(&self) -> VkPrimitiveTopology;
@@ -451,6 +484,19 @@ where
 	fn get_vk_command_buffer(&self) -> Option<VkBuffer> {
 		self.commands.as_ref().map(|b|b.read().unwrap().get_vk_buffer())
 	}
+
+	fn create_index_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		self.create_index_buffer(null(), data, size)
+	}
+
+	fn create_instance_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		self.create_instance_buffer(null(), data, size)
+	}
+
+	fn create_command_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		self.create_command_buffer(null(), data, size)
+	}
+
 	}
 
 	fn get_primitive_type(&self) -> VkPrimitiveTopology {
