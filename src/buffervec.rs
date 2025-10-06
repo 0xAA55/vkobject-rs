@@ -2,6 +2,7 @@
 use crate::prelude::*;
 use bitvec::vec::BitVec;
 use std::{
+	any::Any,
 	cmp::min,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
@@ -14,8 +15,8 @@ use std::{
 };
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecItem: Copy + Sized + Default + Debug + 'static {}
-impl<T> BufferVecItem for T where T: Copy + Sized + Default + Debug + 'static {}
+pub trait BufferVecItem: Clone + Copy + Sized + Default + Debug + Any + 'static {}
+impl<T> BufferVecItem for T where T: Clone + Copy + Sized + Default + Debug + Any + 'static {}
 
 /// The advanced buffer object that could be used as a vector
 pub struct BufferVec<T: BufferVecItem> {
