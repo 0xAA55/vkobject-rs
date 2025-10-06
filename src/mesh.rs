@@ -369,6 +369,9 @@ pub type DynamicMesh<V, E, I, C> = Mesh<BufferVec<V>, V, BufferVec<E>, E, Buffer
 
 /// The trait for a mesh
 pub trait GenericMesh: Debug + Any {
+	/// Clone the mesh
+	fn clone(&self) -> Box<dyn GenericMesh>;
+
 	/// Get the vertex buffer
 	fn get_vk_vertex_buffer(&self) -> VkBuffer;
 
@@ -481,6 +484,10 @@ where
 	E: BufferVecItem + 'static,
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
+	fn clone(&self) -> Box<dyn GenericMesh> {
+		Box::new(Clone::clone(self))
+	}
+
 	fn get_vk_vertex_buffer(&self) -> VkBuffer {
 		self.vertices.read().unwrap().get_vk_buffer()
 	}
