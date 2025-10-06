@@ -482,8 +482,8 @@ where
 			let vi: usize = (*vi).try_into().map_err(|_| ObjError::MeshIndicesOverflow)?;
 			ret.face_vertices[vi] = ObjIndexedVertices {
 				position: if vtn.v == 0 {return Err(ObjError::MeshIndicesUnderflow)} else {self.vertices[vtn.v as usize - 1]},
-				texcoord: if vtn.vt == 0 {None} else {Some(self.vertices[vtn.vt as usize - 1])},
-				normal: if vtn.vn == 0 {None} else {Some(self.vertices[vtn.vn as usize - 1])},
+				texcoord: if vtn.vt == 0 {None} else {Some(self.texcoords[vtn.vt as usize - 1])},
+				normal: if vtn.vn == 0 {None} else {Some(self.normals[vtn.vn as usize - 1])},
 			};
 		}
 		for (lv, li) in line_vertices_map.iter() {
