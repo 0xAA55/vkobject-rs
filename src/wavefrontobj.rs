@@ -4,8 +4,11 @@ use std::{
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::{self, Debug, Formatter},
 	fs::File,
+	hash::{Hash, Hasher},
 	io::{self, BufRead, BufReader, ErrorKind},
+	mem::size_of,
 	path::{Path, PathBuf},
+	slice,
 	str::FromStr,
 	sync::{Arc, OnceLock, RwLock},
 };
@@ -382,6 +385,112 @@ where
 			objects,
 			materials,
 		})
+	}
+
+	/// Convert to VTN vertices and associated indices
+	pub fn convert_to_indexed_meshes<E>(&self) -> Result<ObjIndexedMeshSet<F, E>, ObjError>
+	where
+		E: ObjMeshIndexType {
+		#[derive(Default, Debug, Clone, Copy, PartialEq)]
+		struct LineVert<F: ObjMeshVecCompType> {
+			x: F,
+			y: F,
+			z: F,
+		}
+		impl<F> Hash for LineVert<F>
+		where F: ObjMeshVecCompType {
+			fn hash<H: Hasher>(&self, state: &mut H) {
+				match size_of::<F>() {
+					1 => {let data: Vec<u8 > = unsafe {vec![*(&self.x as *const F as *const u8 ), *(&self.y as *const F as *const u8 ), *(&self.z as *const F as *const u8 )]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 1)});}
+					2 => {let data: Vec<u16> = unsafe {vec![*(&self.x as *const F as *const u16), *(&self.y as *const F as *const u16), *(&self.z as *const F as *const u16)]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)});}
+					4 => {let data: Vec<u32> = unsafe {vec![*(&self.x as *const F as *const u32), *(&self.y as *const F as *const u32), *(&self.z as *const F as *const u32)]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4)});}
+					8 => {let data: Vec<u64> = unsafe {vec![*(&self.x as *const F as *const u64), *(&self.y as *const F as *const u64), *(&self.z as *const F as *const u64)]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 8)});}
+					o => panic!("Invalid primitive type of `<F>`, the size of this type is `{o}`"),
+				}
+			}
+		}
+		impl<F> Eq for LineVert<F> where F: ObjMeshVecCompType {}
+		let mut face_vertices_map: HashMap<ObjVTNIndex, E> = HashMap::new();
+		let mut line_vertices_map: HashMap<LineVert<F>, E> = HashMap::new();
+		let mut ret: ObjIndexedMeshSet<F, E> = ObjIndexedMeshSet::default();
+		fn get_face_vert_index<E>(face_vertices_map: &mut HashMap<ObjVTNIndex, E>, face_vert: &ObjVTNIndex) -> Result<E, ObjError>
+		where
+			E: ObjMeshIndexType {
+			if let Some(index) = face_vertices_map.get(face_vert) {
+				Ok(*index)
+			} else {
+				let new_index = face_vertices_map.len();
+				let new_ret = E::try_from(new_index).map_err(|_| ObjError::MeshIndicesOverflow)?;
+				face_vertices_map.insert(*face_vert, new_ret);
+				Ok(new_ret)
+			}
+		}
+		fn get_line_vert_index<F, E>(line_vertices_map: &mut HashMap<LineVert<F>, E>, line_vert: &TVec3<F>) -> Result<E, ObjError>
+		where
+			F: ObjMeshVecCompType,
+			E: ObjMeshIndexType {
+			let line_vert = LineVert {
+				x: line_vert.x,
+				y: line_vert.y,
+				z: line_vert.z,
+			};
+			if let Some(index) = line_vertices_map.get(&line_vert) {
+				Ok(*index)
+			} else {
+				let new_index = line_vertices_map.len();
+				let new_ret = E::try_from(new_index).map_err(|_| ObjError::MeshIndicesOverflow)?;
+				line_vertices_map.insert(line_vert, new_ret);
+				Ok(new_ret)
+			}
+		}
+		for (object_name, object) in self.objects.iter() {
+			for (group_name, group) in object.groups.iter() {
+				for (material_name, matgroup) in group.material_groups.iter() {
+					for (smooth_group, smthgroup) in matgroup.smooth_groups.iter() {
+						let lock = smthgroup.read().unwrap();
+						let mut lines_vert_indices: Vec<Vec<E>> = Vec::with_capacity(lock.lines.len());
+						let mut triangle_vert_indices: Vec<(E, E, E)> = Vec::with_capacity(lock.triangles.len());
+						for line in lock.lines.iter() {
+							let mut line_vert_indices: Vec<E> = Vec::with_capacity(line.len());
+							for vert_idx in line.iter() {
+								let vert = self.vertices[*vert_idx as usize - 1];
+								line_vert_indices.push(get_line_vert_index(&mut line_vertices_map, &vert)?);
+							}
+							lines_vert_indices.push(line_vert_indices);
+						}
+						for triangle in lock.triangles.iter() {
+							let vert1 = get_face_vert_index(&mut face_vertices_map, &triangle.0)?;
+							let vert2 = get_face_vert_index(&mut face_vertices_map, &triangle.1)?;
+							let vert3 = get_face_vert_index(&mut face_vertices_map, &triangle.2)?;
+							triangle_vert_indices.push((vert1, vert2, vert3));
+						}
+						ret.meshes.push(ObjIndexedMesh {
+							object_name: object_name.clone(),
+							group_name: group_name.clone(),
+							material_name: material_name.clone(),
+							smooth_group: *smooth_group,
+							face_indices: triangle_vert_indices,
+							line_indices: lines_vert_indices,
+						});
+					}
+				}
+			}
+		}
+		ret.face_vertices.resize(face_vertices_map.len(), ObjIndexedVertices::default());
+		ret.line_vertices.resize(line_vertices_map.len(), TVec3::default());
+		for (vtn, vi) in face_vertices_map.iter() {
+			let vi: usize = (*vi).try_into().map_err(|_| ObjError::MeshIndicesOverflow)?;
+			ret.face_vertices[vi] = ObjIndexedVertices {
+				position: if vtn.v == 0 {return Err(ObjError::MeshIndicesUnderflow)} else {self.vertices[vtn.v as usize - 1]},
+				texcoord: if vtn.vt == 0 {None} else {Some(self.vertices[vtn.vt as usize - 1])},
+				normal: if vtn.vn == 0 {None} else {Some(self.vertices[vtn.vn as usize - 1])},
+			};
+		}
+		for (lv, li) in line_vertices_map.iter() {
+			let li: usize = (*li).try_into().map_err(|_| ObjError::MeshIndicesOverflow)?;
+			ret.line_vertices[li] = TVec3::new(lv.x, lv.y, lv.z);
+		}
+		Ok(ret)
 	}
 }
 
