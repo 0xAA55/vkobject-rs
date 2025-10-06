@@ -138,7 +138,7 @@ pub fn create_material_from_obj_material(device: Arc<VulkanDevice>, cmdbuf: VkCo
 		Box::new(MaterialPbr::default())
 	};
 	for entry in objmat.get_names().iter() {
-		ret.set_by_name(&entry, MaterialComponent::from_obj(device.clone(), cmdbuf, objmat.get_by_name(&entry).unwrap())?);
+		ret.set_by_name(entry, MaterialComponent::from_obj(device.clone(), cmdbuf, objmat.get_by_name(entry).unwrap())?);
 	}
 	Ok(Arc::from(ret))
 }
