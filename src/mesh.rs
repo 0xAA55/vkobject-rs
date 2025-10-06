@@ -937,12 +937,110 @@ impl GenericMeshWithMaterial {
 			material,
 		}
 	}
+}
 
+/// The mesh set
+#[derive(Debug, Clone)]
+pub struct GenericMeshSet {
+	pub meshset: BTreeMap<String, GenericMeshWithMaterial>,
+}
+
+impl GenericMeshSet {
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
-	pub fn create_meshset_from_obj<P: AsRef<Path>>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer) -> Result<BTreeMap<String, Self>, VulkanError> {
-		let obj = ObjMesh::<f32>::from_file(path);
-		let ret = BTreeMap::new();
-		Ok(ret)
+	pub fn create_meshset_from_obj_file<P, F, I>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer, instances: Option<&[I]>) -> Result<Self, VulkanError>
+	where
+		P: AsRef<Path>,
+		F: ObjMeshVecCompType,
+		I: BufferVecStructItem,
+		f32: From<F>,
+		f64: From<F> {
+		let obj = ObjMesh::<F>::from_file(path)?;
+		let obj_mesh_set: ObjIndexedMeshSet<F, u32> = obj.convert_to_indexed_meshes()?;
+		let (pdim, tdim, ndim) = obj_mesh_set.get_vert_dims();
+		let template_mesh;
+		macro_rules! vert_conv {
+			($type:ty, $src:ident) => {
+				{let vertices: Vec<$type> = $src.iter().map(|v|<$type>::from(*v)).collect(); vertices}
+			}
+		}
+		macro_rules! mesh_create {
+			($vb:ident) => {
+				{
+					let ib = if let Some(id) = instances {
+						Some(Arc::new(RwLock::new(BufferVec::from(device.clone(), id, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?)))
+					} else {
+						None
+					};
+					let mesh: Box<dyn GenericMesh> = Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, Arc::new(RwLock::new($vb)), Option::<Arc::<RwLock::<BufferWithType::<u32>>>>::None, ib, buffer_unused()));
+					mesh
+				}
+			}
+		}
+		#[allow(non_camel_case_types)] type ObjV___F = ObjVertPositionOnly;
+		#[allow(non_camel_case_types)] type ObjV__NF = ObjVertPositionNormal;
+		#[allow(non_camel_case_types)] type ObjV2D_F = ObjVertPositionTexcoord2D;
+		#[allow(non_camel_case_types)] type ObjV3D_F = ObjVertPositionTexcoord3D;
+		#[allow(non_camel_case_types)] type ObjV2DNF = ObjVertPositionTexcoord2DNormal;
+		#[allow(non_camel_case_types)] type ObjV3DNF = ObjVertPositionTexcoord3DNormal;
+		#[allow(non_camel_case_types)] type ObjV___D = ObjVertPositionOnlyDouble;
+		#[allow(non_camel_case_types)] type ObjV__ND = ObjVertPositionNormalDouble;
+		#[allow(non_camel_case_types)] type ObjV2D_D = ObjVertPositionTexcoord2DDouble;
+		#[allow(non_camel_case_types)] type ObjV3D_D = ObjVertPositionTexcoord3DDouble;
+		#[allow(non_camel_case_types)] type ObjV2DND = ObjVertPositionTexcoord2DNormalDouble;
+		#[allow(non_camel_case_types)] type ObjV3DND = ObjVertPositionTexcoord3DNormalDouble;
+		if TypeId::of::<F>() == TypeId::of::<f32>() {
+			match (pdim, tdim, ndim) {
+				(_, 0, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV___F, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 1, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2D_F, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 2, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2D_F, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 3, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV3D_F, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 0, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV__NF, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 1, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2DNF, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 2, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2DNF, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 3, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV3DNF, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, _, _) => panic!("Unknown VTN dimensions: V({pdim}), T({tdim}), N({ndim})"),
+			}
+		} else if TypeId::of::<F>() == TypeId::of::<f64>() {
+			match (pdim, tdim, ndim) {
+				(_, 0, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV___D, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 1, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2D_D, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 2, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2D_D, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 3, 0) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV3D_D, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 0, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV__ND, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 1, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2DND, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 2, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV2DND, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, 3, _) => {let fv = obj_mesh_set.face_vertices; let vertices = vert_conv!(ObjV3DND, fv); let vb = BufferWithType::new(device.clone(), &vertices, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?; template_mesh = mesh_create!(vb)}
+				(_, _, _) => panic!("Unknown VTN dimensions: V({pdim}), T({tdim}), N({ndim})"),
+			}
+		} else {
+			let name_of_f = type_name::<F>();
+			panic!("Unsupported generic type `{name_of_f}`, couldn't match its type id to neither `f32` nor `f64`");
+		}
+		let mut materials: BTreeMap<String, Arc<dyn Material>> = BTreeMap::new();
+		for (matname, matdata) in obj.materials.iter() {
+			materials.insert(matname.clone(), create_material_from_obj_material(device.clone(), cmdbuf, &*matdata.read().unwrap())?);
+		}
+		let mut meshset = BTreeMap::new();
+		for objmesh in obj_mesh_set.meshes.iter() {
+			let object_name = &objmesh.object_name;
+			let group_name = &objmesh.group_name;
+			let material_name = &objmesh.material_name;
+			let smooth_group = objmesh.smooth_group;
+			let mut indices: Vec<u32> = Vec::with_capacity(objmesh.face_indices.len() * 3);
+			let mut mesh = template_mesh.clone();
+			for (v1, v2, v3) in objmesh.face_indices.iter() {
+				indices.extend([v1, v2, v3]);
+			}
+			mesh.create_index_buffer(indices.as_ptr() as *const c_void, size_of_val(&indices))?;
+			mesh.flush(cmdbuf)?;
+			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), GenericMeshWithMaterial{
+				geometry: Arc::from(mesh),
+				material: materials.get(material_name).cloned(),
+			});
+		}
+		Ok(Self {
+			meshset,
+		})
 	}
 }
 
