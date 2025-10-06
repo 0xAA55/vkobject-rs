@@ -144,6 +144,9 @@ where
 pub trait BufferForDraw<T>: Debug + Clone + Any
 where
 	T: BufferVecItem {
+	/// Used to create the buffer
+	fn create(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError>;
+
 	/// Must be able to get the `VkBuffer` handle
 	fn get_vk_buffer(&self) -> VkBuffer;
 
@@ -179,6 +182,10 @@ where
 impl<T> BufferForDraw<T> for BufferVec<T>
 where
 	T: BufferVecItem {
+	fn create(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		BufferVec::from(device, data, cmdbuf, usage)
+	}
+
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.get_vk_buffer()
 	}
@@ -214,6 +221,10 @@ where
 impl<T> BufferForDraw<T> for BufferWithType<T>
 where
 	T: BufferVecItem {
+	fn create(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
+		BufferWithType::new(device, data, cmdbuf, usage)
+	}
+
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
 	}
