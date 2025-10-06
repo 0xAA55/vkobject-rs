@@ -14,8 +14,8 @@ use std::{
 use struct_iterable::Iterable;
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecStructItem: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
-impl<T> BufferVecStructItem for T where T: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
+pub trait BufferVecStructItem: Copy + Clone + Sized + Default + Debug + Iterable + Any + 'static {}
+impl<T> BufferVecStructItem for T where T: Copy + Clone + Sized + Default + Debug + Iterable + Any + 'static {}
 
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
