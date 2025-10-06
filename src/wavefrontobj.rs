@@ -96,7 +96,7 @@ pub struct ObjSmoothGroup {
 #[derive(Default, Debug, Clone)]
 pub struct ObjMaterialGroup {
 	/// The optional smooth group of the geometry in bitfields. If the group doesn't provide, its value is 0 means no smoothing.
-	pub smooth_group: BTreeMap<i32, Arc<RwLock<ObjSmoothGroup>>>,
+	pub smooth_groups: BTreeMap<i32, Arc<RwLock<ObjSmoothGroup>>>,
 }
 
 /// The group subset of the OBJ file
