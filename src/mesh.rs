@@ -643,6 +643,282 @@ pub struct ObjParseError {
 	pub message: String,
 }
 
+/// The struct for OBJ vertices with position data only
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionOnly {
+	pub position: Vec3,
+}
+
+/// The struct for OBJ vertices with position data and normal data
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionNormal {
+	pub position: Vec3,
+	pub normal: Vec3,
+}
+
+/// The struct for OBJ vertices with position data and and texcoord data (2D)
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord2D {
+	pub position: Vec3,
+	pub texcoord: Vec2,
+}
+
+/// The struct for OBJ vertices with position data and texcoord data (3D)
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord3D {
+	pub position: Vec3,
+	pub texcoord: Vec3,
+}
+
+/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord2DNormal {
+	pub position: Vec3,
+	pub texcoord: Vec2,
+	pub normal: Vec3,
+}
+
+/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord3DNormal {
+	pub position: Vec3,
+	pub texcoord: Vec3,
+	pub normal: Vec3,
+}
+
+/// The struct for OBJ vertices with position data only
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionOnlyDouble {
+	pub position: DVec3,
+}
+
+/// The struct for OBJ vertices with position data and normal data
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionNormalDouble {
+	pub position: DVec3,
+	pub normal: DVec3,
+}
+
+/// The struct for OBJ vertices with position data and and texcoord data (2D)
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord2DDouble {
+	pub position: DVec3,
+	pub texcoord: DVec2,
+}
+
+/// The struct for OBJ vertices with position data and texcoord data (3D)
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord3DDouble {
+	pub position: DVec3,
+	pub texcoord: DVec3,
+}
+
+/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord2DNormalDouble {
+	pub position: DVec3,
+	pub texcoord: DVec2,
+	pub normal: DVec3,
+}
+
+/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
+#[derive(Iterable, Default, Debug, Clone, Copy)]
+pub struct ObjVertPositionTexcoord3DNormalDouble {
+	pub position: DVec3,
+	pub texcoord: DVec3,
+	pub normal: DVec3,
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionOnly
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionNormal
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			normal: if let Some(normal) = f.normal {
+				Vec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				Vec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2D
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				Vec2::new(texcoord.x.into(), texcoord.y.into())
+			} else {
+				Vec2::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3D
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				Vec3::new(texcoord.x.into(), texcoord.y.into(), texcoord.z.into())
+			} else {
+				Vec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2DNormal
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				Vec2::new(texcoord.x.into(), texcoord.y.into())
+			} else {
+				Vec2::default()
+			},
+			normal: if let Some(normal) = f.normal {
+				Vec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				Vec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3DNormal
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				Vec3::new(texcoord.x.into(), texcoord.y.into(), texcoord.z.into())
+			} else {
+				Vec3::default()
+			},
+			normal: if let Some(normal) = f.normal {
+				Vec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				Vec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionOnlyDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionNormalDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			normal: if let Some(normal) = f.normal {
+				DVec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				DVec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2DDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				DVec2::new(texcoord.x.into(), texcoord.y.into())
+			} else {
+				DVec2::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3DDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				DVec3::new(texcoord.x.into(), texcoord.y.into(), texcoord.z.into())
+			} else {
+				DVec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2DNormalDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				DVec2::new(texcoord.x.into(), texcoord.y.into())
+			} else {
+				DVec2::default()
+			},
+			normal: if let Some(normal) = f.normal {
+				DVec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				DVec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3DNormalDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjIndexedVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				DVec3::new(texcoord.x.into(), texcoord.y.into(), texcoord.z.into())
+			} else {
+				DVec3::default()
+			},
+			normal: if let Some(normal) = f.normal {
+				DVec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				DVec3::default()
+			},
+		}
+	}
+}
+
 /// A Mesh with a material
 #[derive(Debug)]
 pub struct GenericMeshWithMaterial {
