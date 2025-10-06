@@ -113,6 +113,10 @@ pub struct ObjObjects {
 	pub groups: BTreeMap<String, ObjGroups>,
 }
 
+/// The trait for `TVecN<>` component type
+pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + 'static {}
+impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + 'static {}
+
 /// The material component
 #[derive(Clone)]
 pub enum ObjMaterialComponent {
