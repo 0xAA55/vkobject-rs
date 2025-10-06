@@ -58,6 +58,11 @@ where
 		}
 	}
 
+	/// Get the device
+	pub fn get_device(&self) -> Arc<VulkanDevice> {
+		self.buffer.device.clone()
+	}
+
 	/// Create staging buffer for the `BufferWithType<T>`
 	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
 		self.buffer.ensure_staging_buffer()
@@ -140,6 +145,10 @@ where
 	T: BufferVecItem {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.get_vk_buffer()
+	}
+
+	fn get_device(&self) -> Arc<VulkanDevice> {
+		self.get_device()
 	}
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {

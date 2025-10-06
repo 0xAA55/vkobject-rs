@@ -64,6 +64,11 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
+	/// Get the device
+	pub fn get_device(&self) -> Arc<VulkanDevice> {
+		self.buffer.device.clone()
+	}
+
 	/// Create from a slice of data
 	pub fn from(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
 		let mut buffer = Buffer::new(device, data.len() as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
