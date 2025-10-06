@@ -920,7 +920,7 @@ where
 }
 
 /// A Mesh with a material
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenericMeshWithMaterial {
 	/// The mesh
 	pub geometry: Arc<dyn GenericMesh>,
