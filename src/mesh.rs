@@ -390,6 +390,18 @@ pub trait GenericMesh: Debug + Any {
 	/// Create the command buffer
 	fn create_command_buffer(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
 
+	/// Get the vertex buffer
+	fn set_vertex_buffer_data(&self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
+
+	/// Get the index buffer
+	fn set_index_buffer_data(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
+
+	/// Get the instance buffer
+	fn set_instance_buffer_data(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
+
+	/// Get the command buffer
+	fn set_command_buffer_data(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError>;
+
 	/// Get the primitive type
 	fn get_primitive_type(&self) -> VkPrimitiveTopology;
 
@@ -497,6 +509,35 @@ where
 		self.create_command_buffer(null(), data, size)
 	}
 
+	fn set_vertex_buffer_data(&self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		self.vertices.write().unwrap().set_data(unsafe {slice::from_raw_parts(data as *const V, size / size_of::<V>())})
+	}
+
+	fn set_index_buffer_data(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		if let Some(ref mut eb) = self.indices {
+			eb.write().unwrap().set_data(unsafe {slice::from_raw_parts(data as *const E, size / size_of::<E>())})?;
+		} else {
+			self.create_index_buffer(null(), data, size)?;
+		}
+		Ok(())
+	}
+
+	fn set_instance_buffer_data(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		if let Some(ref mut ib) = self.instances {
+			ib.write().unwrap().set_data(unsafe {slice::from_raw_parts(data as *const I, size / size_of::<I>())})?;
+		} else {
+			self.create_instance_buffer(null(), data, size)?;
+		}
+		Ok(())
+	}
+
+	fn set_command_buffer_data(&mut self, data: *const c_void, size: usize) -> Result<(), VulkanError> {
+		if let Some(ref mut cb) = self.commands {
+			cb.write().unwrap().set_data(unsafe {slice::from_raw_parts(data as *const C, size / size_of::<C>())})?;
+		} else {
+			self.create_command_buffer(null(), data, size)?;
+		}
+		Ok(())
 	}
 
 	fn get_primitive_type(&self) -> VkPrimitiveTopology {
