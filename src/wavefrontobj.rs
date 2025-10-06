@@ -401,7 +401,7 @@ where
 		where F: ObjMeshVecCompType {
 			fn hash<H: Hasher>(&self, state: &mut H) {
 				match size_of::<F>() {
-					1 => {let data: Vec<u8 > = unsafe {vec![*(&self.x as *const F as *const u8 ), *(&self.y as *const F as *const u8 ), *(&self.z as *const F as *const u8 )]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 1)});}
+					1 => {let data: Vec<u8 > = unsafe {vec![*(&self.x as *const F as *const u8 ), *(&self.y as *const F as *const u8 ), *(&self.z as *const F as *const u8 )]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr(), data.len())});}
 					2 => {let data: Vec<u16> = unsafe {vec![*(&self.x as *const F as *const u16), *(&self.y as *const F as *const u16), *(&self.z as *const F as *const u16)]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)});}
 					4 => {let data: Vec<u32> = unsafe {vec![*(&self.x as *const F as *const u32), *(&self.y as *const F as *const u32), *(&self.z as *const F as *const u32)]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4)});}
 					8 => {let data: Vec<u64> = unsafe {vec![*(&self.x as *const F as *const u64), *(&self.y as *const F as *const u64), *(&self.z as *const F as *const u64)]}; state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 8)});}
