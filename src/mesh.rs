@@ -955,6 +955,15 @@ impl GenericMeshSet {
 		f32: From<F>,
 		f64: From<F> {
 		let obj = ObjMesh::<F>::from_file(path)?;
+		Self::create_meshset_from_obj(device, &obj, cmdbuf, instances)
+	}
+	/// Load the `obj` file and create the meshset, all the materials were also loaded.
+	pub fn create_meshset_from_obj<F, I>(device: Arc<VulkanDevice>, obj: &ObjMesh::<F>, cmdbuf: VkCommandBuffer, instances: Option<&[I]>) -> Result<Self, VulkanError>
+	where
+		F: ObjMeshVecCompType,
+		I: BufferVecStructItem,
+		f32: From<F>,
+		f64: From<F> {
 		let obj_mesh_set: ObjIndexedMeshSet<F, u32> = obj.convert_to_indexed_meshes()?;
 		let (pdim, tdim, ndim) = obj_mesh_set.get_vert_dims();
 		let template_mesh;
