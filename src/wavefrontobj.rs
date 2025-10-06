@@ -494,6 +494,18 @@ where
 	}
 }
 
+fn float_is_zero_restrict<F>(f: F) -> bool
+where
+	F: ObjMeshVecCompType {
+	match size_of::<F>() {
+		1 => unsafe {*(&f as *const F as *const u8 ) == 0},
+		2 => unsafe {*(&f as *const F as *const u16) == 0},
+		4 => unsafe {*(&f as *const F as *const u32) == 0},
+		8 => unsafe {*(&f as *const F as *const u64) == 0},
+		o => panic!("Invalid primitive type of `<F>`, the size of this type is `{o}`"),
+	}
+}
+
 /// The material component
 #[derive(Clone)]
 pub enum ObjMaterialComponent {
