@@ -119,12 +119,12 @@ pub struct ObjObjects {
 }
 
 /// The trait for `TVecN<>` component type
-pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + 'static {}
-impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + 'static {}
+pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + 'static {}
+impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + 'static {}
 
 /// The trait for indices type
-pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Debug + 'static {}
-impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Debug + 'static {}
+pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
+impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
 
 #[derive(Default, Debug, Clone)]
 pub struct ObjIndexedVertices<F>
