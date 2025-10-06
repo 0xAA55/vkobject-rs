@@ -9,8 +9,8 @@ use std::{
 	mem::{size_of, size_of_val},
 	path::Path,
 	ptr::{copy, null},
-	sync::{Arc, Mutex},
 	slice,
+	sync::{Arc, RwLock},
 	vec::IntoIter,
 };
 use struct_iterable::Iterable;
@@ -272,10 +272,10 @@ where
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
 	pub primitive_type: VkPrimitiveTopology,
-	pub vertices: Arc<Mutex<BV>>,
-	pub indices: Option<Arc<Mutex<BE>>>,
-	pub instances: Option<Arc<Mutex<BI>>>,
-	pub commands: Option<Arc<Mutex<BC>>>,
+	pub vertices: Arc<RwLock<BV>>,
+	pub indices: Option<Arc<RwLock<BE>>>,
+	pub instances: Option<Arc<RwLock<BI>>>,
+	pub commands: Option<Arc<RwLock<BC>>>,
 	vertex_type: V,
 	element_type: E,
 	instance_type: I,
@@ -290,7 +290,7 @@ pub struct UnusedBufferItem {}
 pub type UnusedBufferType = BufferWithType<UnusedBufferItem>;
 
 /// Use this function to create an unused buffer type
-pub fn buffer_unused() -> Option<Arc<Mutex<UnusedBufferType>>> {
+pub fn buffer_unused() -> Option<Arc<RwLock<UnusedBufferType>>> {
 	None
 }
 
@@ -305,7 +305,7 @@ where
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
 	/// Create the mesh from the buffers
-	pub fn new(primitive_type: VkPrimitiveTopology, vertices: Arc<Mutex<BV>>, indices: Option<Arc<Mutex<BE>>>, instances: Option<Arc<Mutex<BI>>>, commands: Option<Arc<Mutex<BC>>>) -> Self {
+	pub fn new(primitive_type: VkPrimitiveTopology, vertices: Arc<RwLock<BV>>, indices: Option<Arc<RwLock<BE>>>, instances: Option<Arc<RwLock<BI>>>, commands: Option<Arc<RwLock<BC>>>) -> Self {
 		Self {
 			primitive_type,
 			vertices,
@@ -321,19 +321,19 @@ where
 
 	/// Upload staging buffers to GPU
 	pub fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
-		filter_no_staging_buffer(self.vertices.lock().unwrap().flush(cmdbuf))?;
-		if let Some(ref indices) = self.indices {filter_no_staging_buffer(indices.lock().unwrap().flush(cmdbuf))?;}
-		if let Some(ref instances) = self.instances {filter_no_staging_buffer(instances.lock().unwrap().flush(cmdbuf))?;}
-		if let Some(ref commands) = self.commands {filter_no_staging_buffer(commands.lock().unwrap().flush(cmdbuf))?;}
+		filter_no_staging_buffer(self.vertices.write().unwrap().flush(cmdbuf))?;
+		if let Some(ref indices) = self.indices {filter_no_staging_buffer(indices.write().unwrap().flush(cmdbuf))?;}
+		if let Some(ref instances) = self.instances {filter_no_staging_buffer(instances.write().unwrap().flush(cmdbuf))?;}
+		if let Some(ref commands) = self.commands {filter_no_staging_buffer(commands.write().unwrap().flush(cmdbuf))?;}
 		Ok(())
 	}
 
 	/// Discard staging buffers if the data will never be modified.
 	pub fn discard_staging_buffers(&self) {
-		self.vertices.lock().unwrap().discard_staging_buffer();
-		if let Some(ref indices) = self.indices {indices.lock().unwrap().discard_staging_buffer();}
-		if let Some(ref instances) = self.instances {instances.lock().unwrap().discard_staging_buffer();}
-		if let Some(ref commands) = self.commands {commands.lock().unwrap().discard_staging_buffer();}
+		self.vertices.write().unwrap().discard_staging_buffer();
+		if let Some(ref indices) = self.indices {indices.write().unwrap().discard_staging_buffer();}
+		if let Some(ref instances) = self.instances {instances.write().unwrap().discard_staging_buffer();}
+		if let Some(ref commands) = self.commands {commands.write().unwrap().discard_staging_buffer();}
 	}
 }
 
@@ -437,19 +437,20 @@ where
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
 	fn get_vk_vertex_buffer(&self) -> VkBuffer {
-		self.vertices.lock().unwrap().get_vk_buffer()
+		self.vertices.read().unwrap().get_vk_buffer()
 	}
 
 	fn get_vk_index_buffer(&self) -> Option<VkBuffer> {
-		self.indices.as_ref().map(|b|b.lock().unwrap().get_vk_buffer())
+		self.indices.as_ref().map(|b|b.read().unwrap().get_vk_buffer())
 	}
 
 	fn get_vk_instance_buffer(&self) -> Option<VkBuffer> {
-		self.instances.as_ref().map(|b|b.lock().unwrap().get_vk_buffer())
+		self.instances.as_ref().map(|b|b.read().unwrap().get_vk_buffer())
 	}
 
 	fn get_vk_command_buffer(&self) -> Option<VkBuffer> {
-		self.commands.as_ref().map(|b|b.lock().unwrap().get_vk_buffer())
+		self.commands.as_ref().map(|b|b.read().unwrap().get_vk_buffer())
+	}
 	}
 
 	fn get_primitive_type(&self) -> VkPrimitiveTopology {
@@ -457,12 +458,12 @@ where
 	}
 
 	fn get_vertex_count(&self) -> usize {
-		self.vertices.lock().unwrap().len()
+		self.vertices.read().unwrap().len()
 	}
 
 	fn get_index_count(&self) -> usize {
 		if let Some(indices) = &self.indices {
-			indices.lock().unwrap().len()
+			indices.read().unwrap().len()
 		} else {
 			0
 		}
@@ -470,7 +471,7 @@ where
 
 	fn get_instance_count(&self) -> usize {
 		if let Some(instances) = &self.instances {
-			instances.lock().unwrap().len()
+			instances.read().unwrap().len()
 		} else {
 			1
 		}
@@ -478,7 +479,7 @@ where
 
 	fn get_command_count(&self) -> usize {
 		if let Some(commands) = &self.commands {
-			commands.lock().unwrap().len()
+			commands.read().unwrap().len()
 		} else {
 			0
 		}
