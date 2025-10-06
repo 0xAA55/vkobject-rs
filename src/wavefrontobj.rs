@@ -121,6 +121,58 @@ impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + Parti
 pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Debug + 'static {}
 impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Debug + 'static {}
 
+#[derive(Default, Debug, Clone)]
+pub struct ObjIndexedVertices<F>
+where
+	F: ObjMeshVecCompType {
+	/// The `v` part of the VTN vertex
+	pub position: TVec3<F>,
+
+	/// The `vt` part of the VTN vertex
+	pub texcoord: Option<TVec3<F>>,
+
+	/// The `vn` part of the VTN vertex
+	pub normal: Option<TVec3<F>>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct ObjIndexedMesh<E>
+where
+	E: ObjMeshIndexType {
+	/// The object name
+	pub object_name: String,
+
+	/// The group name
+	pub group_name: String,
+
+	/// The material name
+	pub material_name: String,
+
+	/// The smooth group
+	pub smooth_group: i32,
+
+	/// The face indices
+	pub face_indices: Vec<(E, E, E)>,
+
+	/// The line indices
+	pub line_indices: Vec<Vec<E>>,
+}
+
+#[derive(Default, Debug, Clone)]
+pub struct ObjIndexedMeshSet<F, E>
+where
+	F: ObjMeshVecCompType,
+	E: ObjMeshIndexType {
+	/// The face vertices
+	pub face_vertices: Vec<ObjIndexedVertices<F>>,
+
+	/// The line vertices
+	pub line_vertices: Vec<TVec3<F>>,
+
+	/// The meshes
+	pub meshes: Vec<ObjIndexedMesh<E>>,
+}
+
 /// The material component
 #[derive(Clone)]
 pub enum ObjMaterialComponent {
