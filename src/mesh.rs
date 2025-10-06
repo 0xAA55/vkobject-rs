@@ -10,7 +10,7 @@ use std::{
 	path::Path,
 	ptr::{copy, null},
 	slice,
-	sync::{Arc, RwLock},
+	sync::{Arc, RwLock, RwLockWriteGuard},
 	vec::IntoIter,
 };
 use struct_iterable::Iterable;
@@ -948,7 +948,7 @@ where
 	pub meshset: BTreeMap<String, GenericMeshWithMaterial>,
 
 	/// The instance buffer of the meshset, modify this instance buffer equals to modify each meshes' instance buffer
-	pub instances: Option<Arc<RwLock<BufferVec<I>>>>,
+	instances: Option<Arc<RwLock<BufferVec<I>>>>,
 }
 
 impl<I> GenericMeshSet<I>
@@ -1058,5 +1058,10 @@ where
 			meshset,
 			instances,
 		})
+	}
+
+	/// Edit the instance buffer
+	pub fn edit_instances<'a>(&'a self) -> Option<RwLockWriteGuard<'a, BufferVec<I>>> {
+		self.instances.as_ref().map(|ib|ib.write().unwrap())
 	}
 }
