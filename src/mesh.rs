@@ -16,8 +16,8 @@ use std::{
 use struct_iterable::Iterable;
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecStructItem: Copy + Clone + Sized + Default + Debug + Iterable + Any + 'static {}
-impl<T> BufferVecStructItem for T where T: Copy + Clone + Sized + Default + Debug + Iterable + Any + 'static {}
+pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Debug + Iterable + Any + 'static {}
+impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Debug + Iterable + Any + 'static {}
 
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
@@ -941,32 +941,39 @@ impl GenericMeshWithMaterial {
 
 /// The mesh set
 #[derive(Debug, Clone)]
-pub struct GenericMeshSet {
+pub struct GenericMeshSet<I>
+where
+	I: BufferVecStructItem {
+	/// The meshset
 	pub meshset: BTreeMap<String, GenericMeshWithMaterial>,
+
+	/// The instance buffer of the meshset, modify this instance buffer equals to modify each meshes' instance buffer
+	pub instances: Option<Arc<RwLock<BufferVec<I>>>>,
 }
 
-impl GenericMeshSet {
+impl<I> GenericMeshSet<I>
+where
+	I: BufferVecStructItem {
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
-	pub fn create_meshset_from_obj_file<P, F, I>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer, instances: Option<&[I]>) -> Result<Self, VulkanError>
+	pub fn create_meshset_from_obj_file<P, F>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer, instances_data: Option<&[I]>) -> Result<Self, VulkanError>
 	where
 		P: AsRef<Path>,
 		F: ObjMeshVecCompType,
-		I: BufferVecStructItem,
 		f32: From<F>,
 		f64: From<F> {
 		let obj = ObjMesh::<F>::from_file(path)?;
-		Self::create_meshset_from_obj(device, &obj, cmdbuf, instances)
+		Self::create_meshset_from_obj(device, &obj, cmdbuf, instances_data)
 	}
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
-	pub fn create_meshset_from_obj<F, I>(device: Arc<VulkanDevice>, obj: &ObjMesh::<F>, cmdbuf: VkCommandBuffer, instances: Option<&[I]>) -> Result<Self, VulkanError>
+	pub fn create_meshset_from_obj<F>(device: Arc<VulkanDevice>, obj: &ObjMesh::<F>, cmdbuf: VkCommandBuffer, instances_data: Option<&[I]>) -> Result<Self, VulkanError>
 	where
 		F: ObjMeshVecCompType,
-		I: BufferVecStructItem,
 		f32: From<F>,
 		f64: From<F> {
 		let obj_mesh_set: ObjIndexedMeshSet<F, u32> = obj.convert_to_indexed_meshes()?;
 		let (pdim, tdim, ndim) = obj_mesh_set.get_vert_dims();
 		let template_mesh;
+		let instances;
 		macro_rules! vert_conv {
 			($type:ty, $src:ident) => {
 				{let vertices: Vec<$type> = $src.iter().map(|v|<$type>::from(*v)).collect(); vertices}
@@ -975,12 +982,12 @@ impl GenericMeshSet {
 		macro_rules! mesh_create {
 			($vb:ident) => {
 				{
-					let ib = if let Some(id) = instances {
+					instances = if let Some(id) = instances_data {
 						Some(Arc::new(RwLock::new(BufferVec::from(device.clone(), id, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?)))
 					} else {
 						None
 					};
-					let mesh: Box<dyn GenericMesh> = Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, Arc::new(RwLock::new($vb)), Option::<Arc::<RwLock::<BufferWithType::<u32>>>>::None, ib, buffer_unused()));
+					let mesh: Box<dyn GenericMesh> = Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, Arc::new(RwLock::new($vb)), Option::<Arc::<RwLock::<BufferWithType::<u32>>>>::None, instances.clone(), buffer_unused()));
 					mesh
 				}
 			}
@@ -1049,13 +1056,7 @@ impl GenericMeshSet {
 		}
 		Ok(Self {
 			meshset,
+			instances,
 		})
 	}
-}
-
-#[test]
-fn test_obj() {
-	let path = "assets/testobj/avocado.obj";
-	let obj = ObjMesh::<f32>::from_file(path).unwrap();
-	dbg!(&obj.materials);
 }
