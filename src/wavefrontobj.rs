@@ -1,6 +1,7 @@
 
 use std::{
 	any::Any,
+	cmp::max,
 	collections::{BTreeMap, BTreeSet, HashMap},
 	fmt::{self, Debug, Formatter},
 	fs::File,
@@ -503,6 +504,74 @@ where
 		4 => unsafe {*(&f as *const F as *const u32) == 0},
 		8 => unsafe {*(&f as *const F as *const u64) == 0},
 		o => panic!("Invalid primitive type of `<F>`, the size of this type is `{o}`"),
+	}
+}
+
+impl<F, E> ObjIndexedMeshSet<F, E>
+where
+	F: ObjMeshVecCompType,
+	E: ObjMeshIndexType {
+	/// Get the dimension data of vertex position, texcoord, normal
+	pub fn get_vert_dims(&self) -> (u32, u32, u32) {
+		let mut max_position = 0;
+		let mut max_texcoord = 0;
+		let mut max_normal = 0;
+		for vert in self.face_vertices.iter() {
+			match max_position {
+				0 => {
+					if !float_is_zero_restrict(vert.position.z) {max_position = max(max_position, 3)}
+					else if !float_is_zero_restrict(vert.position.y) {max_position = max(max_position, 2)}
+					else if !float_is_zero_restrict(vert.position.x) {max_position = max(max_position, 1)}
+				}
+				1 => {
+					if !float_is_zero_restrict(vert.position.z) {max_position = max(max_position, 3)}
+					else if !float_is_zero_restrict(vert.position.y) {max_position = max(max_position, 2)}
+				}
+				2 => {
+					if !float_is_zero_restrict(vert.position.z) {max_position = max(max_position, 3)}
+				}
+				_ => break,
+			}
+		}
+		for vert in self.face_vertices.iter() {
+			if let Some(texcoord) = vert.texcoord {
+				match max_texcoord {
+					0 => {
+						if !float_is_zero_restrict(texcoord.z) {max_texcoord = max(max_texcoord, 3)}
+						else if !float_is_zero_restrict(texcoord.y) {max_texcoord = max(max_texcoord, 2)}
+						else if !float_is_zero_restrict(texcoord.x) {max_texcoord = max(max_texcoord, 1)}
+					}
+					1 => {
+						if !float_is_zero_restrict(texcoord.z) {max_texcoord = max(max_texcoord, 3)}
+						else if !float_is_zero_restrict(texcoord.y) {max_texcoord = max(max_texcoord, 2)}
+					}
+					2 => {
+						if !float_is_zero_restrict(texcoord.z) {max_texcoord = max(max_texcoord, 3)}
+					}
+					_ => break,
+				}
+			}
+		}
+		for vert in self.face_vertices.iter() {
+			if let Some(normal) = vert.normal {
+				match max_normal {
+					0 => {
+						if !float_is_zero_restrict(normal.z) {max_normal = max(max_normal, 3)}
+						else if !float_is_zero_restrict(normal.y) {max_normal = max(max_normal, 2)}
+						else if !float_is_zero_restrict(normal.x) {max_normal = max(max_normal, 1)}
+					}
+					1 => {
+						if !float_is_zero_restrict(normal.z) {max_normal = max(max_normal, 3)}
+						else if !float_is_zero_restrict(normal.y) {max_normal = max(max_normal, 2)}
+					}
+					2 => {
+						if !float_is_zero_restrict(normal.z) {max_normal = max(max_normal, 3)}
+					}
+					_ => break,
+				}
+			}
+		}
+		(max_position, max_texcoord, max_normal)
 	}
 }
 
