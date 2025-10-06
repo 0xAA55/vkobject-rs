@@ -8,7 +8,9 @@ use std::{
 	marker::PhantomData,
 	mem::{size_of, size_of_val},
 	path::Path,
+	ptr::{copy, null},
 	sync::{Arc, Mutex},
+	slice,
 	vec::IntoIter,
 };
 use struct_iterable::Iterable;
@@ -77,19 +79,44 @@ where
 	}
 
 	/// Get data by an index
-	pub fn get_data(&mut self, index: usize) -> Option<T> {
+	pub fn get_item(&mut self, index: usize) -> Option<T> {
 		if let Some(ref mut staging_buffer) = self.buffer.staging_buffer {
-			let mut ret = T::default();
-			staging_buffer.get_data(&mut ret as *mut T as *mut c_void, (index * size_of::<T>()) as VkDeviceSize, size_of::<T>()).ok()?;
-			Some(ret)
+			if index >= staging_buffer.get_size() as usize / size_of::<T>() {
+				None
+			} else {
+				let mut ret = T::default();
+				staging_buffer.get_data(&mut ret as *mut T as *mut c_void, (index * size_of::<T>()) as VkDeviceSize, size_of::<T>()).ok()?;
+				Some(ret)
+			}
 		} else {
 			None
 		}
 	}
 
 	/// Set data
-	pub fn set_data(&mut self, index: usize, data: T) -> Result<(), VulkanError> {
+	pub fn set_item(&mut self, index: usize, data: T) -> Result<(), VulkanError> {
+		if index >= self.len() {
+			panic!("The index is {index}, and the size of the buffer is {}", self.len());
+		}
 		unsafe {self.buffer.set_staging_data(&data as *const T as *const c_void, (index * size_of::<T>()) as VkDeviceSize, size_of::<T>())}
+	}
+
+	/// Get all data
+	pub fn get_data(&self) -> Option<&[T]> {
+		if let Some(ref staging_buffer) = self.buffer.staging_buffer {
+			Some(unsafe {slice::from_raw_parts(staging_buffer.get_address() as *const T, self.len())})
+		} else {
+			None
+		}
+	}
+
+	/// Set all data
+	/// **NOTE** The buffer will be resized to the exact size of the data, causes the return value of `get_vk_buffer` to be changed to a new buffer.
+	pub fn set_data(&mut self, data: &[T]) -> Result<(), VulkanError> {
+		if self.len() != data.len() {
+			self.buffer = Buffer::new(self.buffer.device.clone(), size_of_val(data) as VkDeviceSize, Some(data.as_ptr() as *const c_void), self.buffer.usage)?;
+		}
+		unsafe {self.buffer.set_staging_data(data.as_ptr() as *const c_void, 0, size_of_val(data))}
 	}
 
 	/// Upload staging buffer data to buffer
@@ -119,6 +146,12 @@ where
 	T: BufferVecItem {
 	/// Must be able to get the `VkBuffer` handle
 	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Get the device
+	fn get_device(&self) -> Arc<VulkanDevice>;
+
+	/// Set data to be flushed
+	fn set_data(&mut self, data: &[T]) -> Result<(), VulkanError>;
 
 	/// Flush staging buffer data to GPU
 	fn flush(&mut self, _cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
@@ -154,6 +187,13 @@ where
 		self.get_device()
 	}
 
+	fn set_data(&mut self, data: &[T]) -> Result<(), VulkanError> {
+		self.resize(data.len(), T::default())?;
+		let s: &mut [T] = &mut self[..];
+		unsafe {copy(data.as_ptr(), s.as_mut_ptr(), s.len())};
+		Ok(())
+	}
+
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.flush(cmdbuf)
 	}
@@ -176,6 +216,14 @@ where
 	T: BufferVecItem {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
+	}
+
+	fn get_device(&self) -> Arc<VulkanDevice> {
+		self.get_device()
+	}
+
+	fn set_data(&mut self, data: &[T]) -> Result<(), VulkanError> {
+		self.set_data(data)
 	}
 
 	fn flush(&mut self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
