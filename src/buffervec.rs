@@ -122,6 +122,32 @@ where
 		Ok(())
 	}
 
+	/// Set data is modified or not
+	/// # Safety
+	///
+	/// This would change the behavior of how `flush` does to the data.
+	/// The data marked as modified will be uploaded to the device, while the data marked as unmodified maybe uploaded to the device, or not (skipped because the gap is long enough)
+	/// You are going to control which part of the data will be synchronized to the device, while you are not actually knowing if the data is really changed.
+	/// * `first_index`: Which part of the data you are going to mark.
+	/// * `length`: From the index, how many items you are going to mark.
+	/// * `flag`: The boolean value of the mark, `true` means the data is marked as changed and will be synchronized to the device after next `flush` was called, `false` means the data is unchanged and will not be synchronized to the device.
+	///
+	/// # Panic
+	/// Panic if the index and range is out of bounds
+	pub unsafe fn set_data_modified(&mut self, first_index: usize, length: usize, flag: bool) {
+		let last_index = first_index + length - 1;
+		if first_index >= self.num_items {
+			panic!("The `first_index` is {first_index} but the length of the `BufferVec` is {}", self.num_items);
+		}
+		if last_index >= self.num_items {
+			panic!("The last index is {last_index}, which is exceeded the length {}", self.num_items);
+		}
+		self.cache_modified |= flag;
+		for i in first_index..=last_index {
+			self.cache_modified_bitmap.set(i, flag);
+		}
+	}
+
 	/// Change the length
 	/// Forces the length of the vector to new_len.
 	///
