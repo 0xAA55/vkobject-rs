@@ -46,6 +46,8 @@ pub enum VulkanError {
 	ShaderInputLengthMismatch(String),
 	ShaderInputTypeUnsupported(String),
 	BadObjFile{line: usize, what: String},
+	MeshIndicesUnderflow,
+	MeshIndicesOverflow,
 }
 
 impl From<VkError> for VulkanError {
@@ -84,6 +86,8 @@ impl From<ObjError> for VulkanError {
 					what,
 				}
 			}
+			ObjError::MeshIndicesUnderflow => Self::MeshIndicesUnderflow,
+			ObjError::MeshIndicesOverflow => Self::MeshIndicesOverflow,
 		}
 	}
 }

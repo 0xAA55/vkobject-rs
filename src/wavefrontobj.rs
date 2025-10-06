@@ -17,6 +17,8 @@ use glm::*;
 pub enum ObjError {
 	ParseError{line: usize, what: String},
 	IOError{kind: ErrorKind, what: String},
+	MeshIndicesUnderflow,
+	MeshIndicesOverflow,
 }
 
 impl From<io::Error> for ObjError {
