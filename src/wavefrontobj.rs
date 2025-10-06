@@ -126,7 +126,7 @@ impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + Parti
 pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
 impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct ObjIndexedVertices<F>
 where
 	F: ObjMeshVecCompType {
