@@ -12,8 +12,8 @@ layout(std140, binding = 1) uniform v_object {
 	vec4 obj_specular;
 };
 
-layout(binding = 1) uniform sampler2D t_albedo;
-layout(binding = 2) uniform sampler2D t_normal;
+layout(binding = 2) uniform sampler2D t_albedo;
+layout(binding = 3) uniform sampler2D t_normal;
 
 // Input from previous stage shaders
 layout(location = 1) in vec2 texcoord;
