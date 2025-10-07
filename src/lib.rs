@@ -185,7 +185,7 @@ mod tests {
 	unsafe impl Sync for TestInstance {}
 
 	#[test]
-	fn test() {
+	fn basic_test() {
 		derive_vertex_type! {
 			pub struct VertexType {
 				pub position: Vec2,
