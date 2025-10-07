@@ -71,7 +71,7 @@ where
 
 	/// Create from a slice of data
 	pub fn from(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
-		let mut buffer = Buffer::new(device, data.len() as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
+		let mut buffer = Buffer::new(device, size_of_val(data) as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
 		buffer.upload_staging_buffer(cmdbuf, 0, size_of_val(data) as VkDeviceSize)?;
 		Ok(Self {
@@ -79,7 +79,7 @@ where
 			staging_buffer_data_address,
 			num_items: data.len(),
 			capacity: data.len(),
-			cache_modified_bitmap: BitVec::with_capacity(data.len()),
+			cache_modified_bitmap: {let mut bv = BitVec::with_capacity(data.len()); bv.push(false); bv},
 			cache_modified: false,
 			_phantom: PhantomData,
 		})
