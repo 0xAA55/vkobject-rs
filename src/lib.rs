@@ -186,8 +186,6 @@ mod tests {
 
 	#[test]
 	fn test() {
-		let mut inst = Box::new(TestInstance::new(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).unwrap());
-
 		derive_vertex_type! {
 			pub struct VertexType {
 				pub position: Vec2,
@@ -272,6 +270,7 @@ mod tests {
 			}
 		}
 
+		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed).unwrap());
 		let resources = Resources::new(&mut inst.ctx).unwrap();
 
 		inst.run(Some(TEST_TIME),
