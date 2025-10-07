@@ -122,19 +122,6 @@ mod tests {
 		pub num_frames: u64,
 	}
 
-	derive_vertex_type! {
-		pub struct VertexType {
-			pub position: Vec2,
-		}
-	}
-
-	derive_uniform_buffer_type! {
-		pub struct UniformInput {
-			resolution: Vec3,
-			time: f32,
-		}
-	}
-
 	impl TestInstance {
 		pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode) -> Result<Self, VulkanError> {
 			let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
@@ -201,6 +188,17 @@ mod tests {
 	fn test() {
 		let mut inst = Box::new(TestInstance::new(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).unwrap());
 
+		derive_vertex_type! {
+			pub struct VertexType {
+				pub position: Vec2,
+			}
+		}
+		derive_uniform_buffer_type! {
+			pub struct UniformInput {
+				resolution: Vec3,
+				time: f32,
+			}
+		}
 		struct Resources {
 			uniform_input: Arc<dyn GenericUniformBuffer>,
 			pipeline: Pipeline,
