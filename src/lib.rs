@@ -108,7 +108,7 @@ mod tests {
 		ffi::CStr,
 		path::PathBuf,
 		slice::from_raw_parts_mut,
-		sync::{Arc, RwLock},
+		sync::{Arc, Mutex, RwLock},
 	};
 
 	const TEST_TIME: f64 = 10.0;
@@ -124,9 +124,12 @@ mod tests {
 
 	impl TestInstance {
 		pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode) -> Result<Self, VulkanError> {
+			static GLFW_LOCK: Mutex<u32> = Mutex::new(0);
+			let glfw_lock = GLFW_LOCK.lock().unwrap();
 			let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 			glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
 			let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
+			drop(glfw_lock);
 			window.set_key_polling(true);
 			let ctx = create_vulkan_context(&window, PresentInterval::VSync, 1, false)?;
 			println!("{}", unsafe{CStr::from_ptr(ctx.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
