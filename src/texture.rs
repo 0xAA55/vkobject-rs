@@ -152,20 +152,23 @@ pub struct VulkanTexture {
 	/// The mipmap levels
 	mipmap_levels: u32,
 
+	/// The mipmap filter
+	mipmap_filter: VkFilter,
+
 	/// Is this texture ready to sample by shaders?
 	ready_to_sample: AtomicBool,
 }
 
 impl VulkanTexture {
 	/// Create the `VulkanTexture`
-	pub fn new(device: Arc<VulkanDevice>, type_size: VulkanTextureType, with_mipmap: bool, format: VkFormat, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
+	pub fn new(device: Arc<VulkanDevice>, type_size: VulkanTextureType, with_mipmap: Option<VkFilter>, format: VkFormat, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let vkphysicaldevice = device.get_vk_physical_device();
 		let extent = type_size.get_extent();
 		let dim = type_size.get_image_type();
 		let is_cube = type_size.is_cube();
-		let mipmap_levels = if with_mipmap {
+		let mipmap_levels = if with_mipmap.is_some() {
 			let mut levels = 0u32;
 			let mut size = max(max(extent.width, extent.height), extent.depth);
 			while size > 0 {
@@ -208,6 +211,7 @@ impl VulkanTexture {
 		let mut ret = Self::new_from_existing_image(device, *image, type_size, format)?;
 		ret.memory = Some(memory);
 		ret.mipmap_levels = mipmap_levels;
+		ret.mipmap_filter = with_mipmap.unwrap_or(VkFilter::VK_FILTER_LINEAR);
 		image.release();
 		ret.image_format_props = Some(image_format_props);
 		Ok(ret)
@@ -264,12 +268,13 @@ impl VulkanTexture {
 			memory: None,
 			staging_buffer: None,
 			mipmap_levels: 1,
+			mipmap_filter: VkFilter::VK_FILTER_LINEAR,
 			ready_to_sample: AtomicBool::new(false),
 		})
 	}
 
 	/// Create a texture from image right away
-	pub fn new_from_image<P, Container>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, image: &ImageBuffer<P, Container>, channel_is_normalized: bool, with_mipmap: bool, usage: VkImageUsageFlags) -> Result<Self, VulkanError>
+	pub fn new_from_image<P, Container>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, image: &ImageBuffer<P, Container>, channel_is_normalized: bool, with_mipmap: Option<VkFilter>, usage: VkImageUsageFlags) -> Result<Self, VulkanError>
 	where
 		P: Pixel,
 		Container: Deref<Target = [P::Subpixel]>,
@@ -401,7 +406,7 @@ impl VulkanTexture {
 	}
 
 	/// Create a texture from image loaded from file path right away
-	pub fn new_from_path<P: AsRef<Path>>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, path: P, channel_is_normalized: bool, with_mipmap: bool, gen_mipmap_filter: VkFilter, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
+	pub fn new_from_path<P: AsRef<Path>>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, path: P, channel_is_normalized: bool, with_mipmap: Option<VkFilter>, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
 		let image_data = read(&path)?;
 		let pb = PathBuf::from(path.as_ref());
 		let image = if pb.extension().and_then(OsStr::to_str).map(|s| {let s = s.to_lowercase(); s != "jpg" && s != "jpeg"}).unwrap_or(true) {
@@ -451,9 +456,6 @@ impl VulkanTexture {
 			});
 			Self::new_from_image(device, cmdbuf, &rgba_img, channel_is_normalized, with_mipmap, usage)
 		}?;
-		if with_mipmap {
-			image.generate_mipmaps(cmdbuf, gen_mipmap_filter)?;
-		}
 		Ok(image)
 	}
 
@@ -568,6 +570,9 @@ impl VulkanTexture {
 			};
 
 			self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &copy_region)?;
+			if self.mipmap_levels > 1 {
+				self.generate_mipmaps(cmdbuf)?;
+			}
 			Ok(())
 		} else {
 			Err(VulkanError::NoStagingBuffer)
@@ -627,6 +632,9 @@ impl VulkanTexture {
 			}).collect();
 
 			self.device.vkcore.vkCmdCopyBufferToImage(cmdbuf, staging_buffer.get_vk_buffer(), self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, copy_regions.len() as u32, copy_regions.as_ptr())?;
+			if self.mipmap_levels > 1 {
+				self.generate_mipmaps(cmdbuf)?;
+			}
 			Ok(())
 		} else {
 			Err(VulkanError::NoStagingBuffer)
@@ -669,7 +677,7 @@ impl VulkanTexture {
 	}
 
 	/// Generate mipmaps for the texture
-	pub fn generate_mipmaps(&self, cmdbuf: VkCommandBuffer, filter: VkFilter) -> Result<(), VulkanError> {
+	pub fn generate_mipmaps(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		let extent = self.type_size.get_extent();
 
 		let mut mip_width = extent.width;
