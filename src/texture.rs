@@ -132,7 +132,7 @@ pub struct VulkanTexture {
 	pub(crate) image_view: VkImageView,
 
 	/// The image format properties
-	pub image_format_props: VkImageFormatProperties,
+	pub image_format_props: Option<VkImageFormatProperties>,
 
 	/// The type and size of the texture
 	pub(crate) type_size: VulkanTextureType,
@@ -181,7 +181,7 @@ impl VulkanTexture {
 			arrayLayers: 1,
 			samples: VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
 			tiling: VkImageTiling::VK_IMAGE_TILING_OPTIMAL,
-			usage,
+			usage: usage | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as VkImageUsageFlags,
 			sharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
 			queueFamilyIndexCount: 0,
 			pQueueFamilyIndices: null(),
@@ -200,7 +200,7 @@ impl VulkanTexture {
 		ret.memory = Some(memory);
 		ret.mipmap_levels = mipmap_levels;
 		image.release();
-		ret.image_format_props = image_format_props;
+		ret.image_format_props = Some(image_format_props);
 		Ok(ret)
 	}
 
@@ -208,7 +208,6 @@ impl VulkanTexture {
 	pub(crate) fn new_from_existing_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
-		let image_format_props: VkImageFormatProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 		let image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			pNext: null(),
@@ -250,7 +249,7 @@ impl VulkanTexture {
 			device,
 			image,
 			image_view,
-			image_format_props,
+			image_format_props: None,
 			type_size,
 			format,
 			memory: None,
