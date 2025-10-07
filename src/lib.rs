@@ -235,7 +235,7 @@ mod tests {
 					},
 				];
 				let vertices = Arc::new(RwLock::new(BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?));
-				let mesh = Arc::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None));
+				let mesh = Arc::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), "", None));
 				mesh.geometry.flush(pool_in_use.cmdbuf)?;
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
