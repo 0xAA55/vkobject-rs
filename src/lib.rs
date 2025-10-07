@@ -108,7 +108,7 @@ mod tests {
 		ffi::CStr,
 		path::PathBuf,
 		slice::from_raw_parts_mut,
-		sync::{Arc, Mutex},
+		sync::{Arc, RwLock},
 	};
 
 	const TEST_TIME: f64 = 10.0;
@@ -231,7 +231,7 @@ mod tests {
 						position: Vec2::new( 1.0,  1.0),
 					},
 				];
-				let vertices = Arc::new(Mutex::new(BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?));
+				let vertices = Arc::new(RwLock::new(BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?));
 				let mesh = Arc::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None));
 				mesh.geometry.flush(pool_in_use.cmdbuf)?;
 				drop(pool_in_use);
