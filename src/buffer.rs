@@ -56,7 +56,7 @@ impl Buffer {
 	/// Create the staging buffer if not exist
 	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
 		if self.staging_buffer.is_none() {
-			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.memory.get_size())?);
+			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.buffer.get_size())?);
 		}
 		Ok(())
 	}
