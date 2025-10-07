@@ -131,6 +131,9 @@ pub struct VulkanTexture {
 	/// The image view
 	pub(crate) image_view: VkImageView,
 
+	/// The image format properties
+	pub image_format_props: VkImageFormatProperties,
+
 	/// The type and size of the texture
 	pub(crate) type_size: VulkanTextureType,
 
@@ -152,6 +155,7 @@ impl VulkanTexture {
 	pub fn new(device: Arc<VulkanDevice>, type_size: VulkanTextureType, with_mipmap: bool, format: VkFormat, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
+		let vkphysicaldevice = device.get_vk_physical_device();
 		let extent = type_size.get_extent();
 		let dim = type_size.get_image_type();
 		let is_cube = type_size.is_cube();
@@ -183,6 +187,8 @@ impl VulkanTexture {
 			pQueueFamilyIndices: null(),
 			initialLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
 		};
+		let mut image_format_props: VkImageFormatProperties = unsafe {MaybeUninit::zeroed().assume_init()};
+		vkcore.vkGetPhysicalDeviceImageFormatProperties(vkphysicaldevice, format, dim, image_ci.tiling, image_ci.usage, image_ci.flags, &mut image_format_props)?;
 		let mut image: VkImage = null();
 		vkcore.vkCreateImage(vkdevice, &image_ci, null(), &mut image)?;
 		let image = ResourceGuard::new(image, |&i|vkcore.clone().vkDestroyImage(vkdevice, i, null()).unwrap());
@@ -194,6 +200,7 @@ impl VulkanTexture {
 		ret.memory = Some(memory);
 		ret.mipmap_levels = mipmap_levels;
 		image.release();
+		ret.image_format_props = image_format_props;
 		Ok(ret)
 	}
 
@@ -201,6 +208,7 @@ impl VulkanTexture {
 	pub(crate) fn new_from_existing_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
+		let image_format_props: VkImageFormatProperties = unsafe {MaybeUninit::zeroed().assume_init()};
 		let image_view_ci = VkImageViewCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO,
 			pNext: null(),
@@ -242,6 +250,7 @@ impl VulkanTexture {
 			device,
 			image,
 			image_view,
+			image_format_props,
 			type_size,
 			format,
 			memory: None,
