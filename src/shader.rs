@@ -12,7 +12,7 @@ use std::{
 	path::PathBuf,
 	ptr::null,
 	slice::from_raw_parts,
-	sync::{Arc, RwLock, OnceLock},
+	sync::{Arc, OnceLock},
 };
 
 /// The optimization level for shaderc
@@ -803,7 +803,7 @@ use shader_analyzer::*;
 #[derive(Debug)]
 pub struct TextureForSample {
 	/// The texture
-	pub texture: Arc<RwLock<VulkanTexture>>,
+	pub texture: Arc<VulkanTexture>,
 
 	/// The sampler
 	pub sampler: Arc<VulkanSampler>,

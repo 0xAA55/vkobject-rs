@@ -13,6 +13,7 @@ use std::{
 	ptr::null,
 	sync::{
 		Arc,
+		RwLock,
 		atomic::{AtomicBool, Ordering},
 	},
 };
@@ -147,7 +148,7 @@ pub struct VulkanTexture {
 	pub(crate) memory: Option<VulkanMemory>,
 
 	/// The staging buffer for the texture
-	pub staging_buffer: Option<StagingBuffer>,
+	pub staging_buffer: RwLock<Option<StagingBuffer>>,
 
 	/// The mipmap levels
 	mipmap_levels: u32,
@@ -266,7 +267,7 @@ impl VulkanTexture {
 			type_size,
 			format,
 			memory: None,
-			staging_buffer: None,
+			staging_buffer: RwLock::new(None),
 			mipmap_levels: 1,
 			mipmap_filter: VkFilter::VK_FILTER_LINEAR,
 			ready_to_sample: AtomicBool::new(false),
@@ -389,7 +390,7 @@ impl VulkanTexture {
 			(4, 64, true, _, true) => VkFormat::VK_FORMAT_R64G64B64A64_SFLOAT,
 			_ => return Err(VulkanError::ImagePixelFormatNotSupported),
 		};
-		let mut ret = Self::new(device, VulkanTextureType::T2d(extent), with_mipmap, format, usage)?;
+		let ret = Self::new(device, VulkanTextureType::T2d(extent), with_mipmap, format, usage)?;
 		ret.set_staging_data(image.as_ptr() as *const c_void, 0, (bits / 8 * P::CHANNEL_COUNT) as usize * width as usize)?;
 		let offset = VkOffset3D {
 			x: 0,
@@ -472,33 +473,35 @@ impl VulkanTexture {
 	}
 
 	/// Create the staging buffer if it not exists
-	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
-		if self.staging_buffer.is_none() {
-			self.staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.get_size()?)?);
+	pub fn ensure_staging_buffer(&self) -> Result<(), VulkanError> {
+		let mut staging_buffer = self.staging_buffer.write().unwrap();
+		if staging_buffer.is_none() {
+			*staging_buffer = Some(StagingBuffer::new(self.device.clone(), self.get_size()?)?);
 		}
 		Ok(())
 	}
 
 	/// Get the data pointer of the staging buffer
-	pub fn get_staging_buffer_address(&mut self) -> Result<*mut c_void, VulkanError> {
+	pub fn get_staging_buffer_address(&self) -> Result<*mut c_void, VulkanError> {
 		self.ensure_staging_buffer()?;
-		Ok(self.staging_buffer.as_ref().unwrap().address)
+		Ok(self.staging_buffer.read().unwrap().as_ref().unwrap().address)
 	}
 
 	/// Discard the staging buffer to save memory
-	pub fn discard_staging_buffer(&mut self) {
-		self.staging_buffer = None;
+	pub fn discard_staging_buffer(&self) {
+		let mut staging_buffer = self.staging_buffer.write().unwrap();
+		*staging_buffer = None;
 	}
 
 	/// Update new data to the staging buffer
-	pub fn set_staging_data(&mut self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
+	pub fn set_staging_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
 		self.ensure_staging_buffer()?;
-		self.staging_buffer.as_mut().unwrap().set_data(data, offset, size)?;
+		self.staging_buffer.write().unwrap().as_mut().unwrap().set_data(data, offset, size)?;
 		Ok(())
 	}
 
 	/// Update new data to the staging buffer from a `RgbImage`
-	pub fn set_staging_data_from_image<P, Container>(&mut self, image: &ImageBuffer<P, Container>, z_layer: u32) -> Result<(), VulkanError>
+	pub fn set_staging_data_from_image<P, Container>(&self, image: &ImageBuffer<P, Container>, z_layer: u32) -> Result<(), VulkanError>
 	where
 		P: Pixel,
 		Container: Deref<Target = [P::Subpixel]> {
@@ -519,7 +522,8 @@ impl VulkanTexture {
 
 	/// Upload the staging buffer data to the texture
 	pub fn upload_staging_buffer(&self, cmdbuf: VkCommandBuffer, offset: &VkOffset3D, extent: &VkExtent3D) -> Result<(), VulkanError> {
-		if let Some(ref staging_buffer) = self.staging_buffer {
+		let staging_buffer_lock = self.staging_buffer.read().unwrap();
+		if let Some(ref staging_buffer) = *staging_buffer_lock {
 			let barrier = VkImageMemoryBarrier {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 				pNext: null(),
@@ -581,7 +585,8 @@ impl VulkanTexture {
 
 	/// Upload the staging buffer data to the texture
 	pub fn upload_staging_buffer_multi(&self, cmdbuf: VkCommandBuffer, regions: &[TextureRegion]) -> Result<(), VulkanError> {
-		if let Some(ref staging_buffer) = self.staging_buffer {
+		let staging_buffer_lock = self.staging_buffer.read().unwrap();
+		if let Some(ref staging_buffer) = *staging_buffer_lock {
 			let barrier = VkImageMemoryBarrier {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 				pNext: null(),

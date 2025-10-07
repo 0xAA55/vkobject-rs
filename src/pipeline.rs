@@ -347,7 +347,7 @@ impl WriteDescriptorSets {
 										for texture in textures.iter() {
 											self.image_info.push(VkDescriptorImageInfo {
 												sampler: texture.sampler.get_vk_sampler(),
-												imageView: texture.texture.read().unwrap().get_vk_image_view(),
+												imageView: texture.texture.get_vk_image_view(),
 												imageLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
 											});
 										}
