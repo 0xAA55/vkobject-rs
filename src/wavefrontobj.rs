@@ -291,7 +291,7 @@ where
 				let x = parts[0].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[0])})?;
 				let y = parts[1].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[1])})?;
 				let z = parts[2].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[2])})?;
-				normals.push(TVec3::new(x, y, z));
+				texcoords.push(TVec3::new(x, y, z));
 			} else if let Some(data) = line.strip_prefix("vn ") {
 				let value = data.trim();
 				let mut parts: Vec<&str> = value.split_whitespace().collect();
@@ -301,7 +301,7 @@ where
 				let x = parts[0].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[0])})?;
 				let y = parts[1].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[1])})?;
 				let z = parts[2].parse::<F>().ok().ok_or(ObjError::ParseError {line: line_number, what: format!("Could not parse `{}`", parts[2])})?;
-				texcoords.push(TVec3::new(x, y, z));
+				normals.push(TVec3::new(x, y, z));
 			} else if line.starts_with("f ") || line.starts_with("l ") {
 				let value = line["f ".len()..].trim();
 				let parts: Vec<&str> = value.split_whitespace().collect();
