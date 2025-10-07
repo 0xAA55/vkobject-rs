@@ -844,10 +844,14 @@ impl Debug for VulkanTexture {
 		f.debug_struct("VulkanTexture")
 		.field("image", &self.image)
 		.field("image_view", &self.image_view)
+		.field("image_format_props", &self.image_format_props)
 		.field("type_size", &self.type_size)
 		.field("format", &self.format)
 		.field("memory", &self.memory)
 		.field("staging_buffer", &self.staging_buffer)
+		.field("mipmap_levels", &self.mipmap_levels)
+		.field("mipmap_filter", &self.mipmap_filter)
+		.field("ready_to_sample", &self.ready_to_sample)
 		.finish()
 	}
 }
