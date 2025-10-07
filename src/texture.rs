@@ -394,10 +394,10 @@ impl VulkanTexture {
 	}
 
 	/// Create a texture from image loaded from file path right away
-	pub fn new_from_path<P: AsRef<Path>>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, path: P, channel_is_normalized: bool, with_mipmap: bool, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
+	pub fn new_from_path<P: AsRef<Path>>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, path: P, channel_is_normalized: bool, with_mipmap: bool, gen_mipmap_filter: VkFilter, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
 		let image_data = read(&path)?;
 		let pb = PathBuf::from(path.as_ref());
-		if pb.extension().and_then(OsStr::to_str).map(|s| {let s = s.to_lowercase(); s != "jpg" && s != "jpeg"}).unwrap_or(true) {
+		let image = if pb.extension().and_then(OsStr::to_str).map(|s| {let s = s.to_lowercase(); s != "jpg" && s != "jpeg"}).unwrap_or(true) {
 			use image::DynamicImage;
 			let img = image::ImageReader::new(Cursor::new(&image_data)).with_guessed_format()?.decode()?;
 			match img {
@@ -444,7 +444,10 @@ impl VulkanTexture {
 			});
 			Self::new_from_image(device, cmdbuf, &rgba_img, channel_is_normalized, with_mipmap, usage)
 		}?;
+		if with_mipmap {
+			image.generate_mipmaps(cmdbuf, gen_mipmap_filter)?;
 		}
+		Ok(image)
 	}
 
 	/// Get the size of the image

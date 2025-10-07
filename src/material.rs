@@ -19,7 +19,7 @@ impl MaterialComponent {
 	/// Convert an `ObjMaterialComponent` into `MaterialComponent`, the texture will be loaded after the command buffer is submitted. The load command will be issued immediately.
 	pub fn from_obj(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, obj_comp: &ObjMaterialComponent) -> Result<Self, VulkanError> {
 		match obj_comp {
-			ObjMaterialComponent::Texture(path) => Ok(MaterialComponent::Texture(Arc::new(VulkanTexture::new_from_path(device, cmdbuf, path, true, true, VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT as VkImageUsageFlags)?))),
+			ObjMaterialComponent::Texture(path) => Ok(MaterialComponent::Texture(Arc::new(VulkanTexture::new_from_path(device, cmdbuf, path, true, true, VkFilter::VK_FILTER_LINEAR, VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT as VkImageUsageFlags)?))),
 			ObjMaterialComponent::Color(color) => Ok(MaterialComponent::Color(*color)),
 			ObjMaterialComponent::Luminance(lum) => Ok(MaterialComponent::Luminance(*lum)),
 		}
