@@ -272,7 +272,128 @@ mod tests {
 
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed).unwrap());
 		let resources = Resources::new(&mut inst.ctx).unwrap();
+		inst.run(Some(TEST_TIME),
+		|ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+			resources.draw(ctx, run_time)
+		}).unwrap();
+	}
 
+	#[test]
+	fn avocado() {
+		derive_vertex_type! {
+			pub struct InstanceType {
+				pub transform: Mat4,
+			}
+		}
+		derive_uniform_buffer_type! {
+			pub struct UniformInputScene {
+				light_dir: Vec3,
+				light_color: Vec3,
+				view_matrix: Mat4,
+				proj_matrix: Mat4,
+			}
+		}
+		derive_uniform_buffer_type! {
+			pub struct UniformInputObject {
+				obj_color: Vec3,
+				obj_specular: Vec4,
+			}
+		}
+		struct Resources {
+			uniform_input_scene: Arc<dyn GenericUniformBuffer>,
+			uniform_input_object: Arc<dyn GenericUniformBuffer>,
+			object: GenericMeshSet<InstanceType>,
+			pipelines: HashMap<String, Pipeline>,
+		}
+
+		impl Resources {
+			pub fn new(ctx: &mut VulkanContext) -> Result<Self, VulkanError> {
+				let device = ctx.device.clone();
+				let draw_shaders = Arc::new(DrawShaders::new(
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/objdisp.vsh")), false, "main", OptimizationLevel::Performance, false)?),
+					None,
+					None,
+					None,
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/objdisp.fsh")), false, "main", OptimizationLevel::Performance, false)?),
+				));
+				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone())?);
+				let uniform_input_object: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputObject>::new(device.clone())?);
+				let desc_props_set_0: HashMap<u32, Arc<DescriptorProp>> = [
+					(0, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_scene.clone()]))),
+					(1, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_object.clone()]))),
+				].into_iter().collect();
+				let desc_props_sets: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, desc_props_set_0)].into_iter().collect();
+				let desc_props = Arc::new(DescriptorProps::new(desc_props_sets));
+				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
+				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
+				drop(pool_in_use);
+				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
+				object.discard_staging_buffers();
+				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
+				for (matname, mesh) in object.meshset.iter() {
+					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props.clone())?
+					.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
+					.set_depth_test(false)
+					.set_depth_write(false)
+					.build()?;
+					pipelines.insert(matname.clone(), pipeline);
+					dbg!(matname, mesh);
+				}
+				Ok(Self {
+					uniform_input_scene,
+					uniform_input_object,
+					object,
+					pipelines,
+				})
+			}
+
+			pub fn draw(&self, ctx: &mut VulkanContext, run_time: f64) -> Result<(), VulkanError> {
+				let scene = ctx.begin_scene(0, None)?;
+				let cmdbuf = scene.get_cmdbuf();
+				let extent = scene.get_rendertarget_extent();
+
+				let view_matrix = {
+					let eye = glm::vec3(0.0, 2.0, 5.0);
+					let center = glm::vec3(0.0, 0.0, 0.0);
+					let up = glm::vec3(0.0, 1.0, 0.0);
+					glm::look_at(&eye, &center, &up)
+				};
+
+				let proj_matrix = {
+					let fovy = pi::<f32>() / 3.0;
+					let aspect = extent.width as f32 / extent.height as f32;
+					perspective_rh_zo(fovy, aspect, 0.01, 1000.0)
+				};
+
+				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputScene, 1)};
+				ui_data[0] = UniformInputScene {
+					light_dir: normalize(&Vec3::new(0.2, -1.0, 0.2)),
+					light_color: Vec3::new(1.0, 1.0, 1.0),
+					view_matrix,
+					proj_matrix,
+				};
+				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputObject, 1)};
+				ui_data[0] = UniformInputObject {
+					obj_color: Vec3::new(1.0, 1.0, 1.0),
+					obj_specular: Vec4::new(0.0, 0.0, 0.0, 1.0),
+				};
+				self.uniform_input_scene.flush(cmdbuf)?;
+				self.uniform_input_object.flush(cmdbuf)?;
+
+				scene.set_viewport_swapchain(0.0, 1.0)?;
+				scene.set_scissor_swapchain()?;
+				for (matname, pipeline) in self.pipelines.iter() {
+					scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
+					pipeline.draw(cmdbuf)?;
+					scene.end_renderpass()?;
+				}
+				scene.finish();
+				Ok(())
+			}
+		}
+
+		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan avocado test", glfw::WindowMode::Windowed).unwrap());
+		let resources = Resources::new(&mut inst.ctx).unwrap();
 		inst.run(Some(TEST_TIME),
 		|ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
