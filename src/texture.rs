@@ -11,7 +11,10 @@ use std::{
 	ops::Deref,
 	path::{Path, PathBuf},
 	ptr::null,
-	sync::Arc,
+	sync::{
+		Arc,
+		atomic::{AtomicBool, Ordering},
+	},
 };
 use image::{
 	ImageBuffer,
@@ -148,6 +151,9 @@ pub struct VulkanTexture {
 
 	/// The mipmap levels
 	mipmap_levels: u32,
+
+	/// Is this texture ready to sample by shaders?
+	ready_to_sample: AtomicBool,
 }
 
 impl VulkanTexture {
@@ -258,6 +264,7 @@ impl VulkanTexture {
 			memory: None,
 			staging_buffer: None,
 			mipmap_levels: 1,
+			ready_to_sample: AtomicBool::new(false),
 		})
 	}
 
@@ -511,6 +518,36 @@ impl VulkanTexture {
 	/// Upload the staging buffer data to the texture
 	pub fn upload_staging_buffer(&self, cmdbuf: VkCommandBuffer, offset: &VkOffset3D, extent: &VkExtent3D) -> Result<(), VulkanError> {
 		if let Some(ref staging_buffer) = self.staging_buffer {
+			let barrier = VkImageMemoryBarrier {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				pNext: null(),
+				srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags,
+				dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+				oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+				newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				image: self.image,
+				subresourceRange: VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					baseMipLevel: 0,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+			};
+
+			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier
+			)?;
+
+			self.ready_to_sample.store(false, Ordering::Relaxed);
+
 			let copy_region = VkBufferImageCopy {
 				bufferOffset: 0,
 				bufferRowLength: 0,
@@ -540,6 +577,36 @@ impl VulkanTexture {
 	/// Upload the staging buffer data to the texture
 	pub fn upload_staging_buffer_multi(&self, cmdbuf: VkCommandBuffer, regions: &[TextureRegion]) -> Result<(), VulkanError> {
 		if let Some(ref staging_buffer) = self.staging_buffer {
+			let barrier = VkImageMemoryBarrier {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				pNext: null(),
+				srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags,
+				dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+				oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+				newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				image: self.image,
+				subresourceRange: VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					baseMipLevel: 0,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+			};
+
+			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier
+			)?;
+
+			self.ready_to_sample.store(false, Ordering::Relaxed);
+
 			let copy_regions: Vec<VkBufferImageCopy> = regions.iter().map(|r| VkBufferImageCopy {
 				bufferOffset: 0,
 				bufferRowLength: 0,
@@ -603,25 +670,6 @@ impl VulkanTexture {
 
 	/// Generate mipmaps for the texture
 	pub fn generate_mipmaps(&self, cmdbuf: VkCommandBuffer, filter: VkFilter) -> Result<(), VulkanError> {
-		let mut barrier = VkImageMemoryBarrier {
-			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
-			pNext: null(),
-			srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
-			dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags,
-			oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
-			newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
-			srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
-			dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
-			image: self.image,
-			subresourceRange: VkImageSubresourceRange {
-				aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
-				baseMipLevel: 0,
-				levelCount: 1,
-				baseArrayLayer: 0,
-				layerCount: 1,
-			},
-		};
-
 		let extent = self.type_size.get_extent();
 
 		let mut mip_width = extent.width;
@@ -629,11 +677,43 @@ impl VulkanTexture {
 		let mut mip_depth = extent.depth;
 
 		for i in 1..self.mipmap_levels {
-			barrier.subresourceRange.baseMipLevel = i - 1;
-			barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-			barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags;
-			barrier.dstAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags;
+			let barrier_base = VkImageMemoryBarrier {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				pNext: null(),
+				srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+				dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags,
+				oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+				newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
+				srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				image: self.image,
+				subresourceRange: VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					baseMipLevel: i - 1,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+			};
+
+			let barrier_curr = VkImageMemoryBarrier {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				pNext: null(),
+				srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags,
+				dstAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+				oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+				newLayout: VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+				srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				image: self.image,
+				subresourceRange: VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					baseMipLevel: i,
+					levelCount: 1,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+			};
 
 			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
 				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
@@ -641,7 +721,16 @@ impl VulkanTexture {
 				0,
 				0, null(),
 				0, null(),
-				1, &barrier
+				1, &barrier_base
+			)?;
+
+			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
+				0,
+				0, null(),
+				0, null(),
+				1, &barrier_curr
 			)?;
 
 			let next_mip_width = max(mip_width / 2, 1);
@@ -691,13 +780,39 @@ impl VulkanTexture {
 				self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL,
 				self.image, VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
 				1, &blit,
-				filter
+				self.mipmap_filter
 			)?;
 
-			barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-			barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-			barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_READ_BIT as VkAccessFlags;
-			barrier.dstAccessMask = VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT as VkAccessFlags;
+			mip_width = next_mip_width;
+			mip_height = next_mip_height;
+			mip_depth = next_mip_depth;
+		}
+
+		self.ready_to_sample.store(false, Ordering::Relaxed);
+		Ok(())
+	}
+
+	/// Make this texture ready to be sampled by shaders
+	pub fn prepare_for_sample(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		if self.ready_to_sample.load(Ordering::Relaxed) == false {
+			let barrier = VkImageMemoryBarrier {
+				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
+				pNext: null(),
+				srcAccessMask: VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags,
+				dstAccessMask: VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT as VkAccessFlags,
+				oldLayout: VkImageLayout::VK_IMAGE_LAYOUT_UNDEFINED,
+				newLayout: VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL,
+				srcQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				dstQueueFamilyIndex: VK_QUEUE_FAMILY_IGNORED,
+				image: self.image,
+				subresourceRange: VkImageSubresourceRange {
+					aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
+					baseMipLevel: 0,
+					levelCount: self.mipmap_levels,
+					baseArrayLayer: 0,
+					layerCount: 1,
+				},
+			};
 
 			self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
 				VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
@@ -707,26 +822,8 @@ impl VulkanTexture {
 				0, null(),
 				1, &barrier
 			)?;
-
-			mip_width = next_mip_width;
-			mip_height = next_mip_height;
-			mip_depth = next_mip_depth;
+			self.ready_to_sample.store(true, Ordering::Relaxed);
 		}
-
-		barrier.subresourceRange.baseMipLevel = self.mipmap_levels - 1;
-		barrier.oldLayout = VkImageLayout::VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL;
-		barrier.newLayout = VkImageLayout::VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
-		barrier.srcAccessMask = VkAccessFlagBits::VK_ACCESS_TRANSFER_WRITE_BIT as VkAccessFlags;
-		barrier.dstAccessMask = VkAccessFlagBits::VK_ACCESS_SHADER_READ_BIT as VkAccessFlags;
-
-		self.device.vkcore.vkCmdPipelineBarrier(cmdbuf,
-			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_TRANSFER_BIT as VkPipelineStageFlags,
-			VkPipelineStageFlagBits::VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT as VkPipelineStageFlags,
-			0,
-			0, null(),
-			0, null(),
-			1, &barrier
-		)?;
 		Ok(())
 	}
 }
