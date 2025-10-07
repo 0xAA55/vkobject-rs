@@ -937,6 +937,11 @@ impl GenericMeshWithMaterial {
 			material,
 		}
 	}
+
+	/// Discard staging buffers for the mesh
+	pub fn discard_staging_buffers(&self) {
+		self.geometry.discard_staging_buffers();
+	}
 }
 
 /// The mesh set
@@ -1063,5 +1068,12 @@ where
 	/// Edit the instance buffer
 	pub fn edit_instances<'a>(&'a self) -> Option<RwLockWriteGuard<'a, BufferVec<I>>> {
 		self.instances.as_ref().map(|ib|ib.write().unwrap())
+	}
+
+	/// Discard staging buffers for all meshes
+	pub fn discard_staging_buffers(&self) {
+		for mesh in self.meshset.values() {
+			mesh.discard_staging_buffers();
+		}
 	}
 }
