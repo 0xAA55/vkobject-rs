@@ -596,7 +596,7 @@ impl VulkanTexture {
 	}
 
 	/// Generate mipmaps for the texture
-	pub fn generate_mipmaps(&mut self, cmdbuf: VkCommandBuffer, filter: VkFilter) -> Result<(), VulkanError> {
+	pub fn generate_mipmaps(&self, cmdbuf: VkCommandBuffer, filter: VkFilter) -> Result<(), VulkanError> {
 		let mut barrier = VkImageMemoryBarrier {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			pNext: null(),
