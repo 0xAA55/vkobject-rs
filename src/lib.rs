@@ -105,6 +105,7 @@ mod tests {
 	use crate::prelude::*;
 	use std::{
 		collections::HashMap,
+		ffi::CStr,
 		path::PathBuf,
 		slice::from_raw_parts_mut,
 		sync::{Arc, Mutex},
@@ -141,6 +142,8 @@ mod tests {
 			let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
 			window.set_key_polling(true);
 			let ctx = create_vulkan_context(&window, PresentInterval::VSync, 1, false)?;
+			println!("{}", unsafe{CStr::from_ptr(ctx.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
+			println!("{:?}", ctx.device.get_gpu().properties.deviceType);
 			Ok(Self {
 				glfw,
 				window,
