@@ -955,7 +955,7 @@ impl<I> GenericMeshSet<I>
 where
 	I: BufferVecStructItem {
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
-	pub fn create_meshset_from_obj_file<P, F>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer, instances_data: Option<&[I]>) -> Result<Self, VulkanError>
+	pub fn create_meshset_from_obj_file<F, P>(device: Arc<VulkanDevice>, path: P, cmdbuf: VkCommandBuffer, instances_data: Option<&[I]>) -> Result<Self, VulkanError>
 	where
 		P: AsRef<Path>,
 		F: ObjMeshVecCompType,
