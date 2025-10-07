@@ -10,7 +10,7 @@ use std::{
 	mem::{MaybeUninit, size_of},
 	ops::Deref,
 	path::{Path, PathBuf},
-	ptr::{copy, null},
+	ptr::null,
 	sync::Arc,
 };
 use image::{
@@ -375,7 +375,7 @@ impl VulkanTexture {
 			_ => return Err(VulkanError::ImagePixelFormatNotSupported),
 		};
 		let mut ret = Self::new(device, VulkanTextureType::T2d(extent), with_mipmap, format, usage)?;
-		unsafe {ret.set_staging_data_from_compact_pixels(0, image.as_ptr() as *const c_void, (bits / 8 * P::CHANNEL_COUNT) as usize * width as usize, height)?};
+		ret.set_staging_data(image.as_ptr() as *const c_void, 0, (bits / 8 * P::CHANNEL_COUNT) as usize * width as usize)?;
 		let offset = VkOffset3D {
 			x: 0,
 			y: 0,
@@ -423,18 +423,6 @@ impl VulkanTexture {
 		Ok(mem_reqs.size)
 	}
 
-	/// Get the pitch, the bytes per row of the texture
-	pub fn get_pitch(&self) -> Result<usize, VulkanError> {
-		let subresource = VkImageSubresource {
-			aspectMask: VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags,
-			mipLevel: 0,
-			arrayLayer: 0,
-		};
-		let mut layout = unsafe {MaybeUninit::zeroed().assume_init()};
-		self.device.vkcore.vkGetImageSubresourceLayout(self.device.get_vk_device(), self.image, &subresource, &mut layout)?;
-		Ok(layout.rowPitch as usize)
-	}
-
 	/// Get the mipmap levels
 	pub fn get_mipmap_levels(&self) -> u32 {
 		self.mipmap_levels
@@ -466,30 +454,6 @@ impl VulkanTexture {
 		Ok(())
 	}
 
-	/// Copy image data from a compactly packed pixels to the 32-bit aligned staging buffer
-	///
-	/// # Safety
-	///
-	/// This function is unsafe due to these factors:
-	/// * The purpose of `offset` is for modifying each layer of the 3D texture, and is unchecked.
-	/// * The `src_stride` is unchecked. The caller calculates the stride.
-	/// * The `num_rows` is unchecked.
-	pub unsafe fn set_staging_data_from_compact_pixels(&mut self, offset: usize, src_ptr: *const c_void, src_stride: usize, num_rows: u32) -> Result<(), VulkanError> {
-		let pitch = self.get_pitch()?;
-		let target_address = (self.get_staging_buffer_address()? as *mut u8).wrapping_add(offset);
-		let source_address = src_ptr as *const u8;
-		if pitch == src_stride {
-			unsafe {copy(source_address, target_address, src_stride * num_rows as usize)};
-		} else {
-			for y in 0..num_rows {
-				let src_offset = y as usize * src_stride;
-				let dst_offset = y as usize * pitch;
-				unsafe {copy(source_address.wrapping_add(src_offset), target_address.wrapping_add(dst_offset), src_stride)};
-			}
-		}
-		Ok(())
-	}
-
 	/// Update new data to the staging buffer from a `RgbImage`
 	pub fn set_staging_data_from_image<P, Container>(&mut self, image: &ImageBuffer<P, Container>, z_layer: u32) -> Result<(), VulkanError>
 	where
@@ -507,11 +471,7 @@ impl VulkanTexture {
 		}
 		let layer_offset = z_layer as usize * image_size;
 		let image_address = image.as_ptr() as *const c_void;
-		if row_byte_count == self.get_pitch()? {
-			self.set_staging_data(image_address, layer_offset as u64, image_size)
-		} else {
-			unsafe {self.set_staging_data_from_compact_pixels(layer_offset, image_address, row_byte_count, height)}
-		}
+		self.set_staging_data(image_address, layer_offset as u64, image_size)
 	}
 
 	/// Upload the staging buffer data to the texture
