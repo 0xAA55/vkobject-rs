@@ -37,7 +37,7 @@ impl VulkanSwapchainImage {
 		let depth_stencil = Arc::new(VulkanTexture::new(
 			device.clone(),
 			VulkanTextureType::DepthStencil(*extent),
-			false,
+			None,
 			depth_stencil_format,
 			VkImageUsageFlagBits::VK_IMAGE_USAGE_DEPTH_STENCIL_ATTACHMENT_BIT as VkImageUsageFlags |
 			VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as VkImageUsageFlags
