@@ -181,7 +181,10 @@ impl VulkanTexture {
 			arrayLayers: 1,
 			samples: VkSampleCountFlagBits::VK_SAMPLE_COUNT_1_BIT,
 			tiling: VkImageTiling::VK_IMAGE_TILING_OPTIMAL,
-			usage: usage | VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT as VkImageUsageFlags,
+			usage: usage | VkImageUsageFlagBits::combine(&[
+				VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+				VkImageUsageFlagBits::VK_IMAGE_USAGE_TRANSFER_DST_BIT
+			]),
 			sharingMode: VkSharingMode::VK_SHARING_MODE_EXCLUSIVE,
 			queueFamilyIndexCount: 0,
 			pQueueFamilyIndices: null(),
