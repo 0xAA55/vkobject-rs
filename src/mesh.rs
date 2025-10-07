@@ -925,15 +925,19 @@ pub struct GenericMeshWithMaterial {
 	/// The mesh
 	pub geometry: Arc<dyn GenericMesh>,
 
+	/// The name of the material
+	pub material_name: String,
+
 	/// The material
 	pub material: Option<Arc<dyn Material>>,
 }
 
 impl GenericMeshWithMaterial {
 	/// Create an instance for the `GenericMeshWithMaterial`
-	pub fn new(geometry: Arc<dyn GenericMesh>, material: Option<Arc<dyn Material>>) -> Self {
+	pub fn new(geometry: Arc<dyn GenericMesh>, material_name: &str, material: Option<Arc<dyn Material>>) -> Self {
 		Self {
 			geometry,
+			material_name: material_name.to_string(),
 			material,
 		}
 	}
@@ -969,6 +973,7 @@ where
 		let obj = ObjMesh::<F>::from_file(path)?;
 		Self::create_meshset_from_obj(device, &obj, cmdbuf, instances_data)
 	}
+
 	/// Load the `obj` file and create the meshset, all the materials were also loaded.
 	pub fn create_meshset_from_obj<F>(device: Arc<VulkanDevice>, obj: &ObjMesh::<F>, cmdbuf: VkCommandBuffer, instances_data: Option<&[I]>) -> Result<Self, VulkanError>
 	where
@@ -1054,10 +1059,7 @@ where
 			}
 			mesh.create_index_buffer(indices.as_ptr() as *const c_void, size_of_val(&indices))?;
 			mesh.flush(cmdbuf)?;
-			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), Arc::new(GenericMeshWithMaterial{
-				geometry: Arc::from(mesh),
-				material: materials.get(material_name).cloned(),
-			}));
+			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), Arc::new(GenericMeshWithMaterial::new(Arc::from(mesh), &material_name, materials.get(material_name).cloned())));
 		}
 		Ok(Self {
 			meshset,
