@@ -945,7 +945,7 @@ pub struct GenericMeshSet<I>
 where
 	I: BufferVecStructItem {
 	/// The meshset
-	pub meshset: BTreeMap<String, GenericMeshWithMaterial>,
+	pub meshset: BTreeMap<String, Arc<GenericMeshWithMaterial>>,
 
 	/// The instance buffer of the meshset, modify this instance buffer equals to modify each meshes' instance buffer
 	instances: Option<Arc<RwLock<BufferVec<I>>>>,
@@ -1049,10 +1049,10 @@ where
 			}
 			mesh.create_index_buffer(indices.as_ptr() as *const c_void, size_of_val(&indices))?;
 			mesh.flush(cmdbuf)?;
-			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), GenericMeshWithMaterial{
+			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), Arc::new(GenericMeshWithMaterial{
 				geometry: Arc::from(mesh),
 				material: materials.get(material_name).cloned(),
-			});
+			}));
 		}
 		Ok(Self {
 			meshset,
