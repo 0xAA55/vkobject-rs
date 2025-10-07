@@ -400,19 +400,47 @@ impl VulkanTexture {
 			match img {
 				DynamicImage::ImageLuma8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
 				DynamicImage::ImageLumaA8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgb8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgba8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
 				DynamicImage::ImageLuma16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
 				DynamicImage::ImageLumaA16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgb16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
 				DynamicImage::ImageRgba16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgb32F(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
 				DynamicImage::ImageRgba32F(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgb8(img) => {
+					use image::{Rgba, RgbaImage};
+					let rgba_img: RgbaImage = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
+						let pixel = img.get_pixel(x, y);
+						Rgba([pixel[0], pixel[1], pixel[2], 255])
+					});
+					Self::new_from_image(device, cmdbuf, &rgba_img, channel_is_normalized, with_mipmap, usage)
+				}
+				DynamicImage::ImageRgb16(img) => {
+					use image::Rgba;
+					type Rgba16Image = ImageBuffer<Rgba<u16>, Vec<u16>>;
+					let rgba_img: Rgba16Image = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
+						let pixel = img.get_pixel(x, y);
+						Rgba([pixel[0], pixel[1], pixel[2], 65535])
+					});
+					Self::new_from_image(device, cmdbuf, &rgba_img, channel_is_normalized, with_mipmap, usage)
+				}
+				DynamicImage::ImageRgb32F(img) => {
+					use image::{Rgba, Rgba32FImage};
+					let rgba_img: Rgba32FImage = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
+						let pixel = img.get_pixel(x, y);
+						Rgba([pixel[0], pixel[1], pixel[2], 1.0])
+					});
+					Self::new_from_image(device, cmdbuf, &rgba_img, channel_is_normalized, with_mipmap, usage)
+				}
 				_ => Err(VulkanError::LoadImageFailed(format!("Unknown image type: {img:?}")))
 			}
 		} else {
+			use image::{Rgba, RgbaImage};
 			let img: image::RgbImage = turbojpeg::decompress_image(&image_data).unwrap();
-			Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage)
+			let rgba_img: RgbaImage = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
+				let pixel = img.get_pixel(x, y);
+				Rgba([pixel[0], pixel[1], pixel[2], 255])
+			});
+			Self::new_from_image(device, cmdbuf, &rgba_img, channel_is_normalized, with_mipmap, usage)
+		}?;
 		}
 	}
 
