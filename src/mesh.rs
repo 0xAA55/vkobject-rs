@@ -1062,7 +1062,7 @@ where
 			}
 			mesh.create_index_buffer(indices.as_ptr() as *const c_void, indices.len() * size_of::<u32>())?;
 			mesh.flush(cmdbuf)?;
-			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), Arc::new(GenericMeshWithMaterial::new(Arc::from(mesh), &material_name, materials.get(material_name).cloned())));
+			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), Arc::new(GenericMeshWithMaterial::new(Arc::from(mesh), material_name, materials.get(material_name).cloned())));
 		}
 		Ok(Self {
 			meshset,
