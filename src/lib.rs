@@ -388,7 +388,7 @@ mod tests {
 				let proj_matrix = {
 					let fovy = pi::<f32>() / 3.0;
 					let aspect = extent.width as f32 / extent.height as f32;
-					perspective_rh_zo(fovy, aspect, 0.01, 1000.0)
+					perspective_rh_zo(fovy, aspect, 0.1, 1000.0)
 				};
 
 				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputScene, 1)};
