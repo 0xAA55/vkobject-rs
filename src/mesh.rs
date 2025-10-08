@@ -643,90 +643,102 @@ pub struct ObjParseError {
 	pub message: String,
 }
 
-/// The struct for OBJ vertices with position data only
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionOnly {
-	pub position: Vec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data only
+	pub struct ObjVertPositionOnly {
+		pub position: Vec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data and normal data
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionNormal {
-	pub position: Vec3,
-	pub normal: Vec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data and normal data
+	pub struct ObjVertPositionNormal {
+		pub position: Vec3,
+		pub normal: Vec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data and and texcoord data (2D)
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord2D {
-	pub position: Vec3,
-	pub texcoord: Vec2,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data and and texcoord data (2D)
+	pub struct ObjVertPositionTexcoord2D {
+		pub position: Vec3,
+		pub texcoord: Vec2,
+	}
 }
 
-/// The struct for OBJ vertices with position data and texcoord data (3D)
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord3D {
-	pub position: Vec3,
-	pub texcoord: Vec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data and texcoord data (3D)
+	pub struct ObjVertPositionTexcoord3D {
+		pub position: Vec3,
+		pub texcoord: Vec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord2DNormal {
-	pub position: Vec3,
-	pub texcoord: Vec2,
-	pub normal: Vec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
+	pub struct ObjVertPositionTexcoord2DNormal {
+		pub position: Vec3,
+		pub texcoord: Vec2,
+		pub normal: Vec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord3DNormal {
-	pub position: Vec3,
-	pub texcoord: Vec3,
-	pub normal: Vec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
+	pub struct ObjVertPositionTexcoord3DNormal {
+		pub position: Vec3,
+		pub texcoord: Vec3,
+		pub normal: Vec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data only
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionOnlyDouble {
-	pub position: DVec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data only
+	pub struct ObjVertPositionOnlyDouble {
+		pub position: DVec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data and normal data
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionNormalDouble {
-	pub position: DVec3,
-	pub normal: DVec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data and normal data
+	pub struct ObjVertPositionNormalDouble {
+		pub position: DVec3,
+		pub normal: DVec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data and and texcoord data (2D)
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord2DDouble {
-	pub position: DVec3,
-	pub texcoord: DVec2,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data and and texcoord data (2D)
+	pub struct ObjVertPositionTexcoord2DDouble {
+		pub position: DVec3,
+		pub texcoord: DVec2,
+	}
 }
 
-/// The struct for OBJ vertices with position data and texcoord data (3D)
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord3DDouble {
-	pub position: DVec3,
-	pub texcoord: DVec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data and texcoord data (3D)
+	pub struct ObjVertPositionTexcoord3DDouble {
+		pub position: DVec3,
+		pub texcoord: DVec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord2DNormalDouble {
-	pub position: DVec3,
-	pub texcoord: DVec2,
-	pub normal: DVec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
+	pub struct ObjVertPositionTexcoord2DNormalDouble {
+		pub position: DVec3,
+		pub texcoord: DVec2,
+		pub normal: DVec3,
+	}
 }
 
-/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
-#[derive(Iterable, Default, Debug, Clone, Copy)]
-pub struct ObjVertPositionTexcoord3DNormalDouble {
-	pub position: DVec3,
-	pub texcoord: DVec3,
-	pub normal: DVec3,
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
+	pub struct ObjVertPositionTexcoord3DNormalDouble {
+		pub position: DVec3,
+		pub texcoord: DVec3,
+		pub normal: DVec3,
+	}
 }
 
 impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionOnly
