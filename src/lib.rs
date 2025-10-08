@@ -290,21 +290,18 @@ mod tests {
 		}
 		derive_uniform_buffer_type! {
 			pub struct UniformInputScene {
-				light_dir: Vec3,
-				light_color: Vec3,
 				view_matrix: Mat4,
 				proj_matrix: Mat4,
-			}
-		}
-		derive_uniform_buffer_type! {
-			pub struct UniformInputObject {
-				obj_color: Vec3,
-				obj_specular: Vec4,
+				light_dir: Vec3,
+				_pad1: f32,
+				light_color: Vec3,
+				_pad2: f32,
+				ambient_color: Vec3,
+				_pad3: f32,
 			}
 		}
 		struct Resources {
 			uniform_input_scene: Arc<dyn GenericUniformBuffer>,
-			uniform_input_object: Arc<dyn GenericUniformBuffer>,
 			object: GenericMeshSet<InstanceType>,
 			pipelines: HashMap<String, Pipeline>,
 		}
@@ -322,10 +319,8 @@ mod tests {
 				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
 				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
 				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone())?);
-				let uniform_input_object: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputObject>::new(device.clone())?);
 				let mut desc_props_set_0: HashMap<u32, Arc<DescriptorProp>> = [
 					(0, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_scene.clone()]))),
-					(1, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_object.clone()]))),
 				].into_iter().collect();
 				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
 				for mesh in object.meshset.values() {
@@ -337,7 +332,7 @@ mod tests {
 									texture: texture.clone(),
 									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
 								};
-								desc_props_set_0.insert(2, Arc::new(DescriptorProp::Images(vec![texture_input_albedo])));
+								desc_props_set_0.insert(1, Arc::new(DescriptorProp::Images(vec![texture_input_albedo])));
 							}
 						}
 						if let Some(normal) = material.get_normal() {
@@ -347,7 +342,7 @@ mod tests {
 									texture: texture.clone(),
 									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
 								};
-								desc_props_set_0.insert(3, Arc::new(DescriptorProp::Images(vec![texture_input_normal])));
+								desc_props_set_0.insert(2, Arc::new(DescriptorProp::Images(vec![texture_input_normal])));
 							}
 						}
 					}
@@ -367,7 +362,6 @@ mod tests {
 				}
 				Ok(Self {
 					uniform_input_scene,
-					uniform_input_object,
 					object,
 					pipelines,
 				})
@@ -392,19 +386,12 @@ mod tests {
 				};
 
 				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputScene, 1)};
-				ui_data[0] = UniformInputScene {
-					light_dir: normalize(&Vec3::new(0.2, -1.0, 0.2)),
-					light_color: Vec3::new(1.0, 1.0, 1.0),
-					view_matrix,
-					proj_matrix,
-				};
-				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputObject, 1)};
-				ui_data[0] = UniformInputObject {
-					obj_color: Vec3::new(1.0, 1.0, 1.0),
-					obj_specular: Vec4::new(0.0, 0.0, 0.0, 1.0),
-				};
+				ui_data[0].view_matrix = view_matrix;
+				ui_data[0].proj_matrix = proj_matrix;
+				ui_data[0].light_dir = normalize(&Vec3::new(0.2, -1.0, 0.2));
+				ui_data[0].light_color = Vec3::new(1.0, 1.0, 1.0);
+				ui_data[0].ambient_color = Vec3::new(0.2, 0.2, 0.2);
 				self.uniform_input_scene.flush(cmdbuf)?;
-				self.uniform_input_object.flush(cmdbuf)?;
 				let mut lock = self.object.edit_instances().unwrap();
 				lock[0] = InstanceType {
 					transform: glm::rotate(&Mat4::identity(), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
