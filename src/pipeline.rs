@@ -1126,15 +1126,16 @@ impl Pipeline {
 			pSpecializationInfo: null(),
 		}).collect();
 		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
-		let mut mesh_vertex_inputs: HashMap<String, MemberInfo> = HashMap::new();
-		let mut mesh_instance_inputs: HashMap<String, MemberInfo> = HashMap::new();
+		let mut mesh_vertex_inputs: BTreeMap<u32, MemberInfo> = BTreeMap::new();
+		let mut mesh_instance_inputs: BTreeMap<u32, MemberInfo> = BTreeMap::new();
 		let vertex_stride = mesh.geometry.get_vertex_stride();
 		let instance_stride = mesh.geometry.get_instance_stride();
 		let topology = mesh.geometry.get_primitive_type();
+		let mut cur_binding_number = 0;
 		let mut cur_vertex_offset = 0;
 		for (name, var) in mesh.geometry.iter_vertex_buffer_struct_members() {
 			if let Some(info) = type_id_to_info.get(&var.type_id()) {
-				mesh_vertex_inputs.insert(name.to_string(), MemberInfo {
+				mesh_vertex_inputs.insert(cur_binding_number, MemberInfo {
 					name,
 					type_name: info.type_name,
 					row_format: info.row_format,
@@ -1143,6 +1144,7 @@ impl Pipeline {
 					size: info.size,
 				});
 				cur_vertex_offset += info.size as u32;
+				cur_binding_number += 1;
 			} else {
 				panic!("Unknown member {:?} of the vertex struct: `{:?}`", var, var.type_id());
 			}
@@ -1151,7 +1153,7 @@ impl Pipeline {
 			let mut cur_instance_offset = 0;
 			for (name, var) in instance_member_iter {
 				if let Some(info) = type_id_to_info.get(&var.type_id()) {
-					mesh_instance_inputs.insert(name.to_string(), MemberInfo {
+					mesh_instance_inputs.insert(cur_binding_number, MemberInfo {
 						name,
 						type_name: info.type_name,
 						row_format: info.row_format,
@@ -1160,6 +1162,7 @@ impl Pipeline {
 						size: info.size,
 					});
 					cur_instance_offset += info.size as u32;
+					cur_binding_number += 1;
 				} else {
 					panic!("Unknown member {:?} of the instance struct: `{:?}`", var, var.type_id());
 				}
@@ -1179,9 +1182,12 @@ impl Pipeline {
 			});
 		}
 		let mut vertex_attrib_bindings: Vec<VkVertexInputAttributeDescription> = Vec::with_capacity(mesh_vertex_inputs.len() + mesh_instance_inputs.len());
+		let mut ignored_vertex_inputs: BTreeSet<u32> = mesh_vertex_inputs.keys().cloned().collect();
+		let mut ignored_instance_inputs: BTreeSet<u32> = mesh_instance_inputs.keys().cloned().collect();
 		for var in shaders.vertex_shader.get_vars() {
 			if let VariableLayout::Location(location) = var.layout {
-				if let Some(member_info) = mesh_vertex_inputs.get(&var.var_name) {
+				if let Some(member_info) = mesh_vertex_inputs.get(&location) && ignored_vertex_inputs.contains(&location) {
+					ignored_vertex_inputs.remove(&location);
 					let row_stride = member_info.size as u32 / member_info.num_rows;
 					for row in 0..member_info.num_rows {
 						vertex_attrib_bindings.push(VkVertexInputAttributeDescription {
@@ -1191,7 +1197,8 @@ impl Pipeline {
 							offset: member_info.offset + row * row_stride,
 						});
 					}
-				} else if let Some(member_info) = mesh_instance_inputs.get(&var.var_name) {
+				} else if let Some(member_info) = mesh_instance_inputs.get(&location) && ignored_instance_inputs.contains(&location) {
+					ignored_instance_inputs.remove(&location);
 					let row_stride = member_info.size as u32 / member_info.num_rows;
 					for row in 0..member_info.num_rows {
 						vertex_attrib_bindings.push(VkVertexInputAttributeDescription {
@@ -1203,6 +1210,12 @@ impl Pipeline {
 					}
 				}
 			}
+		}
+		if !ignored_vertex_inputs.is_empty() {
+			eprintln!("Ignored vertex input locations: {ignored_vertex_inputs:?}");
+		}
+		if !ignored_instance_inputs.is_empty() {
+			eprintln!("Ignored instance input locations: {ignored_instance_inputs:?}");
 		}
 		let vertex_input_state_ci = VkPipelineVertexInputStateCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO,
