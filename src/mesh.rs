@@ -1057,7 +1057,7 @@ where
 			for (v1, v2, v3) in objmesh.face_indices.iter() {
 				indices.extend([v1, v2, v3]);
 			}
-			mesh.create_index_buffer(indices.as_ptr() as *const c_void, size_of_val(&indices))?;
+			mesh.create_index_buffer(indices.as_ptr() as *const c_void, indices.len() * size_of::<u32>())?;
 			mesh.flush(cmdbuf)?;
 			meshset.insert(format!("{object_name}_{group_name}_{material_name}_{smooth_group}"), Arc::new(GenericMeshWithMaterial::new(Arc::from(mesh), &material_name, materials.get(material_name).cloned())));
 		}
