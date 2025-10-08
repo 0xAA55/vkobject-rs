@@ -389,9 +389,9 @@ mod tests {
 				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputScene, 1)};
 				ui_data[0].view_matrix = view_matrix;
 				ui_data[0].proj_matrix = proj_matrix;
-				ui_data[0].light_dir = normalize(&Vec3::new(0.2, -1.0, 0.2));
+				ui_data[0].light_dir = normalize(&Vec3::new(0.2, -0.5, -1.0));
 				ui_data[0].light_color = Vec3::new(1.0, 1.0, 1.0);
-				ui_data[0].ambient_color = Vec3::new(0.2, 0.2, 0.2);
+				ui_data[0].ambient_color = Vec3::new(0.1, 0.2, 0.1);
 				self.uniform_input_scene.flush(cmdbuf)?;
 				let mut lock = self.object.edit_instances().unwrap();
 				lock[0] = InstanceType {
@@ -403,7 +403,7 @@ mod tests {
 				scene.set_scissor_swapchain()?;
 				for pipeline in self.pipelines.values() {
 					pipeline.prepare_data(cmdbuf)?;
-					scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
+					scene.begin_renderpass(Vec4::new(0.0, 0.2, 0.3, 1.0), 1.0, 0)?;
 					pipeline.draw(cmdbuf)?;
 					scene.end_renderpass()?;
 				}
