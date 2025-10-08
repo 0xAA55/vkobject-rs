@@ -207,6 +207,7 @@ impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Debug 
 #[macro_export]
 macro_rules! derive_uniform_buffer_type {
 	($item: item) => {
+		#[repr(C)]
 		#[derive(Iterable, Default, Debug, Clone, Copy)]
 		$item
 	};
@@ -319,6 +320,7 @@ impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + 
 #[macro_export]
 macro_rules! derive_storage_buffer_type {
 	($item: item) => {
+		#[repr(C)]
 		#[derive(Iterable, Default, Debug, Clone, Copy)]
 		$item
 	};

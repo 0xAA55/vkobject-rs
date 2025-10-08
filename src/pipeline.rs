@@ -17,6 +17,7 @@ impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + Itera
 #[macro_export]
 macro_rules! derive_vertex_type {
 	($item: item) => {
+		#[repr(C)]
 		#[derive(Iterable, Default, Debug, Clone, Copy)]
 		$item
 	};
