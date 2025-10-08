@@ -948,6 +948,9 @@ impl GenericMeshWithMaterial {
 	}
 }
 
+unsafe impl Send for GenericMeshWithMaterial {}
+unsafe impl Sync for GenericMeshWithMaterial {}
+
 /// The mesh set
 #[derive(Debug, Clone)]
 pub struct GenericMeshSet<I>
@@ -1079,3 +1082,6 @@ where
 		}
 	}
 }
+
+unsafe impl<I> Send for GenericMeshSet<I> where I: BufferVecStructItem {}
+unsafe impl<I> Sync for GenericMeshSet<I> where I: BufferVecStructItem {}
