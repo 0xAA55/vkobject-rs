@@ -1095,6 +1095,7 @@ pub struct Pipeline {
 	pipeline: VkPipeline,
 }
 
+#[derive(Debug, Clone, Copy)]
 struct MemberInfo<'a> {
 	name: &'a str,
 	type_name: &'static str,
