@@ -390,7 +390,7 @@ impl VulkanTexture {
 			_ => return Err(VulkanError::ImagePixelFormatNotSupported),
 		};
 		let ret = Self::new(device, VulkanTextureType::T2d(extent), with_mipmap, format, usage)?;
-		ret.set_staging_data(image.as_ptr() as *const c_void, 0, (bits / 8 * P::CHANNEL_COUNT) as usize * width as usize)?;
+		ret.set_staging_data(image.as_ptr() as *const c_void, 0, (bits / 8 * P::CHANNEL_COUNT) as usize * width as usize * height as usize)?;
 		let offset = VkOffset3D {
 			x: 0,
 			y: 0,
