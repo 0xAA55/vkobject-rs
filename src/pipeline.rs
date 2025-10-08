@@ -620,7 +620,9 @@ impl Clone for DescriptorSets {
 impl Drop for DescriptorSets {
 	fn drop(&mut self) {
 		let descriptor_set_array: Vec<VkDescriptorSet> = self.descriptor_sets.values().copied().collect();
-		proceed_run(self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), descriptor_set_array.len() as u32, descriptor_set_array.as_ptr()));
+		if !descriptor_set_array.is_empty() {
+			proceed_run(self.device.vkcore.vkFreeDescriptorSets(self.device.get_vk_device(), self.desc_pool.get_vk_pool(), descriptor_set_array.len() as u32, descriptor_set_array.as_ptr()));
+		}
 	}
 }
 
