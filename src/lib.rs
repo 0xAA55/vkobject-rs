@@ -379,7 +379,7 @@ mod tests {
 				let extent = scene.get_rendertarget_extent();
 
 				let view_matrix = {
-					let eye = glm::vec3(0.0, 2.0, 5.0);
+					let eye = glm::vec3(0.0, 20.0, 50.0);
 					let center = glm::vec3(0.0, 0.0, 0.0);
 					let up = glm::vec3(0.0, 1.0, 0.0);
 					glm::look_at(&eye, &center, &up)
