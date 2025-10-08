@@ -343,11 +343,8 @@ where
 					for part in parts.iter() {
 						vtn_indices.push(ObjVTNIndex::parse(line_number, part)?);
 					}
-					for i in 0..(parts.len() - 2) {
-						match (i & 1) == 0 {
-							true  => group_lock.triangles.push((vtn_indices[i], vtn_indices[i + 1], vtn_indices[i + 2])),
-							false => group_lock.triangles.push((vtn_indices[i], vtn_indices[i + 2], vtn_indices[i + 1])),
-						}
+					for i in 1..(parts.len() - 1) {
+						group_lock.triangles.push((vtn_indices[0], vtn_indices[i], vtn_indices[i + 1]));
 					}
 				} else {
 					// Process as line link
