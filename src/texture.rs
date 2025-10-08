@@ -806,7 +806,7 @@ impl VulkanTexture {
 
 	/// Make this texture ready to be sampled by shaders
 	pub fn prepare_for_sample(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
-		if self.ready_to_sample.load(Ordering::Relaxed) == false {
+		if !self.ready_to_sample.load(Ordering::Relaxed) {
 			let barrier = VkImageMemoryBarrier {
 				sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 				pNext: null(),
