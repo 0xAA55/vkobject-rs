@@ -364,7 +364,6 @@ mod tests {
 					.set_depth_write(true)
 					.build()?;
 					pipelines.insert(matname.clone(), pipeline);
-					dbg!(matname, mesh);
 				}
 				Ok(Self {
 					uniform_input_scene,
