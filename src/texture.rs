@@ -407,21 +407,23 @@ impl VulkanTexture {
 
 	/// Create a texture from image loaded from file path right away
 	pub fn new_from_path<P: AsRef<Path>>(device: Arc<VulkanDevice>, cmdbuf: VkCommandBuffer, path: P, channel_is_normalized: bool, with_mipmap: Option<VkFilter>, usage: VkImageUsageFlags) -> Result<Self, VulkanError> {
+		use image::imageops::flip_vertical;
 		let image_data = read(&path)?;
 		let pb = PathBuf::from(path.as_ref());
 		let image = if pb.extension().and_then(OsStr::to_str).map(|s| {let s = s.to_lowercase(); s != "jpg" && s != "jpeg"}).unwrap_or(true) {
 			use image::DynamicImage;
 			let img = image::ImageReader::new(Cursor::new(&image_data)).with_guessed_format()?.decode()?;
 			match img {
-				DynamicImage::ImageLuma8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageLumaA8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageLuma16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageLumaA16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgba8(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgba16(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
-				DynamicImage::ImageRgba32F(img) => Self::new_from_image(device, cmdbuf, &img, channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLuma8(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLumaA8(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLuma16(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageLumaA16(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba8(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba16(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
+				DynamicImage::ImageRgba32F(img) => Self::new_from_image(device, cmdbuf, &flip_vertical(&img), channel_is_normalized, with_mipmap, usage),
 				DynamicImage::ImageRgb8(img) => {
 					use image::{Rgba, RgbaImage};
+					let img = flip_vertical(&img);
 					let rgba_img: RgbaImage = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
 						let pixel = img.get_pixel(x, y);
 						Rgba([pixel[0], pixel[1], pixel[2], 255])
@@ -431,6 +433,7 @@ impl VulkanTexture {
 				DynamicImage::ImageRgb16(img) => {
 					use image::Rgba;
 					type Rgba16Image = ImageBuffer<Rgba<u16>, Vec<u16>>;
+					let img = flip_vertical(&img);
 					let rgba_img: Rgba16Image = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
 						let pixel = img.get_pixel(x, y);
 						Rgba([pixel[0], pixel[1], pixel[2], 65535])
@@ -439,6 +442,7 @@ impl VulkanTexture {
 				}
 				DynamicImage::ImageRgb32F(img) => {
 					use image::{Rgba, Rgba32FImage};
+					let img = flip_vertical(&img);
 					let rgba_img: Rgba32FImage = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
 						let pixel = img.get_pixel(x, y);
 						Rgba([pixel[0], pixel[1], pixel[2], 1.0])
@@ -449,7 +453,7 @@ impl VulkanTexture {
 			}
 		} else {
 			use image::{Rgba, RgbaImage};
-			let img: image::RgbImage = turbojpeg::decompress_image(&image_data).unwrap();
+			let img: image::RgbImage = flip_vertical(&turbojpeg::decompress_image(&image_data).unwrap());
 			let rgba_img: RgbaImage = ImageBuffer::from_fn(img.width(), img.height(), |x, y| {
 				let pixel = img.get_pixel(x, y);
 				Rgba([pixel[0], pixel[1], pixel[2], 255])
