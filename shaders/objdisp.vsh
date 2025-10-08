@@ -23,5 +23,5 @@ void main()
 {
 	v_texcoord = texcoord;
 	v_normal = mat3(transform) * normal;
-	gl_Position = proj * (view * (transform * vec4(position, 1.0)));
+	gl_Position = proj * view * transform * vec4(position, 1.0);
 }
