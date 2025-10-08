@@ -319,20 +319,44 @@ mod tests {
 					None,
 					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/objdisp.fsh")), false, "main", OptimizationLevel::Performance, false)?),
 				));
+				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
+				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
 				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone())?);
 				let uniform_input_object: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputObject>::new(device.clone())?);
-				let desc_props_set_0: HashMap<u32, Arc<DescriptorProp>> = [
+				let mut desc_props_set_0: HashMap<u32, Arc<DescriptorProp>> = [
 					(0, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_scene.clone()]))),
 					(1, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_object.clone()]))),
 				].into_iter().collect();
-				let desc_props_sets: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, desc_props_set_0)].into_iter().collect();
-				let desc_props = Arc::new(DescriptorProps::new(desc_props_sets));
-				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
-				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
+				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
+				for mesh in object.meshset.values() {
+					if let Some(material) = &mesh.material {
+						if let Some(diffuse) = material.get_diffuse() {
+							if let MaterialComponent::Texture(texture) = diffuse {
+								texture.prepare_for_sample(pool_in_use.cmdbuf)?;
+								let texture_input_albedo = TextureForSample {
+									texture: texture.clone(),
+									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
+								};
+								desc_props_set_0.insert(2, Arc::new(DescriptorProp::Images(vec![texture_input_albedo])));
+							}
+						}
+						if let Some(normal) = material.get_normal() {
+							if let MaterialComponent::Texture(texture) = normal {
+								texture.prepare_for_sample(pool_in_use.cmdbuf)?;
+								let texture_input_normal = TextureForSample {
+									texture: texture.clone(),
+									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
+								};
+								desc_props_set_0.insert(3, Arc::new(DescriptorProp::Images(vec![texture_input_normal])));
+							}
+						}
+					}
+				}
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 				object.discard_staging_buffers();
-				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
+				let desc_props_sets: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, desc_props_set_0)].into_iter().collect();
+				let desc_props = Arc::new(DescriptorProps::new(desc_props_sets));
 				for (matname, mesh) in object.meshset.iter() {
 					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props.clone())?
 					.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
