@@ -209,9 +209,8 @@ impl VulkanTexture {
 		vkcore.vkGetImageMemoryRequirements(vkdevice, *image, &mut mem_reqs)?;
 		let memory = VulkanMemory::new(device.clone(), &mem_reqs, VkMemoryPropertyFlagBits::VK_MEMORY_PROPERTY_DEVICE_LOCAL_BIT as u32)?;
 		memory.bind_vk_image(*image)?;
-		let mut ret = Self::new_from_existing_image(device, *image, type_size, format)?;
+		let mut ret = Self::new_from_existing_image(device, *image, type_size, mipmap_levels, format)?;
 		ret.memory = Some(memory);
-		ret.mipmap_levels = mipmap_levels;
 		ret.mipmap_filter = with_mipmap.unwrap_or(VkFilter::VK_FILTER_LINEAR);
 		image.release();
 		ret.image_format_props = Some(image_format_props);
@@ -219,7 +218,7 @@ impl VulkanTexture {
 	}
 
 	/// Create the `VulkanTexture` from a image that's not owned (e.g. from a swapchain image)
-	pub(crate) fn new_from_existing_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, format: VkFormat) -> Result<Self, VulkanError> {
+	pub(crate) fn new_from_existing_image(device: Arc<VulkanDevice>, image: VkImage, type_size: VulkanTextureType, mipmap_levels: u32, format: VkFormat) -> Result<Self, VulkanError> {
 		let vkcore = device.vkcore.clone();
 		let vkdevice = device.get_vk_device();
 		let image_view_ci = VkImageViewCreateInfo {
@@ -252,7 +251,7 @@ impl VulkanTexture {
 					VkImageAspectFlagBits::VK_IMAGE_ASPECT_COLOR_BIT as VkImageAspectFlags
 				},
 				baseMipLevel: 0,
-				levelCount: 1,
+				levelCount: mipmap_levels,
 				baseArrayLayer: 0,
 				layerCount: 1,
 			},
@@ -268,7 +267,7 @@ impl VulkanTexture {
 			format,
 			memory: None,
 			staging_buffer: RwLock::new(None),
-			mipmap_levels: 1,
+			mipmap_levels,
 			mipmap_filter: VkFilter::VK_FILTER_LINEAR,
 			ready_to_sample: AtomicBool::new(false),
 		})
