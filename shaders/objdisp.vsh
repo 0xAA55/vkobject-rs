@@ -1,10 +1,11 @@
 #version 460
 
 layout(std140, binding = 0) uniform v_scene {
-	vec3 light_dir;
-	vec3 light_color;
 	mat4 view;
 	mat4 proj;
+	vec3 light_dir;
+	vec3 light_color;
+	vec3 ambient_color;
 };
 
 // Vertex inputs
