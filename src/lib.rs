@@ -395,7 +395,7 @@ mod tests {
 				self.uniform_input_scene.flush(cmdbuf)?;
 				let mut lock = self.object.edit_instances().unwrap();
 				lock[0] = InstanceType {
-					transform: glm::rotate(&Mat4::identity(), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
+					transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(0.0, -5.0, 0.0)), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
 				};
 				drop(lock);
 
