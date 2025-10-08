@@ -360,8 +360,8 @@ mod tests {
 				for (matname, mesh) in object.meshset.iter() {
 					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props.clone())?
 					.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
-					.set_depth_test(false)
-					.set_depth_write(false)
+					.set_depth_test(true)
+					.set_depth_write(true)
 					.build()?;
 					pipelines.insert(matname.clone(), pipeline);
 					dbg!(matname, mesh);
