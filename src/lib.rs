@@ -414,6 +414,7 @@ mod tests {
 				scene.set_viewport_swapchain(0.0, 1.0)?;
 				scene.set_scissor_swapchain()?;
 				for pipeline in self.pipelines.values() {
+					pipeline.prepare_data(cmdbuf)?;
 					scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
 					pipeline.draw(cmdbuf)?;
 					scene.end_renderpass()?;

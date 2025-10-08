@@ -1309,12 +1309,17 @@ impl Pipeline {
 		Ok(())
 	}
 
+	/// Prepare data to draw
+	pub fn prepare_data(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
+		self.mesh.geometry.flush(cmdbuf)?;
+		Ok(())
+	}
+
 	/// Queue draw command
 	pub fn draw(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		let vkcore = &self.device.vkcore;
 		self.bind_descriptor_sets(cmdbuf)?;
 		vkcore.vkCmdBindPipeline(cmdbuf, VkPipelineBindPoint::VK_PIPELINE_BIND_POINT_GRAPHICS, self.pipeline)?;
-		self.mesh.geometry.flush(cmdbuf)?;
 		let vertex_buffer = self.mesh.geometry.get_vk_vertex_buffer();
 		let index_buffer = self.mesh.geometry.get_vk_index_buffer();
 		let instance_buffer = self.mesh.geometry.get_vk_instance_buffer();
