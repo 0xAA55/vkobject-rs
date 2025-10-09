@@ -241,7 +241,6 @@ mod tests {
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 				mesh.geometry.discard_staging_buffers();
 				let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
-				.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
 				.set_depth_test(false)
 				.set_depth_write(false)
 				.build()?;
