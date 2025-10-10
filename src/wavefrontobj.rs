@@ -748,6 +748,51 @@ where
 			Ok(())
 		}
 	}
+
+	/// Convert to the indexed mesh
+	pub fn convert_to_indexed_meshes<E>(unindexed_meshes: &[Self]) -> Result<ObjIndexedMeshSet<F, E>, ObjError>
+	where
+		E: ObjMeshIndexType {
+		let mut face_vertices_map: HashMap<ObjVertices<F>, E> = HashMap::new();
+		let mut line_vertices_map: HashMap<LineVert<F>, E> = HashMap::new();
+		let mut ret: ObjIndexedMeshSet<F, E> = ObjIndexedMeshSet::default();
+		for uimesh in unindexed_meshes.iter() {
+			let mut lines_vert_indices: Vec<Vec<E>> = Vec::with_capacity(uimesh.lines.len());
+			let mut triangle_vert_indices: Vec<(E, E, E)> = Vec::with_capacity(uimesh.faces.len());
+			for line in uimesh.lines.iter() {
+				let mut line_vert_indices: Vec<E> = Vec::with_capacity(line.len());
+				for vert in line.iter() {
+					line_vert_indices.push(get_line_vert_index(&mut line_vertices_map, vert)?);
+				}
+				lines_vert_indices.push(line_vert_indices);
+			}
+			for triangle in uimesh.faces.iter() {
+				let vert1 = get_face_vert_index(&mut face_vertices_map, &triangle.0)?;
+				let vert2 = get_face_vert_index(&mut face_vertices_map, &triangle.1)?;
+				let vert3 = get_face_vert_index(&mut face_vertices_map, &triangle.2)?;
+				triangle_vert_indices.push((vert1, vert2, vert3));
+			}
+			ret.meshes.push(ObjIndexedMesh {
+				object_name: uimesh.object_name.clone(),
+				group_name: uimesh.group_name.clone(),
+				material_name: uimesh.material_name.clone(),
+				smooth_group: uimesh.smooth_group,
+				face_indices: triangle_vert_indices,
+				line_indices: lines_vert_indices,
+			});
+		}
+		ret.face_vertices.resize(face_vertices_map.len(), ObjVertices::default());
+		ret.line_vertices.resize(line_vertices_map.len(), TVec3::default());
+		for (fv, vi) in face_vertices_map.iter() {
+			let vi: usize = (*vi).try_into().map_err(|_| ObjError::MeshIndicesOverflow)?;
+			ret.face_vertices[vi] = *fv;
+		}
+		for (lv, li) in line_vertices_map.iter() {
+			let li: usize = (*li).try_into().map_err(|_| ObjError::MeshIndicesOverflow)?;
+			ret.line_vertices[li] = TVec3::new(lv.x, lv.y, lv.z);
+		}
+		Ok(ret)
+	}
 }
 
 impl<F, E> ObjIndexedMeshSet<F, E>
