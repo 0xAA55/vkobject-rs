@@ -11,8 +11,8 @@ use shader_analyzer::*;
 use rspirv::spirv::*;
 
 /// The trait that the struct of vertices or instances must implement
-pub trait VertexType: Copy + Clone + Sized + Default + Debug + Iterable {}
-impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+pub trait VertexType: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
+impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
 
 #[macro_export]
 macro_rules! derive_vertex_type {
