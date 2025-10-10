@@ -243,12 +243,13 @@ fn concentrate_line(line: &str) -> &str {
 	line.trim_end()
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
 struct LineVert<F: ObjMeshVecCompType> {
 	x: F,
 	y: F,
 	z: F,
 }
+
 impl<F> Hash for LineVert<F>
 where F: ObjMeshVecCompType {
 	fn hash<H: Hasher>(&self, state: &mut H) {
@@ -261,7 +262,7 @@ where F: ObjMeshVecCompType {
 		}
 	}
 }
-impl<F> Eq for LineVert<F> where F: ObjMeshVecCompType {}
+
 fn get_face_vert_index<V, E>(face_vertices_map: &mut HashMap<V, E>, face_vert: &V) -> Result<E, ObjError>
 where
 	V: PartialEq + Eq + Hash + Clone + Copy + Sized,
