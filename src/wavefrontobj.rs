@@ -394,6 +394,19 @@ where
 		})
 	}
 
+	/// Get the number of the mesh groups
+	pub fn get_num_groups(&self) -> usize {
+		let mut ret = 0;
+		for object in self.objects.values() {
+			for group in object.groups.values() {
+				for matgroup in group.material_groups.values() {
+					ret += matgroup.smooth_groups.len();
+				}
+			}
+		}
+		ret
+	}
+
 	/// Convert to VTN vertices and associated indices
 	pub fn convert_to_indexed_meshes<E>(&self) -> Result<ObjIndexedMeshSet<F, E>, ObjError>
 	where
