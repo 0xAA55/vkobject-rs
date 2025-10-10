@@ -227,6 +227,9 @@ impl DescriptorProp {
 	}
 }
 
+unsafe impl Send for DescriptorProp {}
+unsafe impl Sync for DescriptorProp {}
+
 /// The descriptor set properties
 #[derive(Default, Debug)]
 pub struct DescriptorProps {
