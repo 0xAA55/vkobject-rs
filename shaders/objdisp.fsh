@@ -14,6 +14,7 @@ layout(binding = 2) uniform sampler2D t_normal;
 // Input from previous stage shaders
 layout(location = 1) in vec2 texcoord;
 layout(location = 2) in vec3 normal;
+layout(location = 3) in vec3 tangent;
 
 // Output to attachments
 layout(location = 0) out vec4 color;
