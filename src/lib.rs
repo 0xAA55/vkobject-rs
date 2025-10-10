@@ -318,7 +318,7 @@ mod tests {
 					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/objdisp.fsh")), false, "main", OptimizationLevel::Performance, false)?),
 				));
 				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
-				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
+				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, ObjVertPositionTexcoord2DNormalTangent, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
 				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone())?);
 				let desc_props = Arc::new(DescriptorProps::default());
 				desc_props.new_uniform_buffer(0, 0, uniform_input_scene.clone());
