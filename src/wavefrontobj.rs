@@ -126,14 +126,14 @@ pub struct ObjObjects {
 pub trait FloatOps: Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self> + Rem<Output = Self> + Neg<Output = Self> + PartialEq + PartialOrd + AddAssign + SubAssign + MulAssign + DivAssign + RemAssign + Sized + num_traits::identities::Zero + num_traits::Float + SimdComplexField{}
 
 /// The trait for `TVecN<>` component type
-pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
-impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
+pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Eq + Debug + FromStr + Any + FloatOps + Hash + 'static {}
+impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + Debug + FromStr + Any + FloatOps + Hash + 'static {}
 
 /// The trait for indices type
 pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
 impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
 
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ObjVertices<F>
 where
 	F: ObjMeshVecCompType {
