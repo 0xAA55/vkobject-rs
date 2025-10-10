@@ -276,6 +276,7 @@ where
 		Ok(new_ret)
 	}
 }
+
 fn get_line_vert_index<F, E>(line_vertices_map: &mut HashMap<LineVert<F>, E>, line_vert: &TVec3<F>) -> Result<E, ObjError>
 where
 	F: ObjMeshVecCompType,
@@ -861,6 +862,37 @@ where
 			}
 		}
 		(max_position, max_texcoord, max_normal)
+	}
+
+	/// Convert to the unindexed mesh
+	pub fn convert_to_unindexed_meshes(&self) -> Result<Vec<ObjUnindexedMesh<F>>, ObjError> {
+		let mut ret = Vec::new();
+		for mesh in self.meshes.iter() {
+			let mut faces = Vec::with_capacity(self.face_vertices.len());
+			let mut lines = Vec::with_capacity(self.line_vertices.len());
+			for (i1, i2, i3) in mesh.face_indices.iter() {
+				let v1 = self.face_vertices[TryInto::<usize>::try_into(*i1).map_err(|_| ObjError::MeshIndicesOverflow)?];
+				let v2 = self.face_vertices[TryInto::<usize>::try_into(*i2).map_err(|_| ObjError::MeshIndicesOverflow)?];
+				let v3 = self.face_vertices[TryInto::<usize>::try_into(*i3).map_err(|_| ObjError::MeshIndicesOverflow)?];
+				faces.push((v1, v2, v3));
+			}
+			for line in mesh.line_indices.iter() {
+				let mut verts = Vec::with_capacity(line.len());
+				for i in line.iter() {
+					verts.push(self.line_vertices[TryInto::<usize>::try_into(*i).map_err(|_| ObjError::MeshIndicesOverflow)?]);
+				}
+				lines.push(verts);
+			}
+			ret.push(ObjUnindexedMesh {
+				object_name: mesh.object_name.clone(),
+				group_name: mesh.group_name.clone(),
+				material_name: mesh.material_name.clone(),
+				smooth_group: mesh.smooth_group,
+				faces,
+				lines,
+			});
+		}
+		Ok(ret)
 	}
 }
 
