@@ -48,6 +48,7 @@ pub enum VulkanError {
 	BadObjFile{line: usize, what: String},
 	MeshIndicesUnderflow,
 	MeshIndicesOverflow,
+	NeedTexCoordAndNormal,
 }
 
 impl From<VkError> for VulkanError {
@@ -88,6 +89,7 @@ impl From<ObjError> for VulkanError {
 			}
 			ObjError::MeshIndicesUnderflow => Self::MeshIndicesUnderflow,
 			ObjError::MeshIndicesOverflow => Self::MeshIndicesOverflow,
+			ObjError::NeedTexCoordAndNormal => Self::NeedTexCoordAndNormal,
 		}
 	}
 }

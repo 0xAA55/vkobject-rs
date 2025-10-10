@@ -23,6 +23,7 @@ pub enum ObjError {
 	IOError{kind: ErrorKind, what: String},
 	MeshIndicesUnderflow,
 	MeshIndicesOverflow,
+	NeedTexCoordAndNormal,
 }
 
 impl From<io::Error> for ObjError {
