@@ -1088,8 +1088,7 @@ where
 				// It's okay to fail to generate tangents here.
 				let _ = m.generate_tangents();
 			}
-			let im = ObjUnindexedMesh::convert_to_indexed_meshes(&uim)?;
-			im
+			ObjUnindexedMesh::convert_to_indexed_meshes(&uim)?
 		};
 		let (pdim, tdim, ndim) = obj_mesh_set.get_vert_dims();
 		let template_mesh;
