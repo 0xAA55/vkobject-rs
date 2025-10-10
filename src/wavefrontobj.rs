@@ -611,12 +611,12 @@ where
 		let pos0 = v1.position;
 		let pos1 = v2.position;
 		let pos2 = v3.position;
-		let uv0 = v1.texcoord.unwrap_or(TVec3::default()).xy();
-		let uv1 = v2.texcoord.unwrap_or(TVec3::default()).xy();
-		let uv2 = v3.texcoord.unwrap_or(TVec3::default()).xy();
-		let normal0 = v1.normal.unwrap_or(TVec3::default());
-		let normal1 = v2.normal.unwrap_or(TVec3::default());
-		let normal2 = v3.normal.unwrap_or(TVec3::default());
+		let uv0 = v1.texcoord.unwrap_or_default().xy();
+		let uv1 = v2.texcoord.unwrap_or_default().xy();
+		let uv2 = v3.texcoord.unwrap_or_default().xy();
+		let normal0 = v1.normal.unwrap_or_default();
+		let normal1 = v2.normal.unwrap_or_default();
+		let normal2 = v3.normal.unwrap_or_default();
 
 		let delta_pos1 = pos1 - pos0;
 		let delta_pos2 = pos2 - pos0;
