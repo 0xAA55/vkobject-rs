@@ -24,6 +24,8 @@ rspirv = "0.12.0"
 shaderc = { version = "0.10.1", features = ["prefer-static-linking"], optional = true }
 fbx = "0.2.0"
 gltf = "1.4.1"
+num-traits = "0.2.19"
+simba = "0.9.1"
 
 [dev-dependencies]
 glfw = { version = "0.59.0", features = ["vulkan", "image"] }

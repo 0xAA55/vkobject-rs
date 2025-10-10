@@ -8,6 +8,7 @@ use std::{
 	hash::{Hash, Hasher},
 	io::{self, BufRead, BufReader, ErrorKind},
 	mem::size_of,
+	ops::{Add, Sub, Mul, Div, Rem, Neg, AddAssign, SubAssign, MulAssign, DivAssign, RemAssign},
 	path::{Path, PathBuf},
 	slice,
 	str::FromStr,
@@ -15,6 +16,7 @@ use std::{
 };
 extern crate nalgebra_glm as glm;
 use glm::*;
+use simba::simd::SimdComplexField;
 
 /// The OBJ error
 #[derive(Debug, Clone)]
@@ -120,9 +122,12 @@ pub struct ObjObjects {
 	pub groups: BTreeMap<String, ObjGroups>,
 }
 
+/// A trait that tells how many operators could be used on a floating number
+pub trait FloatOps: Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self> + Rem<Output = Self> + Neg<Output = Self> + PartialEq + PartialOrd + AddAssign + SubAssign + MulAssign + DivAssign + RemAssign + Sized + num_traits::identities::Zero + num_traits::Float + SimdComplexField{}
+
 /// The trait for `TVecN<>` component type
-pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + 'static {}
-impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + 'static {}
+pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
+impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
 
 /// The trait for indices type
 pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
