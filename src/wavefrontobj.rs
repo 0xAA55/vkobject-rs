@@ -140,6 +140,9 @@ where
 
 	/// The `vn` part of the VTN vertex
 	pub normal: Option<TVec3<F>>,
+
+	/// The tangent of the vertex, not come from the OBJ mesh
+	pub tangent: Option<TVec3<F>>,
 }
 
 #[derive(Default, Debug, Clone)]
@@ -483,6 +486,7 @@ where
 				position: if vtn.v == 0 {return Err(ObjError::MeshIndicesUnderflow)} else {self.vertices[vtn.v as usize - 1]},
 				texcoord: if vtn.vt == 0 {None} else {Some(self.texcoords[vtn.vt as usize - 1])},
 				normal: if vtn.vn == 0 {None} else {Some(self.normals[vtn.vn as usize - 1])},
+				tangent: None,
 			};
 		}
 		for (lv, li) in line_vertices_map.iter() {
@@ -503,6 +507,75 @@ where
 		8 => unsafe {*(&f as *const F as *const u64) == 0},
 		o => panic!("Invalid primitive type of `<F>`, the size of this type is `{o}`"),
 	}
+}
+
+impl<F> ObjVertices<F>
+where
+	F: ObjMeshVecCompType {
+	/// Generate tangents per 3 vertices
+	pub fn generate_tangents(v1: &mut Self, v2: &mut Self, v3: &mut Self) {
+		let pos0 = v1.position;
+		let pos1 = v2.position;
+		let pos2 = v3.position;
+		let uv0 = v1.texcoord.unwrap_or(TVec3::default()).xy();
+		let uv1 = v2.texcoord.unwrap_or(TVec3::default()).xy();
+		let uv2 = v3.texcoord.unwrap_or(TVec3::default()).xy();
+		let normal0 = v1.normal.unwrap_or(TVec3::default());
+		let normal1 = v2.normal.unwrap_or(TVec3::default());
+		let normal2 = v3.normal.unwrap_or(TVec3::default());
+
+		let delta_pos1 = pos1 - pos0;
+		let delta_pos2 = pos2 - pos0;
+
+		let delta_uv1 = uv1 - uv0;
+		let delta_uv2 = uv2 - uv0;
+
+		let f = F::from(1.0).unwrap() / (delta_uv1.x * delta_uv2.y - delta_uv2.x * delta_uv1.y);
+
+		let tangent = TVec3::new(
+			f * (delta_uv2.y * delta_pos1.x - delta_uv1.y * delta_pos2.x),
+			f * (delta_uv2.y * delta_pos1.y - delta_uv1.y * delta_pos2.y),
+			f * (delta_uv2.y * delta_pos1.z - delta_uv1.y * delta_pos2.z),
+		);
+
+		let bitangent = TVec3::new(
+			f * (-delta_uv2.x * delta_pos1.x + delta_uv1.x * delta_pos2.x),
+			f * (-delta_uv2.x * delta_pos1.y + delta_uv1.x * delta_pos2.y),
+			f * (-delta_uv2.x * delta_pos1.z + delta_uv1.x * delta_pos2.z),
+		);
+
+        let tangent0 = Self::orthogonalize_tangent(tangent, normal0);
+        let tangent1 = Self::orthogonalize_tangent(tangent, normal1);
+        let tangent2 = Self::orthogonalize_tangent(tangent, normal2);
+
+        let tangent0 = Self::ensure_right_handed(tangent0, normal0, bitangent);
+        let tangent1 = Self::ensure_right_handed(tangent1, normal1, bitangent);
+        let tangent2 = Self::ensure_right_handed(tangent2, normal2, bitangent);
+
+        v1.tangent = Some(tangent0);
+        v2.tangent = Some(tangent1);
+        v3.tangent = Some(tangent2);
+	}
+
+    /// Orthogonalize tangents using the Gram-Schmidt procedure
+    fn orthogonalize_tangent(tangent: TVec3<F>, normal: TVec3<F>) -> TVec3<F> {
+        let n_dot_t = normal.dot(&tangent);
+        let projected = tangent - normal * n_dot_t;
+        projected.normalize()
+    }
+
+    /// Make sure the tangent space is right-handed
+    fn ensure_right_handed(tangent: TVec3<F>, normal: TVec3<F>, bitangent: TVec3<F>) -> TVec3<F> {
+        let calculated_bitangent = normal.cross(&tangent);
+        let dot_product = calculated_bitangent.dot(&bitangent);
+
+        // If the dot product is negative, it means it is a left-handed system and the tangent needs to be flipped
+        if dot_product < F::from(0.0).unwrap() {
+            -tangent
+        } else {
+            tangent
+        }
+    }
 }
 
 impl<F, E> ObjIndexedMeshSet<F, E>

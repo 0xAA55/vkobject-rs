@@ -684,6 +684,16 @@ derive_vertex_type! {
 }
 
 derive_vertex_type! {
+	/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
+	pub struct ObjVertPositionTexcoord2DNormalTangent {
+		pub position: Vec3,
+		pub texcoord: Vec2,
+		pub normal: Vec3,
+		pub tangent: Vec3,
+	}
+}
+
+derive_vertex_type! {
 	/// The struct for OBJ vertices with position data, texcoord data (3D) and normal data
 	pub struct ObjVertPositionTexcoord3DNormal {
 		pub position: Vec3,
@@ -729,6 +739,16 @@ derive_vertex_type! {
 		pub position: DVec3,
 		pub texcoord: DVec2,
 		pub normal: DVec3,
+	}
+}
+
+derive_vertex_type! {
+	/// The struct for OBJ vertices with position data, texcoord data (2D) and normal data
+	pub struct ObjVertPositionTexcoord2DNormalTangentDouble {
+		pub position: DVec3,
+		pub texcoord: DVec2,
+		pub normal: DVec3,
+		pub tangent: DVec3,
 	}
 }
 
@@ -809,6 +829,31 @@ where
 			},
 			normal: if let Some(normal) = f.normal {
 				Vec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				Vec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord2DNormalTangent
+where
+	F: ObjMeshVecCompType, f32: From<F> {
+	fn from(f: ObjVertices<F>) -> Self {
+		Self {
+			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				Vec2::new(texcoord.x.into(), texcoord.y.into())
+			} else {
+				Vec2::default()
+			},
+			normal: if let Some(normal) = f.normal {
+				Vec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				Vec3::default()
+			},
+			tangent: if let Some(tangent) = f.tangent {
+				Vec3::new(tangent.x.into(), tangent.y.into(), tangent.z.into())
 			} else {
 				Vec3::default()
 			},
@@ -904,6 +949,31 @@ where
 			},
 			normal: if let Some(normal) = f.normal {
 				DVec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				DVec3::default()
+			},
+		}
+	}
+}
+
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord2DNormalTangentDouble
+where
+	F: ObjMeshVecCompType, f64: From<F> {
+	fn from(f: ObjVertices<F>) -> Self {
+		Self {
+			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
+			texcoord: if let Some(texcoord) = f.texcoord {
+				DVec2::new(texcoord.x.into(), texcoord.y.into())
+			} else {
+				DVec2::default()
+			},
+			normal: if let Some(normal) = f.normal {
+				DVec3::new(normal.x.into(), normal.y.into(), normal.z.into())
+			} else {
+				DVec3::default()
+			},
+			tangent: if let Some(tangent) = f.tangent {
+				DVec3::new(tangent.x.into(), tangent.y.into(), tangent.z.into())
 			} else {
 				DVec3::default()
 			},
