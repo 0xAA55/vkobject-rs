@@ -153,18 +153,24 @@ where
 	pub tangent: Option<TVec3<F>>,
 }
 
+impl<F> ObjVertices<F>
+where
+	F: ObjMeshVecCompType {
+	pub fn slap_flatten(&self) -> Vec<F> {
+		self.position.iter().cloned()
+		.chain(self.texcoord.unwrap_or_default().iter().cloned())
+		.chain(self.normal.unwrap_or_default().iter().cloned())
+		.chain(self.tangent.unwrap_or_default().iter().cloned())
+		.collect()
+	}
+}
+
 impl<F> PartialEq for ObjVertices<F>
 where
 	F: ObjMeshVecCompType {
     fn eq(&self, other: &Self) -> bool {
-		let self_data: Vec<F> = self.position.iter().cloned()
-			.chain(self.texcoord.iter().flat_map(|v| v.iter().cloned()))
-			.chain(self.normal.iter().flat_map(|v| v.iter().cloned()))
-			.chain(self.tangent.iter().flat_map(|v| v.iter().cloned())).collect();
-		let other_data: Vec<F> = other.position.iter().cloned()
-			.chain(other.texcoord.iter().flat_map(|v| v.iter().cloned()))
-			.chain(other.normal.iter().flat_map(|v| v.iter().cloned()))
-			.chain(other.tangent.iter().flat_map(|v| v.iter().cloned())).collect();
+		let self_data = self.slap_flatten();
+		let other_data = other.slap_flatten();
 		let self_bytes = self_data.len() * size_of::<F>();
 		let other_bytes = other_data.len() * size_of::<F>();
 		match size_of::<F>() {
@@ -183,10 +189,7 @@ impl<F> Hash for ObjVertices<F>
 where
 	F: ObjMeshVecCompType {
 	fn hash<H: Hasher>(&self, state: &mut H) {
-		let data: Vec<F> = self.position.iter().cloned()
-			.chain(self.texcoord.iter().flat_map(|v| v.iter().cloned()))
-			.chain(self.normal.iter().flat_map(|v| v.iter().cloned()))
-			.chain(self.tangent.iter().flat_map(|v| v.iter().cloned())).collect();
+		let data = self.slap_flatten();
 		match size_of::<F>() {
 			1 => {state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len())});}
 			2 => {state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)});}
