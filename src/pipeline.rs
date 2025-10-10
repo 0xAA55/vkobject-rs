@@ -169,7 +169,7 @@ impl WriteDescriptorSets {
 							} else {
 								match var_type {
 									VariableType::Struct(_) => {
-										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?.iter().collect();
+										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?;
 										if buffers.len() != total_element_count {
 											return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
 												var.var_type,
@@ -199,7 +199,7 @@ impl WriteDescriptorSets {
 										});
 									}
 									VariableType::Image(_) => {
-										let buffers: Vec<_> = desc_props.get_desc_props_uniform_texel_buffers(set, binding, total_element_count)?.iter().collect();
+										let buffers: Vec<_> = desc_props.get_desc_props_uniform_texel_buffers(set, binding, total_element_count)?;
 										if buffers.len() != total_element_count {
 											return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
 												var.var_type,
@@ -244,7 +244,7 @@ impl WriteDescriptorSets {
 							} else {
 								match var_type {
 									VariableType::Struct(_) => {
-										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?.iter().collect();
+										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?;
 										if buffers.len() != total_element_count {
 											return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
 												var.var_type,
@@ -274,7 +274,7 @@ impl WriteDescriptorSets {
 										});
 									}
 									VariableType::Image(_) => {
-										let buffers: Vec<_> = desc_props.get_desc_props_storage_texel_buffers(set, binding, total_element_count)?.iter().collect();
+										let buffers: Vec<_> = desc_props.get_desc_props_storage_texel_buffers(set, binding, total_element_count)?;
 										if buffers.len() != total_element_count {
 											return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
 												var.var_type,
@@ -343,7 +343,7 @@ impl WriteDescriptorSets {
 										num_image_info += total_element_count;
 										num_wds += 1;
 									} else {
-										let textures: Vec<&TextureForSample> = desc_props.get_desc_props_textures(set, binding, total_element_count)?.iter().collect();
+										let textures: Vec<TextureForSample> = desc_props.get_desc_props_textures(set, binding, total_element_count)?;
 										let image_info_index = self.image_info.len();
 										for texture in textures.iter() {
 											self.image_info.push(VkDescriptorImageInfo {

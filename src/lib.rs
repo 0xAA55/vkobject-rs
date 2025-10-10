@@ -132,8 +132,11 @@ mod tests {
 			drop(glfw_lock);
 			window.set_key_polling(true);
 			let ctx = create_vulkan_context(&window, PresentInterval::VSync, 1, false)?;
-			println!("{}", unsafe{CStr::from_ptr(ctx.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
-			println!("{:?}", ctx.device.get_gpu().properties.deviceType);
+			for gpu in VulkanGpuInfo::get_gpu_info(&ctx.vkcore)?.iter() {
+				println!("Found GPU: {}", unsafe{CStr::from_ptr(gpu.properties.deviceName.as_ptr())}.to_str().unwrap());
+			}
+			println!("Chosen GPU name: {}", unsafe{CStr::from_ptr(ctx.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
+			println!("Chosen GPU type: {:?}", ctx.device.get_gpu().properties.deviceType);
 			Ok(Self {
 				glfw,
 				window,
@@ -216,9 +219,8 @@ mod tests {
 					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false)?),
 				));
 				let uniform_input: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInput>::new(device.clone())?);
-				let desc_prop = vec![uniform_input.clone()];
-				let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
-				let desc_props = Arc::new(DescriptorProps::new(desc_props));
+				let desc_props = Arc::new(DescriptorProps::default());
+				desc_props.new_uniform_buffer(0, 0, uniform_input.clone());
 				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
 				let vertices_data = vec![
 					VertexType {
@@ -240,7 +242,7 @@ mod tests {
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 				mesh.geometry.discard_staging_buffers();
-				let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
+				let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props)?
 				.set_depth_test(false)
 				.set_depth_write(false)
 				.build()?;
@@ -318,9 +320,8 @@ mod tests {
 				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
 				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
 				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone())?);
-				let mut desc_props_set_0: HashMap<u32, Arc<DescriptorProp>> = [
-					(0, Arc::new(DescriptorProp::UniformBuffers(vec![uniform_input_scene.clone()]))),
-				].into_iter().collect();
+				let desc_props = Arc::new(DescriptorProps::default());
+				desc_props.new_uniform_buffer(0, 0, uniform_input_scene.clone());
 				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
 				for mesh in object.meshset.values() {
 					if let Some(material) = &mesh.material {
@@ -331,7 +332,7 @@ mod tests {
 									texture: texture.clone(),
 									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
 								};
-								desc_props_set_0.insert(1, Arc::new(DescriptorProp::Images(vec![texture_input_albedo])));
+								desc_props.new_texture(0, 1, texture_input_albedo);
 							}
 						}
 						if let Some(normal) = material.get_normal() {
@@ -341,7 +342,7 @@ mod tests {
 									texture: texture.clone(),
 									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
 								};
-								desc_props_set_0.insert(2, Arc::new(DescriptorProp::Images(vec![texture_input_normal])));
+								desc_props.new_texture(0, 2, texture_input_normal);
 							}
 						}
 					}
@@ -349,8 +350,6 @@ mod tests {
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 				object.discard_staging_buffers();
-				let desc_props_sets: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, desc_props_set_0)].into_iter().collect();
-				let desc_props = Arc::new(DescriptorProps::new(desc_props_sets));
 				for (matname, mesh) in object.meshset.iter() {
 					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props.clone())?
 					.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)

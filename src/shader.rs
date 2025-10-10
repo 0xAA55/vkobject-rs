@@ -800,7 +800,7 @@ pub mod shader_analyzer {
 use shader_analyzer::*;
 
 /// The texture image and sampler to put in a pipeline (used to input into a shader)
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct TextureForSample {
 	/// The texture
 	pub texture: Arc<VulkanTexture>,
