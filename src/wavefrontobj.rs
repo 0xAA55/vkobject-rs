@@ -125,6 +125,9 @@ pub struct ObjObjects {
 /// A trait that tells how many operators could be used on a floating number
 pub trait FloatOps: Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self> + Rem<Output = Self> + Neg<Output = Self> + PartialEq + PartialOrd + AddAssign + SubAssign + MulAssign + DivAssign + RemAssign + Sized + num_traits::identities::Zero + num_traits::Float + SimdComplexField{}
 
+impl FloatOps for f32 {}
+impl FloatOps for f64 {}
+
 /// The trait for `TVecN<>` component type
 pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
 impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
