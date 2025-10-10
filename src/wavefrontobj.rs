@@ -634,38 +634,38 @@ where
 			f * (-delta_uv2.x * delta_pos1.z + delta_uv1.x * delta_pos2.z),
 		);
 
-        let tangent0 = Self::orthogonalize_tangent(tangent, normal0);
-        let tangent1 = Self::orthogonalize_tangent(tangent, normal1);
-        let tangent2 = Self::orthogonalize_tangent(tangent, normal2);
+		let tangent0 = Self::orthogonalize_tangent(tangent, normal0);
+		let tangent1 = Self::orthogonalize_tangent(tangent, normal1);
+		let tangent2 = Self::orthogonalize_tangent(tangent, normal2);
 
-        let tangent0 = Self::ensure_right_handed(tangent0, normal0, bitangent);
-        let tangent1 = Self::ensure_right_handed(tangent1, normal1, bitangent);
-        let tangent2 = Self::ensure_right_handed(tangent2, normal2, bitangent);
+		let tangent0 = Self::ensure_right_handed(tangent0, normal0, bitangent);
+		let tangent1 = Self::ensure_right_handed(tangent1, normal1, bitangent);
+		let tangent2 = Self::ensure_right_handed(tangent2, normal2, bitangent);
 
-        v1.tangent = Some(tangent0);
-        v2.tangent = Some(tangent1);
-        v3.tangent = Some(tangent2);
+		v1.tangent = Some(tangent0);
+		v2.tangent = Some(tangent1);
+		v3.tangent = Some(tangent2);
 	}
 
-    /// Orthogonalize tangents using the Gram-Schmidt procedure
-    fn orthogonalize_tangent(tangent: TVec3<F>, normal: TVec3<F>) -> TVec3<F> {
-        let n_dot_t = normal.dot(&tangent);
-        let projected = tangent - normal * n_dot_t;
-        projected.normalize()
-    }
+	/// Orthogonalize tangents using the Gram-Schmidt procedure
+	fn orthogonalize_tangent(tangent: TVec3<F>, normal: TVec3<F>) -> TVec3<F> {
+		let n_dot_t = normal.dot(&tangent);
+		let projected = tangent - normal * n_dot_t;
+		projected.normalize()
+	}
 
-    /// Make sure the tangent space is right-handed
-    fn ensure_right_handed(tangent: TVec3<F>, normal: TVec3<F>, bitangent: TVec3<F>) -> TVec3<F> {
-        let calculated_bitangent = normal.cross(&tangent);
-        let dot_product = calculated_bitangent.dot(&bitangent);
+	/// Make sure the tangent space is right-handed
+	fn ensure_right_handed(tangent: TVec3<F>, normal: TVec3<F>, bitangent: TVec3<F>) -> TVec3<F> {
+		let calculated_bitangent = normal.cross(&tangent);
+		let dot_product = calculated_bitangent.dot(&bitangent);
 
-        // If the dot product is negative, it means it is a left-handed system and the tangent needs to be flipped
-        if dot_product < F::from(0.0).unwrap() {
-            -tangent
-        } else {
-            tangent
-        }
-    }
+		// If the dot product is negative, it means it is a left-handed system and the tangent needs to be flipped
+		if dot_product < F::from(0.0).unwrap() {
+			-tangent
+		} else {
+			tangent
+		}
+	}
 }
 
 impl<F> ObjUnindexedMesh<F>
