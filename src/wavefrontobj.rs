@@ -174,6 +174,29 @@ where
 }
 
 #[derive(Default, Debug, Clone)]
+pub struct ObjUnindexedMesh<F>
+where
+	F: ObjMeshVecCompType {
+	/// The object name
+	pub object_name: String,
+
+	/// The group name
+	pub group_name: String,
+
+	/// The material name
+	pub material_name: String,
+
+	/// The smooth group
+	pub smooth_group: i32,
+
+	/// The face indices
+	pub faces: Vec<(ObjVertices<F>, ObjVertices<F>, ObjVertices<F>)>,
+
+	/// The line indices
+	pub lines: Vec<Vec<TVec3<F>>>,
+}
+
+#[derive(Default, Debug, Clone)]
 pub struct ObjIndexedMeshSet<F, E>
 where
 	F: ObjMeshVecCompType,
@@ -513,6 +536,55 @@ where
 		}
 		Ok(ret)
 	}
+
+	/// Convert to VTN vertices without indices
+	pub fn convert_to_unindexed_meshes(&self) -> Result<Vec<ObjUnindexedMesh<F>>, ObjError> {
+		let mut ret: Vec<ObjUnindexedMesh<F>> = Vec::with_capacity(self.get_num_groups());
+		fn get_face_vert<F>(vertices: &[TVec3<F>], texcoords: &[TVec3<F>], normals: &[TVec3<F>], vtn: &ObjVTNIndex) -> Result<ObjVertices<F>, ObjError>
+		where
+			F: ObjMeshVecCompType {
+			Ok(ObjVertices {
+				position: if vtn.v == 0 {return Err(ObjError::MeshIndicesUnderflow)} else {vertices[vtn.v as usize - 1]},
+				texcoord: if vtn.vt == 0 {None} else {Some(texcoords[vtn.vt as usize - 1])},
+				normal: if vtn.vn == 0 {None} else {Some(normals[vtn.vn as usize - 1])},
+				tangent: None,
+			})
+		}
+		for (object_name, object) in self.objects.iter() {
+			for (group_name, group) in object.groups.iter() {
+				for (material_name, matgroup) in group.material_groups.iter() {
+					for (smooth_group, smthgroup) in matgroup.smooth_groups.iter() {
+						let lock = smthgroup.read().unwrap();
+						let mut lines: Vec<Vec<TVec3<F>>> = Vec::with_capacity(lock.lines.len());
+						let mut faces: Vec<(ObjVertices<F>, ObjVertices<F>, ObjVertices<F>)> = Vec::with_capacity(lock.triangles.len());
+						for line in lock.lines.iter() {
+							let mut line_verts: Vec<TVec3<F>> = Vec::with_capacity(line.len());
+							for vert_idx in line.iter() {
+								let vert = self.vertices[*vert_idx as usize - 1];
+								line_verts.push(vert);
+							}
+							lines.push(line_verts);
+						}
+						for triangle in lock.triangles.iter() {
+							let vert1 = get_face_vert(&self.vertices, &self.texcoords, &self.normals, &triangle.0)?;
+							let vert2 = get_face_vert(&self.vertices, &self.texcoords, &self.normals, &triangle.1)?;
+							let vert3 = get_face_vert(&self.vertices, &self.texcoords, &self.normals, &triangle.2)?;
+							faces.push((vert1, vert2, vert3));
+						}
+						ret.push(ObjUnindexedMesh {
+							object_name: object_name.clone(),
+							group_name: group_name.clone(),
+							material_name: material_name.clone(),
+							smooth_group: *smooth_group,
+							faces,
+							lines,
+						});
+					}
+				}
+			}
+		}
+		Ok(ret)
+	}
 }
 
 fn float_is_zero_restrict<F>(f: F) -> bool
@@ -594,6 +666,86 @@ where
             tangent
         }
     }
+}
+
+impl<F> ObjUnindexedMesh<F>
+where
+	F: ObjMeshVecCompType {
+	/// Get the dimension data of vertex position, texcoord, normal
+	pub fn get_vert_dims(&self) -> (u32, u32, u32) {
+		let mut max_position = 0;
+		let mut max_texcoord = 0;
+		let mut max_normal = 0;
+		for vert in self.faces.iter().flat_map(|(a, b, c)| [a, b, c]) {
+			match max_position {
+				0 => {
+					if !float_is_zero_restrict(vert.position.z) {max_position = max(max_position, 3)}
+					else if !float_is_zero_restrict(vert.position.y) {max_position = max(max_position, 2)}
+					else if !float_is_zero_restrict(vert.position.x) {max_position = max(max_position, 1)}
+				}
+				1 => {
+					if !float_is_zero_restrict(vert.position.z) {max_position = max(max_position, 3)}
+					else if !float_is_zero_restrict(vert.position.y) {max_position = max(max_position, 2)}
+				}
+				2 => {
+					if !float_is_zero_restrict(vert.position.z) {max_position = max(max_position, 3)}
+				}
+				_ => break,
+			}
+		}
+		for vert in self.faces.iter().flat_map(|(a, b, c)| [a, b, c]) {
+			if let Some(texcoord) = vert.texcoord {
+				match max_texcoord {
+					0 => {
+						if !float_is_zero_restrict(texcoord.z) {max_texcoord = max(max_texcoord, 3)}
+						else if !float_is_zero_restrict(texcoord.y) {max_texcoord = max(max_texcoord, 2)}
+						else if !float_is_zero_restrict(texcoord.x) {max_texcoord = max(max_texcoord, 1)}
+					}
+					1 => {
+						if !float_is_zero_restrict(texcoord.z) {max_texcoord = max(max_texcoord, 3)}
+						else if !float_is_zero_restrict(texcoord.y) {max_texcoord = max(max_texcoord, 2)}
+					}
+					2 => {
+						if !float_is_zero_restrict(texcoord.z) {max_texcoord = max(max_texcoord, 3)}
+					}
+					_ => break,
+				}
+			}
+		}
+		for vert in self.faces.iter().flat_map(|(a, b, c)| [a, b, c]) {
+			if let Some(normal) = vert.normal {
+				match max_normal {
+					0 => {
+						if !float_is_zero_restrict(normal.z) {max_normal = max(max_normal, 3)}
+						else if !float_is_zero_restrict(normal.y) {max_normal = max(max_normal, 2)}
+						else if !float_is_zero_restrict(normal.x) {max_normal = max(max_normal, 1)}
+					}
+					1 => {
+						if !float_is_zero_restrict(normal.z) {max_normal = max(max_normal, 3)}
+						else if !float_is_zero_restrict(normal.y) {max_normal = max(max_normal, 2)}
+					}
+					2 => {
+						if !float_is_zero_restrict(normal.z) {max_normal = max(max_normal, 3)}
+					}
+					_ => break,
+				}
+			}
+		}
+		(max_position, max_texcoord, max_normal)
+	}
+
+	/// Only the unindexed mesh could be able to generate tangent
+	pub fn generate_tangents(&mut self) -> Result<(), ObjError> {
+		let (_, tdim, ndim) = self.get_vert_dims();
+		if tdim == 0 || ndim == 0 {
+			Err(ObjError::NeedTexCoordAndNormal)
+		} else {
+			for (v1, v2, v3) in self.faces.iter_mut() {
+				ObjVertices::generate_tangents(v1, v2, v3);
+			}
+			Ok(())
+		}
+	}
 }
 
 impl<F, E> ObjIndexedMeshSet<F, E>
