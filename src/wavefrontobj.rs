@@ -150,6 +150,50 @@ where
 	pub tangent: Option<TVec3<F>>,
 }
 
+impl<F> PartialEq for ObjVertices<F>
+where
+	F: ObjMeshVecCompType {
+    fn eq(&self, other: &Self) -> bool {
+		let self_data: Vec<F> = self.position.iter().cloned()
+			.chain(self.texcoord.iter().flat_map(|v| v.iter().cloned()))
+			.chain(self.normal.iter().flat_map(|v| v.iter().cloned()))
+			.chain(self.tangent.iter().flat_map(|v| v.iter().cloned())).collect();
+		let other_data: Vec<F> = other.position.iter().cloned()
+			.chain(other.texcoord.iter().flat_map(|v| v.iter().cloned()))
+			.chain(other.normal.iter().flat_map(|v| v.iter().cloned()))
+			.chain(other.tangent.iter().flat_map(|v| v.iter().cloned())).collect();
+		let self_bytes = self_data.len() * size_of::<F>();
+		let other_bytes = other_data.len() * size_of::<F>();
+		match size_of::<F>() {
+			1 => unsafe {slice::from_raw_parts(self_data.as_ptr() as *const u8, self_bytes) == slice::from_raw_parts(other_data.as_ptr() as *const u8, other_bytes)},
+			2 => unsafe {slice::from_raw_parts(self_data.as_ptr() as *const u8, self_bytes) == slice::from_raw_parts(other_data.as_ptr() as *const u8, other_bytes)},
+			4 => unsafe {slice::from_raw_parts(self_data.as_ptr() as *const u8, self_bytes) == slice::from_raw_parts(other_data.as_ptr() as *const u8, other_bytes)},
+			8 => unsafe {slice::from_raw_parts(self_data.as_ptr() as *const u8, self_bytes) == slice::from_raw_parts(other_data.as_ptr() as *const u8, other_bytes)},
+			o => panic!("Invalid primitive type of `<F>`, the size of this type is `{o}`"),
+		}
+    }
+}
+
+impl<F> Eq for ObjVertices<F> where F: ObjMeshVecCompType {}
+
+impl<F> Hash for ObjVertices<F>
+where
+	F: ObjMeshVecCompType {
+	fn hash<H: Hasher>(&self, state: &mut H) {
+		let data: Vec<F> = self.position.iter().cloned()
+			.chain(self.texcoord.iter().flat_map(|v| v.iter().cloned()))
+			.chain(self.normal.iter().flat_map(|v| v.iter().cloned()))
+			.chain(self.tangent.iter().flat_map(|v| v.iter().cloned())).collect();
+		match size_of::<F>() {
+			1 => {state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len())});}
+			2 => {state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 2)});}
+			4 => {state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 4)});}
+			8 => {state.write(unsafe {slice::from_raw_parts(data.as_ptr() as *const u8, data.len() * 8)});}
+			o => panic!("Invalid primitive type of `<F>`, the size of this type is `{o}`"),
+		}
+	}
+}
+
 #[derive(Default, Debug, Clone)]
 pub struct ObjIndexedMesh<E>
 where
@@ -243,12 +287,14 @@ fn concentrate_line(line: &str) -> &str {
 	line.trim_end()
 }
 
-#[derive(Default, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Default, Debug, Clone, Copy, PartialEq)]
 struct LineVert<F: ObjMeshVecCompType> {
 	x: F,
 	y: F,
 	z: F,
 }
+
+impl<F> Eq for LineVert<F> where F: ObjMeshVecCompType {}
 
 impl<F> Hash for LineVert<F>
 where F: ObjMeshVecCompType {
