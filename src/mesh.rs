@@ -1082,7 +1082,15 @@ where
 		f32: From<F>,
 		f64: From<F>,
 		ObjVertexType: VertexType + From<ObjVertices<F>> {
-		let obj_mesh_set: ObjIndexedMeshSet<F, u32> = obj.convert_to_indexed_meshes()?;
+		let obj_mesh_set: ObjIndexedMeshSet<F, u32> = {
+			let mut uim = obj.convert_to_unindexed_meshes()?;
+			for m in uim.iter_mut() {
+				// It's okay to fail to generate tangents here.
+				let _ = m.generate_tangents();
+			}
+			let im = ObjUnindexedMesh::convert_to_indexed_meshes(&uim)?;
+			im
+		};
 		let (pdim, tdim, ndim) = obj_mesh_set.get_vert_dims();
 		let template_mesh;
 		let instances;
