@@ -129,7 +129,7 @@ pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + Tr
 impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
 
 #[derive(Default, Debug, Clone, Copy)]
-pub struct ObjIndexedVertices<F>
+pub struct ObjVertices<F>
 where
 	F: ObjMeshVecCompType {
 	/// The `v` part of the VTN vertex
@@ -171,7 +171,7 @@ where
 	F: ObjMeshVecCompType,
 	E: ObjMeshIndexType {
 	/// The face vertices
-	pub face_vertices: Vec<ObjIndexedVertices<F>>,
+	pub face_vertices: Vec<ObjVertices<F>>,
 
 	/// The line vertices
 	pub line_vertices: Vec<TVec3<F>>,
@@ -475,11 +475,11 @@ where
 				}
 			}
 		}
-		ret.face_vertices.resize(face_vertices_map.len(), ObjIndexedVertices::default());
+		ret.face_vertices.resize(face_vertices_map.len(), ObjVertices::default());
 		ret.line_vertices.resize(line_vertices_map.len(), TVec3::default());
 		for (vtn, vi) in face_vertices_map.iter() {
 			let vi: usize = (*vi).try_into().map_err(|_| ObjError::MeshIndicesOverflow)?;
-			ret.face_vertices[vi] = ObjIndexedVertices {
+			ret.face_vertices[vi] = ObjVertices {
 				position: if vtn.v == 0 {return Err(ObjError::MeshIndicesUnderflow)} else {self.vertices[vtn.v as usize - 1]},
 				texcoord: if vtn.vt == 0 {None} else {Some(self.texcoords[vtn.vt as usize - 1])},
 				normal: if vtn.vn == 0 {None} else {Some(self.normals[vtn.vn as usize - 1])},

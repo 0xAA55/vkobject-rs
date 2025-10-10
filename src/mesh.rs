@@ -741,20 +741,20 @@ derive_vertex_type! {
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionOnly
+impl<F> From<ObjVertices<F>> for ObjVertPositionOnly
 where
 	F: ObjMeshVecCompType, f32: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 		}
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionNormal
+impl<F> From<ObjVertices<F>> for ObjVertPositionNormal
 where
 	F: ObjMeshVecCompType, f32: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			normal: if let Some(normal) = f.normal {
@@ -766,10 +766,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2D
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord2D
 where
 	F: ObjMeshVecCompType, f32: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -781,10 +781,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3D
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord3D
 where
 	F: ObjMeshVecCompType, f32: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -796,10 +796,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2DNormal
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord2DNormal
 where
 	F: ObjMeshVecCompType, f32: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -816,10 +816,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3DNormal
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord3DNormal
 where
 	F: ObjMeshVecCompType, f32: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: Vec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -836,20 +836,20 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionOnlyDouble
+impl<F> From<ObjVertices<F>> for ObjVertPositionOnlyDouble
 where
 	F: ObjMeshVecCompType, f64: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 		}
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionNormalDouble
+impl<F> From<ObjVertices<F>> for ObjVertPositionNormalDouble
 where
 	F: ObjMeshVecCompType, f64: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			normal: if let Some(normal) = f.normal {
@@ -861,10 +861,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2DDouble
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord2DDouble
 where
 	F: ObjMeshVecCompType, f64: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -876,10 +876,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3DDouble
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord3DDouble
 where
 	F: ObjMeshVecCompType, f64: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -891,10 +891,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord2DNormalDouble
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord2DNormalDouble
 where
 	F: ObjMeshVecCompType, f64: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
@@ -911,10 +911,10 @@ where
 	}
 }
 
-impl<F> From<ObjIndexedVertices<F>> for ObjVertPositionTexcoord3DNormalDouble
+impl<F> From<ObjVertices<F>> for ObjVertPositionTexcoord3DNormalDouble
 where
 	F: ObjMeshVecCompType, f64: From<F> {
-	fn from(f: ObjIndexedVertices<F>) -> Self {
+	fn from(f: ObjVertices<F>) -> Self {
 		Self {
 			position: DVec3::new(f.position.x.into(), f.position.y.into(), f.position.z.into()),
 			texcoord: if let Some(texcoord) = f.texcoord {
