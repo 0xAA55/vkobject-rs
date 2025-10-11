@@ -380,7 +380,7 @@ mod tests {
 				let mut proj_matrix = {
 					let fovy = pi::<f32>() / 3.0;
 					let aspect = extent.width as f32 / extent.height as f32;
-					perspective(fovy, aspect, 0.1, 1000.0)
+					perspective(aspect, fovy, 0.1, 1000.0)
 				};
 				proj_matrix[(1, 1)] *= -1.0;
 
