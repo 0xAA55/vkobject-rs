@@ -21,11 +21,13 @@ layout(location = 4) in mat4 transform;
 layout(location = 1) out vec2 v_texcoord;
 layout(location = 2) out vec3 v_normal;
 layout(location = 3) out vec3 v_tangent;
+layout(location = 4) out vec3 v_binormal;
 
 void main()
 {
 	v_texcoord = texcoord;
 	v_normal = mat3(transform) * normal;
 	v_tangent = mat3(transform) * tangent;
+	v_binormal = cross(v_normal, v_tangent);
 	gl_Position = proj * view * transform * vec4(position, 1.0);
 }
