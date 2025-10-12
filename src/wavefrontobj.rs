@@ -1092,7 +1092,7 @@ impl ObjMaterial for ObjMaterialLegacy {
 	fn get_normal(&self) ->			Option<&ObjMaterialComponent> {Some(&self.normal)}
 	fn get_emissive(&self) ->		Option<&ObjMaterialComponent> {Some(&self.emissive)}
 
-	fn get_albedo(&self) ->			Option<&ObjMaterialComponent> {None}
+	fn get_albedo(&self) ->			Option<&ObjMaterialComponent> {Some(&self.diffuse)}
 	fn get_ao(&self) ->				Option<&ObjMaterialComponent> {None}
 	fn get_displacement(&self) ->	Option<&ObjMaterialComponent> {None}
 	fn get_roughness(&self) ->		Option<&ObjMaterialComponent> {None}
@@ -1154,7 +1154,7 @@ impl ObjMaterial for ObjMaterialPbr {
 	fn get_emissive(&self) ->		Option<&ObjMaterialComponent> {Some(&self.emissive)}
 
 	fn get_ambient(&self) ->		Option<&ObjMaterialComponent> {None}
-	fn get_diffuse(&self) ->		Option<&ObjMaterialComponent> {None}
+	fn get_diffuse(&self) ->		Option<&ObjMaterialComponent> {Some(&self.albedo)}
 	fn get_specular(&self) ->		Option<&ObjMaterialComponent> {None}
 	fn get_specular_power(&self) ->	Option<&ObjMaterialComponent> {None}
 
