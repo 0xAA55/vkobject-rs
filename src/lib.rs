@@ -326,8 +326,8 @@ mod tests {
 				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
 				for mesh in object.meshset.values() {
 					if let Some(material) = &mesh.material {
-						if let Some(diffuse) = material.get_diffuse() {
-							if let MaterialComponent::Texture(texture) = diffuse {
+						if let Some(albedo) = material.get_albedo() {
+							if let MaterialComponent::Texture(texture) = albedo {
 								texture.prepare_for_sample(pool_in_use.cmdbuf)?;
 								let texture_input_albedo = TextureForSample {
 									texture: texture.clone(),
