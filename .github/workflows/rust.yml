@@ -19,18 +19,15 @@ jobs:
     - name: Install GLFW dependencies
       run: |
         sudo apt-get update
-        sudo apt-get upgrade -y
         sudo apt-get install -y libglfw3-dev libgl-dev libxrandr-dev libxi-dev libxcursor-dev libxinerama-dev mesa-vulkan-drivers
     - name: Install turbojpeg dependencies
       run: |
         sudo apt-get update
-        sudo apt-get upgrade -y
         sudo apt-get install -y nasm
     - name: Install XVFB and dependencies
       if: runner.os == 'Linux'
       run: |
         sudo apt-get update
-        sudo apt-get upgrade -y
         sudo apt-get install -y xvfb libgtk2.0-0 libgtk-3-0 libgbm-dev libnotify-dev libnss3 libxss1 libxtst6 xauth x11-apps imagemagick
 
     - name: Start XVFB
