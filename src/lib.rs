@@ -423,7 +423,7 @@ mod tests {
 					let x = x as f32 - Self::OBJ_ROWS as f32 * 0.5;
 					let y = y as f32 - Self::OBJ_COLS as f32 * 0.5;
 					lock[i] = InstanceType {
-						transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(-x * 5.0, -5.0, -y * 5.0)), (run_time as f32) * (i + 1) as f32, &glm::vec3(0.0, 1.0, 0.0)),
+						transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(-x * 5.0, -5.0, -y * 5.0)), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
 					};
 				}
 				drop(lock);
