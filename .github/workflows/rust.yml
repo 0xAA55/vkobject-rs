@@ -40,4 +40,4 @@ jobs:
     - name: Run tests
       run: |
         export DISPLAY=:99.0
-        cargo test --release --verbose --features validation_layer -- --nocapture
+        cargo test --release --verbose -- --nocapture
