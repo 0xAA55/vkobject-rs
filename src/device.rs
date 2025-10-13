@@ -129,6 +129,20 @@ pub struct VulkanDevice {
 impl VulkanDevice {
 	/// Create the `VulkanDevice` by the given `VkPhysicalDevice` and the queue family index
 	pub fn new(vkcore: Arc<VkCore>, gpu: VulkanGpuInfo, queue_family_index: u32) -> Result<Self, VulkanError> {
+		fn remove_c_string_from_vec(v: &mut Vec<*const i8>, to_remove: &str) {
+			let mut found_index = None;
+			for (i, &ptr) in v.iter().enumerate() {
+				unsafe {
+					let c_str = CStr::from_ptr(ptr);
+					// Compare without assuming it's UTF-8
+					if c_str.to_bytes() == to_remove.as_bytes() {
+						found_index = Some(i);
+						break;
+					}
+				}
+			}
+			found_index.map(|i| v.swap_remove(i));
+		}
 		let priorities = [1.0_f32];
 		let queue_ci = VkDeviceQueueCreateInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO,
@@ -152,16 +166,7 @@ impl VulkanDevice {
 			extensions.push(ext_ptr)
 		}
 		if has_vk_khr_buffer_device_address && has_vk_ext_buffer_device_address {
-			let len = extensions.len();
-			for i in 0..len {
-				let ext_ptr = extensions[i];
-				let ext_str = unsafe {CStr::from_ptr(ext_ptr)}.to_string_lossy();
-				if ext_str == "VK_EXT_buffer_device_address" {
-					extensions[i] = extensions[len - 1];
-					extensions.pop();
-					break;
-				}
-			}
+			remove_c_string_from_vec(&mut extensions, "VK_EXT_buffer_device_address");
 		}
 
 		let device_ci = VkDeviceCreateInfo {
