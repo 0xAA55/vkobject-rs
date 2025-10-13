@@ -26,8 +26,9 @@ layout(location = 4) out vec3 v_binormal;
 void main()
 {
 	v_texcoord = texcoord;
-	v_normal = mat3(transform) * normal;
-	v_tangent = mat3(transform) * tangent;
+	mat3 rotation = mat3(transform);
+	v_normal = rotation * normal;
+	v_tangent = rotation * tangent;
 	v_binormal = cross(v_normal, v_tangent);
 	gl_Position = proj * view * transform * vec4(position, 1.0);
 }
