@@ -174,6 +174,14 @@ mod tests {
 			})
 		}
 
+		pub fn get_time(&self) -> f64 {
+			glfw_get_time()
+		}
+
+		pub fn set_time(&self, time: f64) {
+			glfw_set_time(time)
+		}
+
 		pub fn run(&mut self,
 			test_time: Option<f64>,
 			mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError> + Send + 'static
