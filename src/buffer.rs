@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	any::Any,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	marker::PhantomData,
@@ -201,8 +202,8 @@ impl Debug for Buffer {
 }
 
 /// The trait that the struct of uniform must implement
-pub trait UniformStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
-impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+pub trait UniformStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
+impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
 
 #[macro_export]
 macro_rules! derive_uniform_buffer_type {
@@ -264,7 +265,7 @@ unsafe impl<U> Send for UniformBuffer<U> where U: UniformStructType {}
 unsafe impl<U> Sync for UniformBuffer<U> where U: UniformStructType {}
 
 /// The trait for the `UniformBuffer` to be able to wrap into an object
-pub trait GenericUniformBuffer: Debug {
+pub trait GenericUniformBuffer: Debug + Send + Sync + Any {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
@@ -299,7 +300,7 @@ where
 }
 
 /// The trait for the `StorageBuffer` to be able to wrap into an object
-pub trait GenericStorageBuffer: Debug {
+pub trait GenericStorageBuffer: Debug + Send + Sync + Any {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
@@ -314,8 +315,8 @@ pub trait GenericStorageBuffer: Debug {
 }
 
 /// The trait that the struct of uniform must implement
-pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Debug + Iterable {}
-impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Debug + Iterable {}
+pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
+impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
 
 #[macro_export]
 macro_rules! derive_storage_buffer_type {

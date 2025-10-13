@@ -16,8 +16,8 @@ use std::{
 use struct_iterable::Iterable;
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Debug + Iterable + Any + 'static {}
-impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Debug + Iterable + Any + 'static {}
+pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
+impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
 
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
@@ -140,8 +140,11 @@ where
 	}
 }
 
+unsafe impl<T> Send for BufferWithType<T> where T: BufferVecItem {}
+unsafe impl<T> Sync for BufferWithType<T> where T: BufferVecItem {}
+
 /// The trait for the mesh to hold buffers
-pub trait BufferForDraw<T>: Debug + Clone + Any
+pub trait BufferForDraw<T>: Clone + Send + Sync + Debug + Any
 where
 	T: BufferVecItem {
 	/// Used to create the buffer
@@ -368,7 +371,7 @@ pub type StaticMesh<V, E, I, C> = Mesh<BufferWithType<V>, V, BufferWithType<E>, 
 pub type DynamicMesh<V, E, I, C> = Mesh<BufferVec<V>, V, BufferVec<E>, E, BufferVec<I>, I, BufferVec<C>, C>;
 
 /// The trait for a mesh
-pub trait GenericMesh: Debug + Any {
+pub trait GenericMesh: Debug + Any + Send + Sync {
 	/// Clone the mesh
 	fn clone(&self) -> Box<dyn GenericMesh>;
 
@@ -1070,7 +1073,7 @@ where
 		F: ObjMeshVecCompType,
 		f32: From<F>,
 		f64: From<F>,
-		ObjVertexType: VertexType + From<ObjVertices<F>> {
+		ObjVertexType: VertexType + From<ObjVertices<F>> + Send + Sync {
 		let obj = ObjMesh::<F>::from_file(path)?;
 		Self::create_meshset_from_obj::<F, ObjVertexType>(device, &obj, cmdbuf, instances_data)
 	}
@@ -1081,7 +1084,7 @@ where
 		F: ObjMeshVecCompType,
 		f32: From<F>,
 		f64: From<F>,
-		ObjVertexType: VertexType + From<ObjVertices<F>> {
+		ObjVertexType: VertexType + From<ObjVertices<F>> + Send + Sync {
 		let obj_mesh_set: ObjIndexedMeshSet<F, u32> = {
 			let mut uim = obj.convert_to_unindexed_meshes()?;
 			for m in uim.iter_mut() {
