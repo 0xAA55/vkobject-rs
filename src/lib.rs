@@ -97,6 +97,19 @@ pub mod prelude {
 	pub use crate::derive_vertex_type;
 	pub use crate::derive_uniform_buffer_type;
 	pub use crate::derive_storage_buffer_type;
+
+	unsafe extern "C" {
+		fn glfwGetTime() -> f64;
+		fn glfwSetTime(time: f64);
+	}
+
+	pub fn glfw_get_time() -> f64 {
+		unsafe {glfwGetTime()}
+	}
+
+	pub fn glfw_set_time(time: f64) {
+		unsafe {glfwSetTime(time)}
+	}
 }
 
 #[cfg(test)]
@@ -169,14 +182,12 @@ mod tests {
 			let exit_flag_cloned = exit_flag.clone();
 			let start_time = self.glfw.get_time();
 			let ctx = self.ctx.clone();
-			let glfw_ptr = &self.glfw as *const Glfw as usize;
 			let renderer_thread = thread::spawn(move || {
-				let glfw = unsafe {&*(glfw_ptr as *const Glfw)};
 				let mut num_frames = 0;
 				let mut time_in_sec: u64 = 0;
 				let mut num_frames_prev: u64 = 0;
 				while !exit_flag_cloned.load(Ordering::Relaxed) {
-					let cur_frame_time = glfw.get_time();
+					let cur_frame_time = glfw_get_time();
 					let run_time = cur_frame_time - start_time;
 					on_render(&mut ctx.write().unwrap(), run_time).unwrap();
 					num_frames += 1;
@@ -190,7 +201,7 @@ mod tests {
 				}
 			});
 			while !self.window.should_close() {
-				let run_time = self.glfw.get_time() - start_time;
+				let run_time = glfw_get_time() - start_time;
 				thread::sleep(Duration::from_millis(1));
 				self.glfw.poll_events();
 				for (_, event) in glfw::flush_messages(&self.events) {
