@@ -356,7 +356,7 @@ where
 		if is_in || gap != 0 {
 			region.push(BufferRegion {
 				offset: (si * size_of::<T>()) as VkDeviceSize,
-				size: ((ei + 1 - si) * size_of::<T>()) as VkDeviceSize,
+				size: ((self.cache_modified_bitmap.len() - si) * size_of::<T>()) as VkDeviceSize,
 			});
 		}
 		if !region.is_empty() {
