@@ -309,6 +309,9 @@ mod tests {
 		}
 
 		impl Resources {
+			const OBJ_ROWS: usize = 4;
+			const OBJ_COLS: usize = 4;
+
 			pub fn new(ctx: &mut VulkanContext) -> Result<Self, VulkanError> {
 				let device = ctx.device.clone();
 				let draw_shaders = Arc::new(DrawShaders::new(
@@ -319,7 +322,7 @@ mod tests {
 					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/objdisp.fsh")), false, "main", OptimizationLevel::Performance, false)?),
 				));
 				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
-				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, ObjVertPositionTexcoord2DNormalTangent, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}]))?;
+				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, ObjVertPositionTexcoord2DNormalTangent, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}; Self::OBJ_ROWS * Self::OBJ_COLS]))?;
 				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone())?);
 				let desc_props = Arc::new(DescriptorProps::default());
 				desc_props.new_uniform_buffer(0, 0, uniform_input_scene.clone());
@@ -392,9 +395,13 @@ mod tests {
 				ui_data[0].ambient_color = Vec3::new(0.1, 0.2, 0.1);
 				self.uniform_input_scene.flush(cmdbuf)?;
 				let mut lock = self.object.edit_instances().unwrap();
-				lock[0] = InstanceType {
-					transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(0.0, -5.0, 0.0)), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
-				};
+				for (i, x, y) in (0..Self::OBJ_ROWS).flat_map(|y| (0..Self::OBJ_COLS).map(move |x| (y * Self::OBJ_COLS + x, x, y))) {
+					let x = x as f32;
+					let y = y as f32;
+					lock[i] = InstanceType {
+						transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(-x * 5.0, -5.0, -y * 5.0)), (run_time as f32) * (i + 1) as f32, &glm::vec3(0.0, 1.0, 0.0)),
+					};
+				}
 				drop(lock);
 
 				scene.set_viewport_swapchain(0.0, 1.0)?;
