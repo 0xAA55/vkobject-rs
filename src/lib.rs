@@ -420,7 +420,7 @@ mod tests {
 				let extent = scene.get_rendertarget_extent();
 
 				let view_matrix = {
-					let eye = glm::vec3(15.0, 15.0, 15.0);
+					let eye = glm::vec3(25.0, 25.0, 25.0);
 					let center = glm::vec3(0.0, 0.0, 0.0);
 					let up = glm::vec3(0.0, 1.0, 0.0);
 					glm::look_at(&eye, &center, &up)
@@ -436,7 +436,7 @@ mod tests {
 				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputScene, 1)};
 				ui_data[0].view_matrix = view_matrix;
 				ui_data[0].proj_matrix = proj_matrix;
-				ui_data[0].light_dir = normalize(&Vec3::new(0.2, -0.5, -1.0));
+				ui_data[0].light_dir = normalize(&Vec3::new(-1.2, -1.0, -1.0));
 				ui_data[0].light_color = Vec3::new(1.0, 1.0, 1.0);
 				ui_data[0].ambient_color = Vec3::new(0.1, 0.2, 0.1);
 				self.uniform_input_scene.flush(cmdbuf)?;
@@ -445,7 +445,7 @@ mod tests {
 					let x = x as f32 - Self::OBJ_ROWS as f32 * 0.5;
 					let y = y as f32 - Self::OBJ_COLS as f32 * 0.5;
 					lock[i] = InstanceType {
-						transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(-x * 5.0, -5.0, -y * 5.0)), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
+						transform: glm::rotate(&glm::translate(&Mat4::identity(), &Vec3::new(-x * 8.0, -5.0, -y * 8.0)), run_time as f32, &glm::vec3(0.0, 1.0, 0.0)),
 					};
 				}
 				drop(lock);
