@@ -131,7 +131,12 @@ mod tests {
 			let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
 			drop(glfw_lock);
 			window.set_key_polling(true);
-			let ctx = create_vulkan_context(&window, PresentInterval::VSync, 1, false)?;
+			let device_requirement = DeviceRequirement {
+				can_graphics: true,
+				can_compute: false,
+				name_subtring: "",
+			};
+			let ctx = create_vulkan_context(&window, device_requirement, PresentInterval::VSync, 1, false)?;
 			for gpu in VulkanGpuInfo::get_gpu_info(&ctx.vkcore)?.iter() {
 				println!("Found GPU: {}", unsafe{CStr::from_ptr(gpu.properties.deviceName.as_ptr())}.to_str().unwrap());
 			}

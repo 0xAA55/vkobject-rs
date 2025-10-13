@@ -31,15 +31,14 @@ pub mod init_from_glfw {
 	}
 
 	/// Create a Vulkan context
-	pub fn create_vulkan_context(window: &glfw::PWindow, present_interval: PresentInterval, cpu_renderer_threads: usize, is_vr: bool) -> Result<VulkanContext, VulkanError> {
+	pub fn create_vulkan_context(window: &glfw::PWindow, device_requirements: DeviceRequirement, present_interval: PresentInterval, cpu_renderer_threads: usize, is_vr: bool) -> Result<VulkanContext, VulkanError> {
 		let vkcore = Arc::new(create_vkcore_from_glfw("VkObject-test", "VkObject-rs", vk_make_version(1, 0, 0), vk_make_version(1, 0, 0), vk_make_api_version(0, 1, 0, 0))?);
 		let surface = VulkanSurfaceInfo {
 			window,
 		};
 		let context_ci = VulkanContextCreateInfo {
 			vkcore,
-			device_can_graphics: true,
-			device_can_compute: false,
+			device_requirements,
 			surface,
 			present_interval,
 			cpu_renderer_threads,

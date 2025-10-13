@@ -85,20 +85,40 @@ impl PresentInterval {
 	}
 }
 
+/// The requirements of choosing a GPU
+#[derive(Debug, Clone)]
+pub struct DeviceRequirement<'a> {
+	/// Choose a GPU by requiring the graphics ability
+	pub can_graphics: bool,
+
+	/// Choose a GPU by requiring the compute ability
+	pub can_compute: bool,
+
+	/// Choose a GPU by a substring in its name. If this field is an empty string, there are no requirements on the name of the GPU.
+	pub name_subtring: &'a str,
+}
+
+impl<'a> Default for DeviceRequirement<'a> {
+	fn default() -> Self {
+		Self {
+			can_graphics: true,
+			can_compute: false,
+			name_subtring: "",
+		}
+	}
+}
+
 /// The struct to create the `VulkanContext`
 #[derive(Debug)]
-pub struct VulkanContextCreateInfo<'a> {
+pub struct VulkanContextCreateInfo<'a, 'b> {
 	/// The most important thing: the Vulkan driver is here
 	pub vkcore: Arc<VkCore>,
 
-	/// The device must support graphics?
-	pub device_can_graphics: bool,
-
-	/// The device must support compute?
-	pub device_can_compute: bool,
+	/// The requirements of choosing a GPU
+	pub device_requirements: DeviceRequirement<'a>,
 
 	/// The surface, the target you want to render to
-	pub surface: VulkanSurfaceInfo<'a>,
+	pub surface: VulkanSurfaceInfo<'b>,
 
 	/// V-Sync should be on or off?
 	/// * It's recommended to enable V-Sync for most usage since this could be the smoothest achieve and lower the power consumption, **except** for players who play PVP and want to win with the lowest latency (You are designing these sorts of games)
@@ -151,11 +171,13 @@ impl VulkanContext {
 	pub fn new(create_info: VulkanContextCreateInfo) -> Result<Self, VulkanError> {
 		let cpu_renderer_threads = create_info.cpu_renderer_threads;
 		let vkcore = create_info.vkcore.clone();
-		let device = Arc::new(match (create_info.device_can_graphics, create_info.device_can_compute) {
-			(false, false) => VulkanDevice::choose_gpu_anyway(vkcore.clone())?,
-			(true, false) => VulkanDevice::choose_gpu_with_graphics(vkcore.clone())?,
-			(false, true) => VulkanDevice::choose_gpu_with_compute(vkcore.clone())?,
-			(true, true) => VulkanDevice::choose_gpu_with_graphics_and_compute(vkcore.clone())?,
+		let devreq = &create_info.device_requirements;
+		let (can_graphics, can_compute, name_substr) = (devreq.can_graphics, devreq.can_compute, &devreq.name_subtring);
+		let device = Arc::new(match (can_graphics, can_compute) {
+			(false, false) => VulkanDevice::choose_gpu_anyway(vkcore.clone(), name_substr)?,
+			(true, false) => VulkanDevice::choose_gpu_with_graphics(vkcore.clone(), name_substr)?,
+			(false, true) => VulkanDevice::choose_gpu_with_compute(vkcore.clone(), name_substr)?,
+			(true, true) => VulkanDevice::choose_gpu_with_graphics_and_compute(vkcore.clone(), name_substr)?,
 		});
 		let surface = &create_info.surface;
 
