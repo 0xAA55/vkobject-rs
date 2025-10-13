@@ -79,7 +79,7 @@ where
 			staging_buffer_data_address,
 			num_items: data.len(),
 			capacity: data.len(),
-			cache_modified_bitmap: {let mut bv = BitVec::with_capacity(data.len()); bv.push(false); bv},
+			cache_modified_bitmap: {let mut bv = BitVec::with_capacity(data.len()); bv.resize(data.len(), false); bv},
 			cache_modified: false,
 			_phantom: PhantomData,
 		})
