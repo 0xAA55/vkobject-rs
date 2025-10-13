@@ -227,72 +227,103 @@ scene.finish();
 ## 示例代码
 
 ```rust
-use vkobject_rs::prelude::*;
+use glfw::*;
+use crate::prelude::*;
 use std::{
 	collections::HashMap,
+	ffi::CStr,
 	path::PathBuf,
 	slice::from_raw_parts_mut,
-	sync::{Arc, Mutex},
+	sync::{
+		Arc,
+		Mutex,
+		RwLock,
+		atomic::{
+			AtomicBool,
+			Ordering,
+		}
+	},
+	thread,
+	time::Duration,
 };
+
+const TEST_TIME: f64 = 10.0;
 
 #[derive(Debug)]
 pub struct AppInstance {
-	pub ctx: VulkanContext,
+	pub ctx: Arc<RwLock<VulkanContext>>,
 	pub window: PWindow,
 	pub events: GlfwReceiver<(f64, WindowEvent)>,
 	pub glfw: Glfw,
-	pub num_frames: u64,
-}
-
-derive_vertex_type! {
-	pub struct VertexType {
-		pub position: Vec2,
-	}
-}
-
-derive_uniform_buffer_type! {
-	pub struct UniformInput {
-		resolution: Vec3,
-		time: f32,
-	}
 }
 
 impl AppInstance {
 	pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode) -> Result<Self, VulkanError> {
+		static GLFW_LOCK: Mutex<u32> = Mutex::new(0);
+		let glfw_lock = GLFW_LOCK.lock().unwrap();
 		let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 		glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
 		let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
+		drop(glfw_lock);
 		window.set_key_polling(true);
-		let ctx = create_vulkan_context(&window, PresentInterval::VSync, 1, false)?;
+		let device_requirement = DeviceRequirement {
+			can_graphics: true,
+			can_compute: false,
+			name_subtring: "",
+		};
+		let ctx = Arc::new(RwLock::new(create_vulkan_context(&window, device_requirement, PresentInterval::VSync, 1, false)?));
+		let ctx_lock = ctx.read().unwrap();
+		for gpu in VulkanGpuInfo::get_gpu_info(&ctx_lock.vkcore)?.iter() {
+			println!("Found GPU: {}", unsafe{CStr::from_ptr(gpu.properties.deviceName.as_ptr())}.to_str().unwrap());
+		}
+		println!("Chosen GPU name: {}", unsafe{CStr::from_ptr(ctx_lock.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
+		println!("Chosen GPU type: {:?}", ctx_lock.device.get_gpu().properties.deviceType);
+		drop(ctx_lock);
 		Ok(Self {
 			glfw,
 			window,
 			events,
-			num_frames: 0,
 			ctx,
 		})
 	}
 
+	pub fn get_time(&self) -> f64 {
+		glfw_get_time()
+	}
+
+	pub fn set_time(&self, time: f64) {
+		glfw_set_time(time)
+	}
+
 	pub fn run(&mut self,
-		mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError>
+		test_time: Option<f64>,
+		mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError> + Send + 'static
 	) -> Result<(), VulkanError> {
+		let exit_flag = Arc::new(AtomicBool::new(false));
+		let exit_flag_cloned = exit_flag.clone();
 		let start_time = self.glfw.get_time();
-		let mut time_in_sec: u64 = 0;
-		let mut num_frames_prev: u64 = 0;
-		while !self.window.should_close() {
-			let cur_frame_time = self.glfw.get_time();
-			let run_time = cur_frame_time - start_time;
-			on_render(&mut self.ctx, run_time)?;
-			self.num_frames += 1;
-
-			let new_time_in_sec = run_time.floor() as u64;
-			if new_time_in_sec > time_in_sec {
-				let fps = self.num_frames - num_frames_prev;
-				println!("FPS: {fps}\tat {new_time_in_sec}s");
-				time_in_sec = new_time_in_sec;
-				num_frames_prev = self.num_frames;
+		let ctx = self.ctx.clone();
+		let renderer_thread = thread::spawn(move || {
+			let mut num_frames = 0;
+			let mut time_in_sec: u64 = 0;
+			let mut num_frames_prev: u64 = 0;
+			while !exit_flag_cloned.load(Ordering::Relaxed) {
+				let cur_frame_time = glfw_get_time();
+				let run_time = cur_frame_time - start_time;
+				on_render(&mut ctx.write().unwrap(), run_time).unwrap();
+				num_frames += 1;
+				let new_time_in_sec = run_time.floor() as u64;
+				if new_time_in_sec > time_in_sec {
+					let fps = num_frames - num_frames_prev;
+					println!("FPS: {fps}\tat {new_time_in_sec}s");
+					time_in_sec = new_time_in_sec;
+					num_frames_prev = num_frames;
+				}
 			}
-
+		});
+		while !self.window.should_close() {
+			let run_time = glfw_get_time() - start_time;
+			thread::sleep(Duration::from_millis(1));
 			self.glfw.poll_events();
 			for (_, event) in glfw::flush_messages(&self.events) {
 				match event {
@@ -302,7 +333,15 @@ impl AppInstance {
 					_ => {}
 				}
 			}
+			if let Some(test_time) = test_time {
+				if run_time >= test_time {
+					self.window.set_should_close(true);
+				}
+			}
 		}
+		exit_flag.store(true, Ordering::Relaxed);
+		renderer_thread.join().unwrap();
+		println!("End of the test");
 		Ok(())
 	}
 }
@@ -311,8 +350,17 @@ unsafe impl Send for AppInstance {}
 unsafe impl Sync for AppInstance {}
 
 fn main() {
-	let mut inst = Box::new(AppInstance::new(1024, 768, "GLFW Window", glfw::WindowMode::Windowed).unwrap());
-
+	derive_vertex_type! {
+		pub struct VertexType {
+			pub position: Vec2,
+		}
+	}
+	derive_uniform_buffer_type! {
+		pub struct UniformInput {
+			resolution: Vec3,
+			time: f32,
+		}
+	}
 	struct Resources {
 		uniform_input: Arc<dyn GenericUniformBuffer>,
 		pipeline: Pipeline,
@@ -329,9 +377,8 @@ fn main() {
 				Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/test.fsh")), false, "main", OptimizationLevel::Performance, false)?),
 			));
 			let uniform_input: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInput>::new(device.clone())?);
-			let desc_prop = vec![uniform_input.clone()];
-			let desc_props: HashMap<u32, HashMap<u32, Arc<DescriptorProp>>> = [(0, [(0, Arc::new(DescriptorProp::UniformBuffers(desc_prop)))].into_iter().collect())].into_iter().collect();
-			let desc_props = Arc::new(DescriptorProps::new(desc_props));
+			let desc_props = Arc::new(DescriptorProps::default());
+			desc_props.new_uniform_buffer(0, 0, uniform_input.clone());
 			let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
 			let vertices_data = vec![
 				VertexType {
@@ -347,13 +394,13 @@ fn main() {
 					position: Vec2::new( 1.0,  1.0),
 				},
 			];
-			let vertices = BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?;
-			let mesh = Arc::new(Mutex::new(GenericMeshWithMaterial::new(Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), None)));
-			mesh.lock().unwrap().mesh.flush(pool_in_use.cmdbuf)?;
+			let vertices = Arc::new(RwLock::new(BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?));
+			let mesh = Arc::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), "", None));
+			mesh.geometry.flush(pool_in_use.cmdbuf)?;
 			drop(pool_in_use);
 			ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
-			mesh.lock().unwrap().mesh.discard_staging_buffers();
-			let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props.clone())?
+			mesh.geometry.discard_staging_buffers();
+			let pipeline = ctx.create_pipeline_builder(mesh, draw_shaders, desc_props)?
 			.set_cull_mode(VkCullModeFlagBits::VK_CULL_MODE_NONE as VkCullModeFlags)
 			.set_depth_test(false)
 			.set_depth_write(false)
@@ -386,10 +433,10 @@ fn main() {
 		}
 	}
 
-	let resources = Resources::new(&mut inst.ctx).unwrap();
-
+	let mut inst = Box::new(AppInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed).unwrap());
+	let resources = Resources::new(&mut inst.ctx.write().unwrap()).unwrap();
 	inst.run(Some(TEST_TIME),
-	|ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+	move |ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 		resources.draw(ctx, run_time)
 	}).unwrap();
 }
