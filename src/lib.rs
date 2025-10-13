@@ -108,7 +108,17 @@ mod tests {
 		ffi::CStr,
 		path::PathBuf,
 		slice::from_raw_parts_mut,
-		sync::{Arc, Mutex, RwLock},
+		sync::{
+			Arc,
+			Mutex,
+			RwLock,
+			atomic::{
+				AtomicBool,
+				Ordering,
+			}
+		},
+		thread,
+		time::Duration,
 	};
 
 	const TEST_TIME: f64 = 10.0;
@@ -119,7 +129,6 @@ mod tests {
 		pub window: PWindow,
 		pub events: GlfwReceiver<(f64, WindowEvent)>,
 		pub glfw: Glfw,
-		pub num_frames: u64,
 	}
 
 	impl TestInstance {
@@ -146,32 +155,40 @@ mod tests {
 				glfw,
 				window,
 				events,
-				num_frames: 0,
 				ctx,
 			})
 		}
 
 		pub fn run(&mut self,
 			test_time: Option<f64>,
-			mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError>
+			mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError> + Send + 'static
 		) -> Result<(), VulkanError> {
+			let exit_flag = Arc::new(AtomicBool::new(false));
+			let exit_flag_cloned = exit_flag.clone();
 			let start_time = self.glfw.get_time();
-			let mut time_in_sec: u64 = 0;
-			let mut num_frames_prev: u64 = 0;
-			while !self.window.should_close() {
-				let cur_frame_time = self.glfw.get_time();
-				let run_time = cur_frame_time - start_time;
-				on_render(&mut self.ctx, run_time)?;
-				self.num_frames += 1;
-
-				let new_time_in_sec = run_time.floor() as u64;
-				if new_time_in_sec > time_in_sec {
-					let fps = self.num_frames - num_frames_prev;
-					println!("FPS: {fps}\tat {new_time_in_sec}s");
-					time_in_sec = new_time_in_sec;
-					num_frames_prev = self.num_frames;
+			let self_ptr = self as *mut Self as usize;
+			let renderer_thread = thread::spawn(move || {
+				let this = unsafe {&mut *(self_ptr as *mut Self)};
+				let mut num_frames = 0;
+				let mut time_in_sec: u64 = 0;
+				let mut num_frames_prev: u64 = 0;
+				while !exit_flag_cloned.load(Ordering::Relaxed) {
+					let cur_frame_time = this.glfw.get_time();
+					let run_time = cur_frame_time - start_time;
+					on_render(&mut this.ctx, run_time).unwrap();
+					num_frames += 1;
+					let new_time_in_sec = run_time.floor() as u64;
+					if new_time_in_sec > time_in_sec {
+						let fps = num_frames - num_frames_prev;
+						println!("FPS: {fps}\tat {new_time_in_sec}s");
+						time_in_sec = new_time_in_sec;
+						num_frames_prev = num_frames;
+					}
 				}
-
+			});
+			while !self.window.should_close() {
+				let run_time = self.glfw.get_time() - start_time;
+				thread::sleep(Duration::from_millis(1));
 				self.glfw.poll_events();
 				for (_, event) in glfw::flush_messages(&self.events) {
 					match event {
@@ -187,6 +204,8 @@ mod tests {
 					}
 				}
 			}
+			exit_flag.store(true, Ordering::Relaxed);
+			renderer_thread.join().unwrap();
 			println!("End of the test");
 			Ok(())
 		}
@@ -283,7 +302,7 @@ mod tests {
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed).unwrap());
 		let resources = Resources::new(&mut inst.ctx).unwrap();
 		inst.run(Some(TEST_TIME),
-		|ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+		move |ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
 		}).unwrap();
 	}
@@ -425,7 +444,7 @@ mod tests {
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan avocado test", glfw::WindowMode::Windowed).unwrap());
 		let resources = Resources::new(&mut inst.ctx).unwrap();
 		inst.run(Some(TEST_TIME),
-		|ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+		move |ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
 		}).unwrap();
 	}
