@@ -162,6 +162,9 @@ impl VulkanDevice {
 				has_vk_khr_buffer_device_address = true;
 			} else if ext_str == "VK_EXT_buffer_device_address" {
 				has_vk_ext_buffer_device_address = true;
+			} else if ext_str == "VK_NV_disk_cache_utils" || ext_str == "VK_NV_internal_nvpresent" {
+				// The validation layer doesn't know what these extensions are. It will say you are asking for some unknown extensions. Also, we are not going to use these.
+				continue;
 			}
 			extensions.push(ext_ptr)
 		}
