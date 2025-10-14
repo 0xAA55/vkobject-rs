@@ -6,11 +6,12 @@ use std::{
 	sync::{
 		Arc,
 		atomic::{
+			AtomicBool,
 			AtomicUsize,
-			Ordering
+			Ordering,
 		},
 		Mutex,
-		MutexGuard
+		MutexGuard,
 	},
 };
 
@@ -72,7 +73,7 @@ impl VulkanCommandPool {
 	}
 
 	/// Use a command buffer of the command pool to record draw commands
-	pub(crate) fn use_pool<'a>(&'a mut self, rt_props: Option<Arc<RenderTargetProps>>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
+	pub(crate) fn use_pool<'a>(&'a self, rt_props: Option<Arc<RenderTargetProps>>) -> Result<VulkanCommandPoolInUse<'a>, VulkanError> {
 		let pool_lock = self.pool.lock().unwrap();
 		let begin_info = VkCommandBufferBeginInfo {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO,
@@ -132,10 +133,10 @@ pub struct VulkanCommandPoolInUse<'a> {
 	pub submit_fence: Arc<VulkanFence>,
 
 	/// Is recording commands ended
-	pub(crate) ended: bool,
+	pub(crate) ended: AtomicBool,
 
 	/// Is the commands submitted
-	pub submitted: bool,
+	pub submitted: AtomicBool,
 }
 
 impl<'a> VulkanCommandPoolInUse<'a> {
@@ -149,8 +150,8 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			pool_lock,
 			rt_props,
 			submit_fence,
-			ended: false,
-			submitted: false,
+			ended: AtomicBool::new(false),
+			submitted: AtomicBool::new(false),
 		})
 	}
 
@@ -160,29 +161,26 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 	}
 
 	/// End recording commands
-	pub fn end_cmd(&mut self) -> Result<(), VulkanError> {
+	pub fn end_cmd(&self) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
-		if !self.ended {
-			vkcore.vkEndCommandBuffer(self.cmdbuf)?;
-			self.ended = true;
+		if !self.ended.fetch_or(true, Ordering::AcqRel) {
+			vkcore.vkEndCommandBuffer(self.cmdbuf).map_err(|e|{
+				self.ended.store(false, Ordering::Release);
+				e
+			})?;
 			Ok(())
 		} else {
 			panic!("Duplicated call to `VulkanCommandPoolInUse::end()`")
 		}
 	}
 
-	/// Check if is ended
-	pub fn is_ended(&self) -> bool {
-		self.ended
-	}
-
 	/// Submit the commands
-	pub fn submit(&mut self) -> Result<(), VulkanError> {
+	pub fn submit(&self) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
-		if !self.ended {
+		if !self.ended.load(Ordering::Acquire) {
 			self.end_cmd()?;
 		}
-		if !self.submitted {
+		if !self.submitted.fetch_or(true, Ordering::AcqRel) {
 			let wait_stage = [VkPipelineStageFlagBits::VK_PIPELINE_STAGE_ALL_GRAPHICS_BIT as VkPipelineStageFlags];
 			let cmd_buffers = [self.cmdbuf];
 
@@ -208,9 +206,11 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			let submits = [submit_info];
 			self.submit_fence.wait(u64::MAX)?;
 			self.submit_fence.unsignal()?;
-			vkcore.vkQueueSubmit(self.device.get_vk_queue(), submits.len() as u32, submits.as_ptr(), self.submit_fence.get_vk_fence())?;
+			vkcore.vkQueueSubmit(self.device.get_vk_queue(), submits.len() as u32, submits.as_ptr(), self.submit_fence.get_vk_fence()).map_err(|e|{
+				self.submitted.store(false, Ordering::Release);
+				e
+			})?;
 			self.submit_fence.set_is_being_signaled();
-			self.submitted = true;
 			Ok(())
 		} else {
 			panic!("Duplicated call to `VulkanCommandPoolInUse::submit()`, please set the `submitted` member to false to re-submit again if you wish.")
@@ -236,7 +236,7 @@ impl Debug for VulkanCommandPoolInUse<'_> {
 
 impl Drop for VulkanCommandPoolInUse<'_> {
 	fn drop(&mut self) {
-		if !self.submitted {
+		if !self.submitted.load(Ordering::Acquire) {
 			proceed_run(self.submit())
 		}
 	}
