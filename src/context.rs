@@ -6,7 +6,11 @@ use std::{
 	ptr::null,
 	sync::{
 		Arc,
-		atomic::Ordering,
+		RwLock,
+		atomic::{
+			AtomicBool,
+			Ordering,
+		},
 	},
 };
 
@@ -139,7 +143,7 @@ pub struct VulkanContextCreateInfo<'a, 'b> {
 #[derive(Debug)]
 pub struct VulkanContext {
 	/// The swapchain
-	pub(crate) swapchain: Arc<VulkanSwapchain>,
+	pub(crate) swapchain: Arc<RwLock<VulkanSwapchain>>,
 
 	/// The pipeline cache here for a global usage
 	pub pipeline_cache: Arc<VulkanPipelineCache>,
@@ -205,7 +209,7 @@ impl VulkanContext {
 		let desc_pool = Arc::new(DescriptorPool::new(device.clone(), create_info.desc_pool_size)?);
 		let pipeline_cache = Arc::new(VulkanPipelineCache::new(device.clone(), Some(&load_cache("global_pipeline_cache", None).unwrap_or(Vec::new())))?);
 		let size = Self::get_surface_size_(&vkcore, &device, &surface)?;
-		let swapchain = Arc::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, cpu_renderer_threads, create_info.is_vr, None)?);
+		let swapchain = Arc::new(RwLock::new(VulkanSwapchain::new(device.clone(), surface.clone(), size.width, size.height, create_info.present_interval, cpu_renderer_threads, create_info.is_vr, None)?));
 		let ret = Self {
 			vkcore,
 			device,
@@ -255,18 +259,18 @@ impl VulkanContext {
 	}
 
 	/// Get the swapchain
-	pub fn get_swapchain(&self) -> Arc<VulkanSwapchain> {
+	pub fn get_swapchain(&self) -> Arc<RwLock<VulkanSwapchain>> {
 		self.swapchain.clone()
 	}
 
 	/// Get the `VkSwapchainKHR`
 	pub(crate) fn get_vk_swapchain(&self) -> VkSwapchainKHR {
-		self.get_swapchain().get_vk_swapchain()
+		self.swapchain.read().unwrap().get_vk_swapchain()
 	}
 
 	/// Get the current swapchain extent(the framebuffer size)
 	pub fn get_swapchain_extent(&self) -> VkExtent2D {
-		self.get_swapchain().get_swapchain_extent()
+		self.swapchain.read().unwrap().get_swapchain_extent()
 	}
 
 	/// Get the surface size, a.k.a. the frame buffer size
@@ -288,27 +292,29 @@ impl VulkanContext {
 
 	/// Create a pipeline builder
 	pub fn create_pipeline_builder(&self, mesh: Arc<GenericMeshWithMaterial>, shaders: Arc<DrawShaders>, desc_props: Arc<DescriptorProps>) -> Result<PipelineBuilder, VulkanError> {
-		PipelineBuilder::new(self.device.clone(), mesh, shaders, self.desc_pool.clone(), desc_props, self.swapchain.renderpass.clone(), self.pipeline_cache.clone())
+		PipelineBuilder::new(self.device.clone(), mesh, shaders, self.desc_pool.clone(), desc_props, self.swapchain.read().unwrap().renderpass.clone(), self.pipeline_cache.clone())
 	}
 
 	/// Recreate the swapchain when users toggle the switch of `vsync` or the framebuffer size changes
-	pub fn recreate_swapchain(&mut self, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool) -> Result<(), VulkanError> {
+	pub fn recreate_swapchain(&self, width: u32, height: u32, present_interval: PresentInterval, is_vr: bool) -> Result<(), VulkanError> {
 		self.device.wait_idle()?;
-		let old_swapchain = self.swapchain.clone();
-		self.swapchain = Arc::new(VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, self.cpu_renderer_threads, is_vr, Some(old_swapchain.get_vk_swapchain()))?);
+		let old_swapchain = self.swapchain.read().unwrap().get_vk_swapchain();
+		*self.swapchain.write().unwrap() = VulkanSwapchain::new(self.device.clone(), self.surface.clone(), width, height, present_interval, self.cpu_renderer_threads, is_vr, Some(old_swapchain))?;
 		Ok(())
 	}
 
 	/// When the windows was resized, call this method to recreate the swapchain to fit the new size
-	pub fn on_resize(&mut self) -> Result<bool, VulkanError> {
+	pub fn on_resize(&self) -> Result<bool, VulkanError> {
 		let surface_size = self.get_surface_size()?;
 		let swapchain_extent = self.get_swapchain_extent();
 		if	swapchain_extent.width == surface_size.width &&
 			swapchain_extent.height == surface_size.height {
 			Ok(false)
 		} else {
-			let present_interval = self.swapchain.get_present_interval();
-			let is_vr = self.swapchain.get_is_vr();
+			let swapchain_lock = self.swapchain.read().unwrap();
+			let present_interval = swapchain_lock.get_present_interval();
+			let is_vr = swapchain_lock.get_is_vr();
+			drop(swapchain_lock);
 			self.recreate_swapchain(surface_size.width, surface_size.height, present_interval, is_vr)?;
 			Ok(true)
 		}
@@ -316,7 +322,7 @@ impl VulkanContext {
 
 	/// Acquire a command buffer and a queue, start recording the commands
 	/// * You could call this function in different threads, in order to achieve concurrent frame rendering
-	pub fn begin_scene<'a>(&'a mut self, pool_index: usize, rt_props: Option<Arc<RenderTargetProps>>) -> Result<VulkanContextScene<'a>, VulkanError> {
+	pub fn begin_scene<'a>(&'a self, pool_index: usize, rt_props: Option<Arc<RenderTargetProps>>) -> Result<VulkanContextScene<'a>, VulkanError> {
 		let present_image_index;
 		let swapchain;
 		let pool_in_use = if let Some(rt_props) = rt_props {
@@ -325,10 +331,10 @@ impl VulkanContext {
 			self.cmdpools[pool_index].use_pool(Some(rt_props))?
 		} else {
 			loop {
-				if self.swapchain.need_recreate_swapchain.load(Ordering::Acquire) {
+				if self.swapchain.read().unwrap().need_recreate_swapchain.load(Ordering::Acquire) {
 					self.on_resize()?;
 				}
-				match self.swapchain.acquire_next_image(pool_index, u64::MAX) {
+				match self.swapchain.read().unwrap().acquire_next_image(pool_index, u64::MAX) {
 					Ok(index) => {
 						present_image_index = Some(index);
 						swapchain = Some(self.swapchain.clone());
@@ -346,7 +352,7 @@ impl VulkanContext {
 					}
 				};
 			}
-			self.cmdpools[pool_index].use_pool(Some(self.swapchain.get_image(present_image_index.unwrap()).rt_props.clone()))?
+			self.cmdpools[pool_index].use_pool(Some(self.swapchain.read().unwrap().get_image(present_image_index.unwrap()).rt_props.clone()))?
 		};
 		VulkanContextScene::new(self.device.vkcore.clone(), self.device.clone(), swapchain, pool_in_use, present_image_index)
 	}
@@ -367,13 +373,13 @@ pub struct VulkanContextScene<'a> {
 	pub vkcore: Arc<VkCore>,
 	pub device: Arc<VulkanDevice>,
 	pub pool_in_use: VulkanCommandPoolInUse<'a>,
-	swapchain: Option<Arc<VulkanSwapchain>>,
+	swapchain: Option<Arc<RwLock<VulkanSwapchain>>>,
 	present_image_index: Option<usize>,
-	present_queued: bool,
+	present_queued: AtomicBool,
 }
 
 impl<'a> VulkanContextScene<'a> {
-	pub(crate) fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Option<Arc<VulkanSwapchain>>, pool_in_use: VulkanCommandPoolInUse<'a>, present_image_index: Option<usize>) -> Result<Self, VulkanError> {
+	pub(crate) fn new(vkcore: Arc<VkCore>, device: Arc<VulkanDevice>, swapchain: Option<Arc<RwLock<VulkanSwapchain>>>, pool_in_use: VulkanCommandPoolInUse<'a>, present_image_index: Option<usize>) -> Result<Self, VulkanError> {
 		let mut barrier = VkImageMemoryBarrier {
 			sType: VkStructureType::VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER,
 			pNext: null(),
@@ -416,7 +422,7 @@ impl<'a> VulkanContextScene<'a> {
 			pool_in_use,
 			swapchain,
 			present_image_index,
-			present_queued: false,
+			present_queued: AtomicBool::new(false),
 		})
 	}
 
@@ -546,8 +552,8 @@ impl<'a> VulkanContextScene<'a> {
 	}
 
 	/// Present the image, make it to be visible
-	pub fn present(&mut self) -> Result<(), VulkanError> {
-		if self.present_queued {
+	pub fn present(&self) -> Result<(), VulkanError> {
+		if self.present_queued.fetch_or(true, Ordering::Acquire) {
 			panic!("Duplicated call to `VulkanContextScene::present()`.");
 		}
 		let mut barrier = VkImageMemoryBarrier {
@@ -587,18 +593,20 @@ impl<'a> VulkanContextScene<'a> {
 			)?;
 		}
 		self.pool_in_use.submit()?;
-		match self.swapchain.as_ref().unwrap().queue_present(self.present_image_index.unwrap()) {
+		match self.swapchain.as_ref().unwrap().read().unwrap().queue_present(self.present_image_index.unwrap()) {
 			Ok(_) => Ok(()),
-			Err(e) => if let Some(ve) = e.is_vkerror() {
-				match ve {
-					VkError::VkErrorOutOfDateKhr(_) => Ok(()),
-					_ => Err(VulkanError::VkError(ve.clone())),
+			Err(e) => {
+				self.present_queued.store(false, Ordering::Release);
+				if let Some(ve) = e.is_vkerror() {
+					match ve {
+						VkError::VkErrorOutOfDateKhr(_) => Ok(()),
+						_ => Err(VulkanError::VkError(ve.clone())),
+					}
+				} else {
+					Err(e)
 				}
-			} else {
-				Err(e)
 			}
 		}?;
-		self.present_queued = true;
 		Ok(())
 	}
 
@@ -620,7 +628,7 @@ impl Debug for VulkanContextScene<'_> {
 impl Drop for VulkanContextScene<'_> {
 	fn drop(&mut self) {
 		if self.present_image_index.is_some() {
-			if !self.present_queued {
+			if !self.present_queued.load(Ordering::Acquire) {
 				proceed_run(self.present())
 			}
 		} else {
