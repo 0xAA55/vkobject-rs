@@ -164,9 +164,8 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 	pub fn end_cmd(&self) -> Result<(), VulkanError> {
 		let vkcore = self.device.vkcore.clone();
 		if !self.ended.fetch_or(true, Ordering::AcqRel) {
-			vkcore.vkEndCommandBuffer(self.cmdbuf).map_err(|e|{
+			vkcore.vkEndCommandBuffer(self.cmdbuf).inspect_err(|_|{
 				self.ended.store(false, Ordering::Release);
-				e
 			})?;
 			Ok(())
 		} else {
@@ -206,9 +205,8 @@ impl<'a> VulkanCommandPoolInUse<'a> {
 			let submits = [submit_info];
 			self.submit_fence.wait(u64::MAX)?;
 			self.submit_fence.unsignal()?;
-			vkcore.vkQueueSubmit(self.device.get_vk_queue(), submits.len() as u32, submits.as_ptr(), self.submit_fence.get_vk_fence()).map_err(|e|{
+			vkcore.vkQueueSubmit(self.device.get_vk_queue(), submits.len() as u32, submits.as_ptr(), self.submit_fence.get_vk_fence()).inspect_err(|_|{
 				self.submitted.store(false, Ordering::Release);
-				e
 			})?;
 			self.submit_fence.set_is_being_signaled();
 			Ok(())
