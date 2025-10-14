@@ -184,7 +184,7 @@ mod tests {
 
 		pub fn run(&mut self,
 			test_time: Option<f64>,
-			mut on_render: impl FnMut(&mut VulkanContext, f64) -> Result<(), VulkanError> + Send + 'static
+			mut on_render: impl FnMut(&VulkanContext, f64) -> Result<(), VulkanError> + Send + 'static
 		) -> Result<(), VulkanError> {
 			let exit_flag = Arc::new(AtomicBool::new(false));
 			let exit_flag_cloned = exit_flag.clone();
@@ -255,7 +255,7 @@ mod tests {
 		}
 
 		impl Resources {
-			pub fn new(ctx: &mut VulkanContext) -> Result<Self, VulkanError> {
+			pub fn new(ctx: &VulkanContext) -> Result<Self, VulkanError> {
 				let device = ctx.device.clone();
 				let draw_shaders = Arc::new(DrawShaders::new(
 					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/test.vsh")), false, "main", OptimizationLevel::Performance, false)?),
@@ -299,7 +299,7 @@ mod tests {
 				})
 			}
 
-			pub fn draw(&self, ctx: &mut VulkanContext, run_time: f64) -> Result<(), VulkanError> {
+			pub fn draw(&self, ctx: &VulkanContext, run_time: f64) -> Result<(), VulkanError> {
 				let scene = ctx.begin_scene(0, None)?;
 				let cmdbuf = scene.get_cmdbuf();
 				let extent = scene.get_rendertarget_extent();
@@ -322,9 +322,9 @@ mod tests {
 		}
 
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed).unwrap());
-		let resources = Resources::new(&mut inst.ctx.write().unwrap()).unwrap();
+		let resources = Resources::new(&inst.ctx.write().unwrap()).unwrap();
 		inst.run(Some(TEST_TIME),
-		move |ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
 		}).unwrap();
 	}
@@ -358,7 +358,7 @@ mod tests {
 			const OBJ_ROWS: usize = 4;
 			const OBJ_COLS: usize = 4;
 
-			pub fn new(ctx: &mut VulkanContext) -> Result<Self, VulkanError> {
+			pub fn new(ctx: &VulkanContext) -> Result<Self, VulkanError> {
 				let device = ctx.device.clone();
 				let draw_shaders = Arc::new(DrawShaders::new(
 					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/objdisp.vsh")), false, "main", OptimizationLevel::Performance, false)?),
@@ -414,7 +414,7 @@ mod tests {
 				})
 			}
 
-			pub fn draw(&self, ctx: &mut VulkanContext, run_time: f64) -> Result<(), VulkanError> {
+			pub fn draw(&self, ctx: &VulkanContext, run_time: f64) -> Result<(), VulkanError> {
 				let scene = ctx.begin_scene(0, None)?;
 				let cmdbuf = scene.get_cmdbuf();
 				let extent = scene.get_rendertarget_extent();
@@ -464,9 +464,9 @@ mod tests {
 		}
 
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan avocado test", glfw::WindowMode::Windowed).unwrap());
-		let resources = Resources::new(&mut inst.ctx.write().unwrap()).unwrap();
+		let resources = Resources::new(&inst.ctx.write().unwrap()).unwrap();
 		inst.run(Some(TEST_TIME),
-		move |ctx: &mut VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
 		}).unwrap();
 	}
