@@ -4,9 +4,9 @@ use std::{
 	any::Any,
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
-	marker::PhantomData,
 	mem::size_of,
 	sync::Arc,
+	vec::IntoIter,
 };
 use struct_iterable::Iterable;
 
@@ -222,8 +222,8 @@ where
 	/// The buffer
 	pub buffer: Buffer,
 
-	/// The phantom data that holds the uniform struct type
-	_phantom: PhantomData<U>,
+	/// The iterable struct that holds the uniform struct type
+	iterable: U,
 }
 
 impl<U> UniformBuffer<U>
@@ -235,7 +235,7 @@ where
 		let buffer = Buffer::new(device.clone(), size_of::<U>() as VkDeviceSize, Some(&def as *const U as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT as VkBufferUsageFlags)?;
 		Ok(Self {
 			buffer,
-			_phantom: PhantomData,
+			iterable: def,
 		})
 	}
 
@@ -265,9 +265,12 @@ unsafe impl<U> Send for UniformBuffer<U> where U: UniformStructType {}
 unsafe impl<U> Sync for UniformBuffer<U> where U: UniformStructType {}
 
 /// The trait for the `UniformBuffer` to be able to wrap into an object
-pub trait GenericUniformBuffer: Debug + Send + Sync + Any {
+pub trait GenericUniformBuffer: Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Iterate through the uniform buffer struct members
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -286,6 +289,10 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
+		self.iterable.iter()
+	}
+
 	fn get_size(&self) -> VkDeviceSize {
 		self.buffer.get_size()
 	}
@@ -300,9 +307,12 @@ where
 }
 
 /// The trait for the `StorageBuffer` to be able to wrap into an object
-pub trait GenericStorageBuffer: Debug + Send + Sync + Any {
+pub trait GenericStorageBuffer: Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Iterate through the uniform buffer struct members
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -335,8 +345,8 @@ where
 	/// The buffer
 	pub buffer: Buffer,
 
-	/// The phantom data that holds the uniform struct type
-	_phantom: PhantomData<S>,
+	/// The iterable struct that holds the storage buffer struct type
+	iterable: S,
 }
 
 impl<S> StorageBuffer<S>
@@ -348,7 +358,7 @@ where
 		let buffer = Buffer::new(device.clone(), size_of::<S>() as VkDeviceSize, Some(&def as *const S as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_STORAGE_BUFFER_BIT as VkBufferUsageFlags)?;
 		Ok(Self {
 			buffer,
-			_phantom: PhantomData,
+			iterable: def,
 		})
 	}
 }
@@ -377,6 +387,10 @@ where
 	S: StorageBufferStructType {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
+	}
+
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
+		self.iterable.iter()
 	}
 
 	fn get_size(&self) -> VkDeviceSize {
