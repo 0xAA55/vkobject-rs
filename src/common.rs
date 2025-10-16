@@ -1,5 +1,6 @@
 
 use std::{
+	any::Any,
 	collections::hash_map::DefaultHasher,
 	env,
 	ffi::CString,
@@ -14,6 +15,7 @@ use std::{
 	path::PathBuf,
 	thread::sleep,
 	time::Duration,
+	vec::IntoIter,
 };
 use rand::prelude::*;
 
@@ -188,4 +190,24 @@ pub fn save_cache<T: Clone + Copy + Sized>(cache_usage: &str, extension: Option<
 	let len = size_of_val(data);
 	let data: &[u8] = unsafe {slice::from_raw_parts(ptr, len)};
 	write(&path, data)
+}
+
+/// A helper trait for `struct_iterable` crate, give a struct that derives `Iterable` the ability to iterate the member's offset and size
+pub trait IterableDataAttrib {
+	/// A member that allows to get the iterator, this function is to be implemented
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
+
+	/// Get an iterator that could give you the name, offset, and size of the struct members
+	fn iter_members_data_attribs(&self) -> IntoIter<(&'static str, usize, usize)> {
+		let mut instance_ptr = None;
+		let data_attribs: Vec<_> = self.iter_members().map(|(name, value)|{
+			let value_ptr = value as *const dyn Any as *const u8;
+			if instance_ptr.is_none() {
+				instance_ptr = Some(value_ptr)
+			}
+			let offset = unsafe { value_ptr.offset_from(instance_ptr.unwrap()) } as usize;
+			(name, offset, size_of_val(value))
+		}).collect();
+		data_attribs.into_iter()
+	}
 }
