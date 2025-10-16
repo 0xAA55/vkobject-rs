@@ -157,10 +157,7 @@ impl WriteDescriptorSets {
 							if pass_for_cap {
 								match var_type {
 									VariableType::Struct(_) => {
-										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?;
-										for buffer in buffers.iter() {
-											num_buffer_info += buffer.iter_members().count();
-										}
+										num_buffer_info += total_element_count;
 										num_wds += 1;
 									}
 									VariableType::Image(_) => {
@@ -174,17 +171,12 @@ impl WriteDescriptorSets {
 									VariableType::Struct(_) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?;
 										let buffer_info_index = self.buffer_info.len();
-										let mut desc_count = 0;
 										for buffer in buffers.iter() {
-											let vkbuffer = buffer.get_vk_buffer();
-											for (_, offset, size) in buffer.iter_members_data_attribs() {
-												self.buffer_info.push(VkDescriptorBufferInfo {
-													buffer: vkbuffer,
-													offset: offset as VkDeviceSize,
-													range: size as VkDeviceSize,
-												});
-												desc_count += 1;
-											}
+											self.buffer_info.push(VkDescriptorBufferInfo {
+												buffer: buffer.get_vk_buffer(),
+												offset: 0,
+												range: buffer.get_size(),
+											});
 										}
 										self.write_descriptor_sets.push(VkWriteDescriptorSet {
 											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -192,7 +184,7 @@ impl WriteDescriptorSets {
 											dstSet: *descriptor_sets.get(&set).unwrap(),
 											dstBinding: binding,
 											dstArrayElement: 0,
-											descriptorCount: desc_count,
+											descriptorCount: total_element_count as u32,
 											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER,
 											pImageInfo: null(),
 											pBufferInfo: &self.buffer_info[buffer_info_index],
@@ -226,10 +218,7 @@ impl WriteDescriptorSets {
 							if pass_for_cap {
 								match var_type {
 									VariableType::Struct(_) => {
-										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?;
-										for buffer in buffers.iter() {
-											num_buffer_info += buffer.iter_members().count();
-										}
+										num_buffer_info += total_element_count;
 										num_wds += 1;
 									}
 									VariableType::Image(_) => {
@@ -243,17 +232,12 @@ impl WriteDescriptorSets {
 									VariableType::Struct(_) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?;
 										let buffer_info_index = self.buffer_info.len();
-										let mut desc_count = 0;
 										for buffer in buffers.iter() {
-											let vkbuffer = buffer.get_vk_buffer();
-											for (_, offset, size) in buffer.iter_members_data_attribs() {
-												self.buffer_info.push(VkDescriptorBufferInfo {
-													buffer: vkbuffer,
-													offset: offset as VkDeviceSize,
-													range: size as VkDeviceSize,
-												});
-												desc_count += 1;
-											}
+											self.buffer_info.push(VkDescriptorBufferInfo {
+												buffer: buffer.get_vk_buffer(),
+												offset: 0,
+												range: buffer.get_size(),
+											});
 										}
 										self.write_descriptor_sets.push(VkWriteDescriptorSet {
 											sType: VkStructureType::VK_STRUCTURE_TYPE_WRITE_DESCRIPTOR_SET,
@@ -261,7 +245,7 @@ impl WriteDescriptorSets {
 											dstSet: *descriptor_sets.get(&set).unwrap(),
 											dstBinding: binding,
 											dstArrayElement: 0,
-											descriptorCount: desc_count,
+											descriptorCount: total_element_count as u32,
 											descriptorType: VkDescriptorType::VK_DESCRIPTOR_TYPE_STORAGE_BUFFER,
 											pImageInfo: null(),
 											pBufferInfo: &self.buffer_info[buffer_info_index],
