@@ -134,7 +134,7 @@ impl WriteDescriptorSets {
 		for (_, shader) in shaders.iter_shaders() {
 			for var in shader.get_vars() {
 				if let VariableLayout::Descriptor{set, binding, input_attachment_index: iai} = var.layout {
-					let var_ident = format!("{set}_{binding}_{iai:?}_{}", var.var_name);
+					let var_ident = format!("{set}_{binding}_{iai:?}_\"{}\"", var.var_name);
 					if processed_vars.contains(&var_ident) {
 						continue;
 					} else {
