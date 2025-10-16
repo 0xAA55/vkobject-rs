@@ -265,12 +265,9 @@ unsafe impl<U> Send for UniformBuffer<U> where U: UniformStructType {}
 unsafe impl<U> Sync for UniformBuffer<U> where U: UniformStructType {}
 
 /// The trait for the `UniformBuffer` to be able to wrap into an object
-pub trait GenericUniformBuffer: Debug + Any + Send + Sync {
+pub trait GenericUniformBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
-
-	/// Iterate through the uniform buffer struct members
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -289,10 +286,6 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.iterable.iter()
-	}
-
 	fn get_size(&self) -> VkDeviceSize {
 		self.buffer.get_size()
 	}
@@ -306,13 +299,18 @@ where
 	}
 }
 
+impl<U> IterableDataAttrib for UniformBuffer<U>
+where
+	U: UniformStructType {
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
+		self.iterable.iter()
+	}
+}
+
 /// The trait for the `StorageBuffer` to be able to wrap into an object
-pub trait GenericStorageBuffer: Debug + Any + Send + Sync {
+pub trait GenericStorageBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
-
-	/// Iterate through the uniform buffer struct members
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -389,10 +387,6 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.iterable.iter()
-	}
-
 	fn get_size(&self) -> VkDeviceSize {
 		self.buffer.get_size()
 	}
@@ -403,5 +397,13 @@ where
 
 	fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
+	}
+}
+
+impl<S> IterableDataAttrib for StorageBuffer<S>
+where
+	S: StorageBufferStructType {
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
+		self.iterable.iter()
 	}
 }
