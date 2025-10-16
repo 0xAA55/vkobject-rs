@@ -170,13 +170,6 @@ impl WriteDescriptorSets {
 								match var_type {
 									VariableType::Struct(_) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?;
-										if buffers.len() != total_element_count {
-											return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-												var.var_type,
-												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-												buffers.len()
-											)));
-										}
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
 											self.buffer_info.push(VkDescriptorBufferInfo {
@@ -200,13 +193,6 @@ impl WriteDescriptorSets {
 									}
 									VariableType::Image(_) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_uniform_texel_buffers(set, binding, total_element_count)?;
-										if buffers.len() != total_element_count {
-											return Err(VulkanError::ShaderInputLengthMismatch(format!("The uniform texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-												var.var_type,
-												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-												buffers.len()
-											)));
-										}
 										let texel_buffer_views_index = self.texel_buffer_views.len();
 										for buffer in buffers.iter() {
 											self.texel_buffer_views.push(buffer.get_vk_buffer_view());
@@ -245,13 +231,6 @@ impl WriteDescriptorSets {
 								match var_type {
 									VariableType::Struct(_) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?;
-										if buffers.len() != total_element_count {
-											return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-												var.var_type,
-												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-												buffers.len()
-											)));
-										}
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
 											self.buffer_info.push(VkDescriptorBufferInfo {
@@ -275,13 +254,6 @@ impl WriteDescriptorSets {
 									}
 									VariableType::Image(_) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_storage_texel_buffers(set, binding, total_element_count)?;
-										if buffers.len() != total_element_count {
-											return Err(VulkanError::ShaderInputLengthMismatch(format!("The storage texel buffer is `{:?}{}`, need {total_element_count} buffers in total, but {} buffers were given.",
-												var.var_type,
-												if dimensions.is_empty() {String::new()} else {dimensions.iter().map(|d|format!("[{d}]")).collect::<Vec<_>>().join("")},
-												buffers.len()
-											)));
-										}
 										let texel_buffer_views_index = self.texel_buffer_views.len();
 										for buffer in buffers.iter() {
 											self.texel_buffer_views.push(buffer.get_vk_buffer_view());
