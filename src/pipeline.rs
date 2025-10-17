@@ -168,10 +168,21 @@ impl WriteDescriptorSets {
 								}
 							} else {
 								match var_type {
-									VariableType::Struct(_) => {
+									VariableType::Struct(s) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?;
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
+											let struct_data: HashMap<&str, (usize, usize)> = buffer.iter_members_data_attribs().map(|(name, offset, size)|(name, (offset, size))).collect();
+											for member in s.members.iter() {
+												let name: &str = &member.member_name;
+												if let Some((offset, size)) = struct_data.get(&name) {
+													let var_size = member.member_type.size_of()?;
+													let var_offset = member.member_offset as usize;
+													if *offset != var_offset || *size != var_size {
+														eprintln!("For descriptor set: {set}, binding: {binding}: Uniform buffer struct member `{name}` has offset = {offset} in Rust while {var_offset} in shader input; and has size = {size} in Rust while {var_size} in shader input");
+													}
+												}
+											}
 											self.buffer_info.push(VkDescriptorBufferInfo {
 												buffer: buffer.get_vk_buffer(),
 												offset: 0,
@@ -229,10 +240,21 @@ impl WriteDescriptorSets {
 								}
 							} else {
 								match var_type {
-									VariableType::Struct(_) => {
+									VariableType::Struct(s) => {
 										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?;
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
+											let struct_data: HashMap<&str, (usize, usize)> = buffer.iter_members_data_attribs().map(|(name, offset, size)|(name, (offset, size))).collect();
+											for member in s.members.iter() {
+												let name: &str = &member.member_name;
+												if let Some((offset, size)) = struct_data.get(&name) {
+													let var_size = member.member_type.size_of()?;
+													let var_offset = member.member_offset as usize;
+													if *offset != var_offset || *size != var_size {
+														eprintln!("For descriptor set: {set}, binding: {binding}: Storage buffer struct member `{name}` has offset = {offset} in Rust while {var_offset} in shader input; and has size = {size} in Rust while {var_size} in shader input");
+													}
+												}
+											}
 											self.buffer_info.push(VkDescriptorBufferInfo {
 												buffer: buffer.get_vk_buffer(),
 												offset: 0,
