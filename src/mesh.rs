@@ -116,6 +116,11 @@ where
 		}
 	}
 
+	/// Map as slice
+	pub fn map_staging_buffer_as_slice_locked<'a>(&'a self) -> Result<BufferMapGuard<'a, T>, VulkanError> {
+		self.buffer.map_staging_buffer_as_slice_locked()
+	}
+
 	/// Set all data
 	/// **NOTE** The buffer will be resized to the exact size of the data, causes the return value of `get_vk_buffer` to be changed to a new buffer.
 	pub fn set_data(&mut self, data: &[T]) -> Result<(), VulkanError> {
