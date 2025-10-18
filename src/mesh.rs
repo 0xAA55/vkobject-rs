@@ -99,7 +99,7 @@ where
 	}
 
 	/// Set data
-	pub fn set_item(&mut self, index: usize, data: T) -> Result<(), VulkanError> {
+	pub fn set_item(&self, index: usize, data: T) -> Result<(), VulkanError> {
 		if index >= self.len() {
 			panic!("The index is {index}, and the size of the buffer is {}", self.len());
 		}
