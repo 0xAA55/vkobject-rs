@@ -1,6 +1,7 @@
 
 use crate::prelude::*;
 use std::{
+	any::Any,
 	collections::{BTreeMap, BTreeSet, HashMap, HashSet, hash_map::Entry},
 	fmt::{self, Debug, Formatter},
 	ptr::null,
@@ -11,8 +12,8 @@ use shader_analyzer::*;
 use rspirv::spirv::*;
 
 /// The trait that the struct of vertices or instances must implement
-pub trait VertexType: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
-impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + Iterable + 'static {}
+pub trait VertexType: Copy + Clone + Sized + Default + Debug + Iterable + Any {}
+impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + Iterable + Any {}
 
 #[macro_export]
 macro_rules! derive_vertex_type {

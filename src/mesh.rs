@@ -16,8 +16,8 @@ use std::{
 use struct_iterable::Iterable;
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
-impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
+pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any {}
+impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any {}
 
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
@@ -271,7 +271,7 @@ where
 	BI: BufferForDraw<I>,
 	BC: BufferForDraw<C>,
 	V: BufferVecStructItem,
-	E: BufferVecItem + 'static,
+	E: BufferVecItem,
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
 	pub primitive_type: VkPrimitiveTopology,
@@ -304,7 +304,7 @@ where
 	BI: BufferForDraw<I>,
 	BC: BufferForDraw<C>,
 	V: BufferVecStructItem,
-	E: BufferVecItem + 'static,
+	E: BufferVecItem,
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
 	/// Create the mesh from the buffers
@@ -424,16 +424,16 @@ pub trait GenericMesh: Debug + Any + Send + Sync {
 	fn get_command_count(&self) -> usize;
 
 	/// Get the iterator for the vertex buffer item structure
-	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any + 'static))>;
+	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any))>;
 
 	/// Get the TypeId of the index buffer item
 	fn get_index_type_id(&self) -> Option<TypeId>;
 
 	/// Get the iterator for the vertex buffer item structure
-	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>>;
+	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any))>>;
 
 	/// Get the iterator for the vertex buffer item structure
-	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>>;
+	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any))>>;
 
 	/// Get the stride of the vertex buffer
 	fn get_vertex_type_name(&self) -> &'static str;
@@ -484,7 +484,7 @@ where
 	BI: BufferForDraw<I>,
 	BC: BufferForDraw<C>,
 	V: BufferVecStructItem,
-	E: BufferVecItem + 'static,
+	E: BufferVecItem,
 	I: BufferVecStructItem,
 	C: BufferVecStructItem {
 	fn clone(&self) -> Box<dyn GenericMesh> {
@@ -582,7 +582,7 @@ where
 		}
 	}
 
-	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any + 'static))> {
+	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &(dyn Any))> {
 		self.vertex_type.iter()
 	}
 
@@ -590,11 +590,11 @@ where
 		self.indices.as_ref().map(|_|self.element_type.type_id())
 	}
 
-	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>> {
+	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any +))>> {
 		self.instances.as_ref().map(|_|self.instance_type.iter())
 	}
 
-	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any + 'static))>> {
+	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &(dyn Any))>> {
 		self.commands.as_ref().map(|_|self.command_type.iter())
 	}
 

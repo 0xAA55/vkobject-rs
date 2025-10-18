@@ -129,12 +129,12 @@ impl FloatOps for f32 {}
 impl FloatOps for f64 {}
 
 /// The trait for `TVecN<>` component type
-pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
-impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps + 'static {}
+pub trait ObjMeshVecCompType: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps {}
+impl<T> ObjMeshVecCompType for T where T: Default + Clone + Copy + Sized + PartialEq + Debug + FromStr + Any + FloatOps {}
 
 /// The trait for indices type
-pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
-impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug + 'static {}
+pub trait ObjMeshIndexType: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug {}
+impl<T> ObjMeshIndexType for T where T: Default + Clone + Copy + Sized + PartialEq + Eq + TryFrom<usize> + TryInto<usize> + Any + Debug {}
 
 #[derive(Default, Debug, Clone, Copy)]
 pub struct ObjVertices<F>

@@ -202,8 +202,8 @@ impl Debug for Buffer {
 }
 
 /// The trait that the struct of uniform must implement
-pub trait UniformStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
-impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
+pub trait UniformStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
+impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
 
 #[macro_export]
 macro_rules! derive_uniform_buffer_type {
@@ -323,8 +323,8 @@ pub trait GenericStorageBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
 }
 
 /// The trait that the struct of uniform must implement
-pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
-impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any + 'static {}
+pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
+impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
 
 #[macro_export]
 macro_rules! derive_storage_buffer_type {
