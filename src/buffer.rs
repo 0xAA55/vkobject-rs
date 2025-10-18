@@ -166,13 +166,6 @@ impl Buffer {
 		Ok(())
 	}
 
-	/// Map the staging buffer
-	pub fn map_staging_buffer<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
-		self.ensure_staging_buffer()?;
-		let staging_buffer = self.staging_buffer.as_mut().unwrap();
-		staging_buffer.memory.map(offset, size)
-	}
-
 	/// Create a buffer view
 	pub fn create_buffer_view(&self, format: VkFormat) -> Result<VulkanBufferView, VulkanError> {
 		VulkanBufferView::new(self.buffer.clone(), format)
