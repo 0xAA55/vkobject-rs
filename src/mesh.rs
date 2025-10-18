@@ -78,7 +78,7 @@ where
 	}
 
 	/// Discard the staging buffer to save memory
-	pub fn discard_staging_buffer(&mut self) {
+	pub fn discard_staging_buffer(&self) {
 		self.buffer.discard_staging_buffer();
 	}
 
@@ -171,7 +171,7 @@ where
 	}
 
 	/// Discard staging buffer if the buffer's staging buffer is discardable
-	fn discard_staging_buffer(&mut self) {}
+	fn discard_staging_buffer(&self) {}
 
 	/// Get the number of the items in the buffer
 	fn len(&self) -> usize;
@@ -251,7 +251,7 @@ where
 		Ok(())
 	}
 
-	fn discard_staging_buffer(&mut self) {
+	fn discard_staging_buffer(&self) {
 		self.discard_staging_buffer()
 	}
 
