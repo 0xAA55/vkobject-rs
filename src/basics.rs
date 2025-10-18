@@ -6,7 +6,6 @@ use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	io::{self, ErrorKind},
-	marker::PhantomData,
 	mem::{MaybeUninit, size_of},
 	ops::{Index, IndexMut, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive},
 	ptr::{copy, null, null_mut},
@@ -784,9 +783,6 @@ where
 
 	/// The slice of items
 	slice: &'a mut [T],
-
-	/// The phantom data to hold the generic type T
-	_phantom: PhantomData<T>,
 }
 
 impl<'a, T> TypedMappedMemory<'a, T>
@@ -798,7 +794,6 @@ where
 		Self {
 			mapped_memory,
 			slice,
-			_phantom: PhantomData,
 		}
 	}
 
