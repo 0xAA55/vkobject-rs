@@ -639,10 +639,17 @@ impl VulkanMemory {
 	}
 
 	/// Map the memory as a slice
-	pub fn map_as_slice<'a, T>(&'a self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
+	pub fn map_as_slice<'a, T>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
 	where
 		T: Sized + Clone + Copy {
 		Ok(TypedMappedMemory::new(self.map(offset, size)?))
+	}
+
+	/// Map the memory with lock temporarily
+	pub fn map_as_slice_locked<'a, T>(&'a self, offset: VkDeviceSize, size: usize) -> Result<LockedTypedMappedMemoryGuard<'a, T, ()>, VulkanError>
+	where
+		T: Sized + Clone + Copy {
+		Ok(LockedTypedMappedMemoryGuard::new(unsafe {self.mapped(offset, size)?}, self.mapping_lock.lock().unwrap()))
 	}
 
 	/// Provide data for the memory, or retrieve data from the memory
@@ -927,6 +934,180 @@ where
 	}
 }
 
+/// The typed map
+#[derive(Debug)]
+pub struct LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	/// The mapped memory
+	mapped_memory: MappedMemory<'a>,
+
+	/// The lock guard
+	lock_guard: MutexGuard<'a, L>,
+
+	/// The slice of items
+	slice: &'a mut [T],
+}
+
+impl<'a, T, L> LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	pub fn new(mapped_memory: MappedMemory<'a>, lock_guard: MutexGuard<'a, L>) -> Self {
+		let len = mapped_memory.size / size_of::<T>();
+		let slice = unsafe {from_raw_parts_mut(mapped_memory.address as *mut T, len)};
+		Self {
+			mapped_memory,
+			lock_guard,
+			slice,
+		}
+	}
+
+	/// Operate the mapped memory as a slice
+	pub fn as_slice(&self) -> &[T] {
+		self.slice
+	}
+
+	/// Operate the mapped memory as a mutable slice
+	pub fn as_slice_mut(&mut self) -> &mut [T] {
+		self.slice
+	}
+}
+
+impl<'a, T, L> Index<usize> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = T;
+	fn index(&self, index: usize) -> &T {
+		&self.slice[index]
+	}
+}
+
+impl<'a, T, L> IndexMut<usize> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, index: usize) -> &mut T {
+		&mut self.slice[index]
+	}
+}
+
+impl<'a, T, L> Index<Range<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = [T];
+	fn index(&self, range: Range<usize>) -> &[T] {
+		&self.slice[range.start..range.end]
+	}
+}
+
+impl<'a, T, L> IndexMut<Range<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, range: Range<usize>) -> &mut [T] {
+		&mut self.slice[range.start..range.end]
+	}
+}
+
+impl<'a, T, L> Index<RangeFrom<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = [T];
+	fn index(&self, range: RangeFrom<usize>) -> &[T] {
+		&self.slice[range.start..]
+	}
+}
+
+impl<'a, T, L> IndexMut<RangeFrom<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, range: RangeFrom<usize>) -> &mut [T] {
+		&mut self.slice[range.start..]
+	}
+}
+
+impl<'a, T, L> Index<RangeTo<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = [T];
+	fn index(&self, range: RangeTo<usize>) -> &[T] {
+		&self.slice[..range.end]
+	}
+}
+
+impl<'a, T, L> IndexMut<RangeTo<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, range: RangeTo<usize>) -> &mut [T] {
+		&mut self.slice[..range.end]
+	}
+}
+
+impl<'a, T, L> Index<RangeFull> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = [T];
+	fn index(&self, _: RangeFull) -> &[T] {
+		&self.slice[..]
+	}
+}
+
+impl<'a, T, L> IndexMut<RangeFull> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
+		&mut self.slice[..]
+	}
+}
+
+impl<'a, T, L> Index<RangeInclusive<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = [T];
+	fn index(&self, range: RangeInclusive<usize>) -> &[T] {
+		&self.slice[*range.start()..=*range.end()]
+	}
+}
+
+impl<'a, T, L> IndexMut<RangeInclusive<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, range: RangeInclusive<usize>) -> &mut [T] {
+		&mut self.slice[*range.start()..=*range.end()]
+	}
+}
+
+impl<'a, T, L> Index<RangeToInclusive<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	type Output = [T];
+	fn index(&self, range: RangeToInclusive<usize>) -> &[T] {
+		&self.slice[..=range.end]
+	}
+}
+
+impl<'a, T, L> IndexMut<RangeToInclusive<usize>> for LockedTypedMappedMemoryGuard<'a, T, L>
+where
+	T: Sized + Clone + Copy,
+	L: ?Sized {
+	fn index_mut(&mut self, range: RangeToInclusive<usize>) -> &mut [T] {
+		&mut self.slice[..=range.end]
+	}
+}
+
 /// The buffer view range
 #[derive(Debug, Clone, Copy)]
 pub struct BufferViewRange {
@@ -1164,16 +1345,37 @@ impl StagingBuffer {
 		Ok(())
 	}
 
+	/// Mark the mapping state as mapped
+	///
+	/// # Safety
+	///
+	/// You have to guarantee the mutable reference of the mapped memory must be only one
+	pub(crate) unsafe fn mapped<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+		unsafe {self.memory.mapped(offset, size)}
+	}
+
 	/// Map the memory
 	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		self.memory.map(offset, size)
 	}
 
 	/// Map the memory as a slice
-	pub fn map_as_slice<'a, T>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<TypedMappedMemory<'a, T>, VulkanError>
+	pub fn map_as_slice<'a, T>(&'a mut self) -> Result<TypedMappedMemory<'a, T>, VulkanError>
 	where
 		T: Sized + Clone + Copy {
-		self.memory.map_as_slice(offset, size)
+		self.memory.map_as_slice(0, self.get_size() as usize)
+	}
+
+	/// Map the memory with lock
+	pub fn map_locked<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<LockedMappedMemoryGuard<'a>, VulkanError> {
+		self.memory.map_locked(offset, size)
+	}
+
+	/// Map the memory as a slice with lock
+	pub fn map_as_slice_locked<'a, T>(&'a self) -> Result<LockedTypedMappedMemoryGuard<'a, T, ()>, VulkanError>
+	where
+		T: Sized + Clone + Copy {
+		self.memory.map_as_slice_locked(0, self.get_size() as usize)
 	}
 }
 
