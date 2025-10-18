@@ -71,7 +71,7 @@ where
 
 	/// Create from a slice of data
 	pub fn from(device: Arc<VulkanDevice>, data: &[T], cmdbuf: VkCommandBuffer, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
-		let mut buffer = Buffer::new(device, size_of_val(data) as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
+		let buffer = Buffer::new(device, size_of_val(data) as VkDeviceSize, Some(data.as_ptr() as *const c_void), usage)?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
 		buffer.upload_staging_buffer(cmdbuf, 0, size_of_val(data) as VkDeviceSize)?;
 		Ok(Self {
@@ -87,7 +87,7 @@ where
 
 	/// Create the `BufferVec<T>` with an initial capacity
 	pub fn with_capacity(device: Arc<VulkanDevice>, capacity: usize, usage: VkBufferUsageFlags) -> Result<Self, VulkanError> {
-		let mut buffer = Buffer::new(device, capacity as VkDeviceSize, None, usage)?;
+		let buffer = Buffer::new(device, capacity as VkDeviceSize, None, usage)?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
 		Ok(Self {
 			buffer,
@@ -103,7 +103,7 @@ where
 	/// Change the capacity
 	/// * If the capacity is less than the current items, the number of items will be reduced to the new capacity.
 	pub fn change_capacity(&mut self, new_capacity: usize) -> Result<(), VulkanError> {
-		let mut new_buffer = Buffer::new(self.buffer.device.clone(), new_capacity as VkDeviceSize, None, self.buffer.get_usage())?;
+		let new_buffer = Buffer::new(self.buffer.device.clone(), new_capacity as VkDeviceSize, None, self.buffer.get_usage())?;
 		if new_capacity != 0 {
 			let new_address = new_buffer.get_staging_buffer_address()? as *mut T;
 			unsafe {copy(self.staging_buffer_data_address as *const T, new_address, self.capacity)}
@@ -178,7 +178,7 @@ where
 	/// This is highly unsafe, just like the Rust official `Vec<T>::from_raw_parts()`
 	/// * Unlike the Rust official `Vec<T>::from_raw_parts()`, capacity is not needed to be provided since it was calculated by `buffer.get_size() / size_of::<T>()`
 	/// * `length` must be less than the calculated capacity.
-	pub unsafe fn from_raw_parts(mut buffer: Buffer, length: usize) -> Result<Self, VulkanError> {
+	pub unsafe fn from_raw_parts(buffer: Buffer, length: usize) -> Result<Self, VulkanError> {
 		let capacity = buffer.get_size() as usize / size_of::<T>();
 		buffer.ensure_staging_buffer()?;
 		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
@@ -371,7 +371,7 @@ impl<T> Clone for BufferVec<T>
 where
 	T: BufferVecItem {
 	fn clone(&self) -> Self {
-		let mut buffer = self.buffer.clone();
+		let buffer = self.buffer.clone();
 		let staging_buffer_data_address = buffer.get_staging_buffer_address().unwrap() as *mut T;
 		Self {
 			buffer,
