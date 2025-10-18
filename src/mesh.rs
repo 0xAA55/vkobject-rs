@@ -79,8 +79,9 @@ where
 	}
 
 	/// Get data by an index
-	pub fn get_item(&mut self, index: usize) -> Option<T> {
-		if let Some(ref mut staging_buffer) = self.buffer.staging_buffer {
+	pub fn get_item(&self, index: usize) -> Option<T> {
+		let lock = self.buffer.staging_buffer.read().unwrap();
+		if let Some(ref staging_buffer) = *lock {
 			if index >= staging_buffer.get_size() as usize / size_of::<T>() {
 				None
 			} else {
@@ -103,7 +104,8 @@ where
 
 	/// Get all data
 	pub fn get_data(&self) -> Option<&[T]> {
-		if let Some(ref staging_buffer) = self.buffer.staging_buffer {
+		let lock = self.buffer.staging_buffer.read().unwrap();
+		if let Some(ref staging_buffer) = *lock {
 			Some(unsafe {slice::from_raw_parts(staging_buffer.get_address() as *const T, self.len())})
 		} else {
 			None
@@ -1095,28 +1097,27 @@ where
 		};
 		let (pdim, tdim, ndim) = obj_mesh_set.get_vert_dims();
 		let template_mesh;
-		let instances;
 		macro_rules! vert_conv {
 			($type:ty, $src:ident) => {
 				{let vertices: Vec<$type> = $src.iter().map(|v|<$type>::from(*v)).collect(); vertices}
 			}
 		}
-		macro_rules! mesh_create {
-			($vb:ident) => {
-				{
-					instances = if let Some(id) = instances_data {
-						Some(Arc::new(RwLock::new(BufferVec::from(device.clone(), id, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?)))
-					} else {
-						None
-					};
-					let mesh: Box<dyn GenericMesh> = Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, Arc::new(RwLock::new($vb)), Option::<Arc::<RwLock::<BufferWithType::<u32>>>>::None, instances.clone(), buffer_unused()));
-					mesh
-				}
-			}
-		}
 		macro_rules! vb_create {
 			($dev:ident, $vb:ident, $cb:ident) => {
 				BufferWithType::new($dev.clone(), &$vb, $cb, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)
+			}
+		}
+		let instances = if let Some(id) = instances_data {
+			Some(Arc::new(RwLock::new(BufferVec::from(device.clone(), id, cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?)))
+		} else {
+			None
+		};
+		macro_rules! mesh_create {
+			($vb:ident) => {
+				{
+					let mesh: Box<dyn GenericMesh> = Box::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST, Arc::new(RwLock::new($vb)), Option::<Arc::<RwLock::<BufferWithType::<u32>>>>::None, instances.clone(), buffer_unused()));
+					mesh
+				}
 			}
 		}
 		#[allow(non_camel_case_types)] type ObjV___F = ObjVertPositionOnly;
