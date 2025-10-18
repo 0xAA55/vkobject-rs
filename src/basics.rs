@@ -14,6 +14,7 @@ use std::{
 	sync::{
 		Arc,
 		Mutex,
+		MutexGuard,
 		atomic::{
 			AtomicBool,
 			Ordering,
@@ -570,6 +571,9 @@ pub struct VulkanMemory {
 
 	/// The mapping info
 	mapping_state: Mutex<MemoryMappingState>,
+
+	/// The mapping lock for temporarily map the memory
+	mapping_lock: Mutex<()>,
 }
 
 /// The direction of manipulating data
@@ -596,6 +600,7 @@ impl VulkanMemory {
 			memory,
 			size: mem_reqs.size,
 			mapping_state: Mutex::new(MemoryMappingState::default()),
+			mapping_lock: Mutex::new(()),
 		};
 		Ok(ret)
 	}
@@ -610,14 +615,28 @@ impl VulkanMemory {
 		self.size
 	}
 
-	/// Map the memory
-	pub fn map<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+	/// Mark the mapping state as mapped
+	///
+	/// # Safety
+	///
+	/// You have to guarantee the mutable reference of the mapped memory must be only one
+	pub(crate) unsafe fn mapped<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
 		let mut mapping_state_lock = self.mapping_state.lock().unwrap();
 		if mapping_state_lock.map_count == 0 {
 			self.device.vkcore.vkMapMemory(self.device.get_vk_device(), self.memory, 0, self.size, 0, &mut mapping_state_lock.mapped_address)?;
 		}
 		mapping_state_lock.map_count += 1;
 		Ok(MappedMemory::new(self, (mapping_state_lock.mapped_address as *mut u8).wrapping_add(offset as usize) as *mut c_void, size))
+	}
+
+	/// Map the memory
+	pub fn map<'a>(&'a mut self, offset: VkDeviceSize, size: usize) -> Result<MappedMemory<'a>, VulkanError> {
+		unsafe {self.mapped(offset, size)}
+	}
+
+	/// Map the memory with lock temporarily
+	pub fn map_locked<'a>(&'a self, offset: VkDeviceSize, size: usize) -> Result<LockedMappedMemoryGuard<'a>, VulkanError> {
+		Ok(LockedMappedMemoryGuard::new(unsafe {self.mapped(offset, size)?}, self.mapping_lock.lock().unwrap()))
 	}
 
 	/// Map the memory as a slice
@@ -629,10 +648,10 @@ impl VulkanMemory {
 
 	/// Provide data for the memory, or retrieve data from the memory
 	pub fn manipulate_data(&self, data: *mut c_void, offset: VkDeviceSize, size: usize, direction: DataDirection) -> Result<(), VulkanError> {
-		let map_guard = self.map(offset, size)?;
+		let map_guard = self.map_locked(offset, size)?;
 		match direction {
-			DataDirection::SetData => unsafe {copy(data as *const u8, map_guard.address as *mut u8, size)},
-			DataDirection::GetData => unsafe {copy(map_guard.address as *const u8, data as *mut u8, size)},
+			DataDirection::SetData => unsafe {copy(data as *const u8, map_guard.get_address() as *mut u8, size)},
+			DataDirection::GetData => unsafe {copy(map_guard.get_address() as *const u8, data as *mut u8, size)},
 		}
 		Ok(())
 	}
@@ -722,6 +741,36 @@ impl Drop for MappedMemory<'_> {
 		if mapping_state_lock.map_count == 0 {
 			proceed_run(self.memory.device.vkcore.vkUnmapMemory(self.memory.device.get_vk_device(), self.memory.memory))
 		}
+	}
+}
+
+/// The state that indicates the Vulkan memory is currently mapped
+#[derive(Debug)]
+pub struct LockedMappedMemoryGuard<'a> {
+	/// The reference to the memory
+	map_guard: MappedMemory<'a>,
+
+	/// The lock guard
+	lock_guard: MutexGuard<'a, ()>,
+}
+
+impl<'a> LockedMappedMemoryGuard<'a> {
+	/// Called by `VulkanMemory::map()`
+	pub(crate) fn new(map_guard: MappedMemory<'a>, lock_guard: MutexGuard<'a, ()>) -> Self {
+		Self {
+			map_guard,
+			lock_guard,
+		}
+	}
+
+	/// Get the mapped address
+	pub fn get_address(&self) -> *const c_void {
+		self.map_guard.address
+	}
+
+	/// Get the mapped size
+	pub fn get_size(&self) -> usize {
+		self.map_guard.size
 	}
 }
 
