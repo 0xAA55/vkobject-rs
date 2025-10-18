@@ -304,7 +304,7 @@ mod tests {
 				let cmdbuf = scene.get_cmdbuf();
 				let extent = scene.get_rendertarget_extent();
 
-				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input.get_staging_buffer_address() as *mut UniformInput, 1)};
+				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input.get_staging_buffer_address()? as *mut UniformInput, 1)};
 				ui_data[0] = UniformInput {
 					resolution: Vec3::new(extent.width as f32, extent.height as f32, 1.0),
 					time: run_time as f32,
@@ -433,7 +433,7 @@ mod tests {
 				};
 				proj_matrix[(1, 1)] *= -1.0;
 
-				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address() as *mut UniformInputScene, 1)};
+				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address()? as *mut UniformInputScene, 1)};
 				ui_data[0].view_matrix = view_matrix;
 				ui_data[0].proj_matrix = proj_matrix;
 				ui_data[0].light_dir = normalize(&Vec3::new(-1.2, -1.0, -1.0));
