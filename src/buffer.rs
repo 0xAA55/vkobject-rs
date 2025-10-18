@@ -5,6 +5,8 @@ use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	mem::size_of,
+	ops::{Index, IndexMut, Range, RangeFrom, RangeTo, RangeFull, RangeInclusive, RangeToInclusive},
+	slice::from_raw_parts_mut,
 	sync::{
 		Arc,
 		RwLock,
@@ -81,6 +83,13 @@ impl Buffer {
 	/// Get the size
 	pub fn get_size(&self) -> VkDeviceSize {
 		self.buffer.get_size()
+	}
+
+	/// Map staging buffer as slice
+	pub fn map_staging_buffer_as_slice_locked<'a, T>(&'a self) -> Result<BufferMapGuard<'a, T>, VulkanError>
+	where
+		T: Sized + Clone + Copy {
+		BufferMapGuard::new(self.ensure_staging_buffer()?, self.get_size() as usize)
 	}
 
 	/// Get the address of the staging buffer memory data
@@ -195,6 +204,162 @@ impl Debug for Buffer {
 		.field("usage", &self.usage)
 		.field("staging_buffer", &self.staging_buffer)
 		.finish()
+	}
+}
+
+
+/// The typed map
+#[derive(Debug)]
+pub struct BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	/// The lock guard
+	lock_guard: RwLockWriteGuard<'a, Option<StagingBuffer>>,
+
+	/// The slice of items
+	slice: &'a mut [T],
+}
+
+impl<'a, T> BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	pub fn new(lock_guard: RwLockWriteGuard<'a, Option<StagingBuffer>>, size: usize) -> Result<Self, VulkanError> {
+		let address = lock_guard.as_ref().unwrap().get_address();
+		let len = size / size_of::<T>();
+		let slice = unsafe {from_raw_parts_mut(address as *mut T, len)};
+		Ok(Self {
+			lock_guard,
+			slice,
+		})
+	}
+
+	/// Operate the mapped memory as a slice
+	pub fn as_slice(&self) -> &[T] {
+		self.slice
+	}
+
+	/// Operate the mapped memory as a mutable slice
+	pub fn as_slice_mut(&mut self) -> &mut [T] {
+		self.slice
+	}
+}
+
+impl<'a, T> Index<usize> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = T;
+	fn index(&self, index: usize) -> &T {
+		&self.slice[index]
+	}
+}
+
+impl<'a, T> IndexMut<usize> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, index: usize) -> &mut T {
+		&mut self.slice[index]
+	}
+}
+
+impl<'a, T> Index<Range<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: Range<usize>) -> &[T] {
+		&self.slice[range.start..range.end]
+	}
+}
+
+impl<'a, T> IndexMut<Range<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: Range<usize>) -> &mut [T] {
+		&mut self.slice[range.start..range.end]
+	}
+}
+
+impl<'a, T> Index<RangeFrom<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeFrom<usize>) -> &[T] {
+		&self.slice[range.start..]
+	}
+}
+
+impl<'a, T> IndexMut<RangeFrom<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeFrom<usize>) -> &mut [T] {
+		&mut self.slice[range.start..]
+	}
+}
+
+impl<'a, T> Index<RangeTo<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeTo<usize>) -> &[T] {
+		&self.slice[..range.end]
+	}
+}
+
+impl<'a, T> IndexMut<RangeTo<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeTo<usize>) -> &mut [T] {
+		&mut self.slice[..range.end]
+	}
+}
+
+impl<'a, T> Index<RangeFull> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, _: RangeFull) -> &[T] {
+		&self.slice[..]
+	}
+}
+
+impl<'a, T> IndexMut<RangeFull> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, _: RangeFull) -> &mut [T] {
+		&mut self.slice[..]
+	}
+}
+
+impl<'a, T> Index<RangeInclusive<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeInclusive<usize>) -> &[T] {
+		&self.slice[*range.start()..=*range.end()]
+	}
+}
+
+impl<'a, T> IndexMut<RangeInclusive<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeInclusive<usize>) -> &mut [T] {
+		&mut self.slice[*range.start()..=*range.end()]
+	}
+}
+
+impl<'a, T> Index<RangeToInclusive<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	type Output = [T];
+	fn index(&self, range: RangeToInclusive<usize>) -> &[T] {
+		&self.slice[..=range.end]
+	}
+}
+
+impl<'a, T> IndexMut<RangeToInclusive<usize>> for BufferMapGuard<'a, T>
+where
+	T: Sized + Clone + Copy {
+	fn index_mut(&mut self, range: RangeToInclusive<usize>) -> &mut [T] {
+		&mut self.slice[..=range.end]
 	}
 }
 
