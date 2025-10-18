@@ -180,8 +180,9 @@ where
 	/// * `length` must be less than the calculated capacity.
 	pub unsafe fn from_raw_parts(buffer: Buffer, length: usize) -> Result<Self, VulkanError> {
 		let capacity = buffer.get_size() as usize / size_of::<T>();
-		buffer.ensure_staging_buffer()?;
-		let staging_buffer_data_address = buffer.get_staging_buffer_address()? as *mut T;
+		let lock = buffer.ensure_staging_buffer()?;
+		let staging_buffer_data_address = lock.as_ref().unwrap().get_address() as *mut T;
+		drop(lock);
 		Ok(Self {
 			buffer,
 			staging_buffer_data_address,

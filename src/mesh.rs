@@ -10,7 +10,11 @@ use std::{
 	path::Path,
 	ptr::{copy, null},
 	slice,
-	sync::{Arc, RwLock, RwLockWriteGuard},
+	sync::{
+		Arc,
+		RwLock,
+		RwLockWriteGuard,
+	},
 	vec::IntoIter,
 };
 use struct_iterable::Iterable;
@@ -69,7 +73,7 @@ where
 	}
 
 	/// Create staging buffer for the `BufferWithType<T>`
-	pub fn ensure_staging_buffer(&mut self) -> Result<(), VulkanError> {
+	pub fn ensure_staging_buffer<'a>(&'a self) -> Result<RwLockWriteGuard<'a, Option<StagingBuffer>>, VulkanError> {
 		self.buffer.ensure_staging_buffer()
 	}
 

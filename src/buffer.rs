@@ -5,7 +5,11 @@ use std::{
 	ffi::c_void,
 	fmt::{self, Debug, Formatter},
 	mem::size_of,
-	sync::{Arc, RwLock},
+	sync::{
+		Arc,
+		RwLock,
+		RwLockWriteGuard,
+	},
 	vec::IntoIter,
 };
 use struct_iterable::Iterable;
@@ -55,12 +59,12 @@ impl Buffer {
 	}
 
 	/// Create the staging buffer if not exist
-	pub fn ensure_staging_buffer(&self) -> Result<(), VulkanError> {
+	pub fn ensure_staging_buffer<'a>(&'a self) -> Result<RwLockWriteGuard<'a, Option<StagingBuffer>>, VulkanError> {
 		let mut lock = self.staging_buffer.write().unwrap();
 		if lock.is_none() {
 			*lock = Some(StagingBuffer::new(self.device.clone(), self.buffer.get_size())?);
 		}
-		Ok(())
+		Ok(lock)
 	}
 
 	/// Discard the staging buffer to save memory
@@ -81,8 +85,8 @@ impl Buffer {
 
 	/// Get the address of the staging buffer memory data
 	pub fn get_staging_buffer_address(&self) -> Result<*mut c_void, VulkanError> {
-		self.ensure_staging_buffer()?;
-		Ok(self.staging_buffer.read().unwrap().as_ref().unwrap().get_address())
+		let lock = self.ensure_staging_buffer()?;
+		Ok(lock.as_ref().unwrap().get_address())
 	}
 
 	/// Update new data to the buffer
@@ -91,8 +95,8 @@ impl Buffer {
 	///
 	/// You must provide a valid pointer `data`, otherwise the behavior of this function is undefined.
 	pub unsafe fn set_staging_data(&self, data: *const c_void, offset: VkDeviceSize, size: usize) -> Result<(), VulkanError> {
-		self.ensure_staging_buffer()?;
-		self.staging_buffer.write().unwrap().as_mut().unwrap().set_data(data, offset, size)?;
+		let lock = self.ensure_staging_buffer()?;
+		lock.as_ref().unwrap().set_data(data, offset, size)?;
 		Ok(())
 	}
 
@@ -144,25 +148,25 @@ impl Buffer {
 
 	/// Download the data to the staging buffer
 	pub fn download_staging_buffer(&self, cmdbuf: VkCommandBuffer, offset: VkDeviceSize, size: VkDeviceSize) -> Result<(), VulkanError> {
-		self.ensure_staging_buffer()?;
+		let lock = self.ensure_staging_buffer()?;
 		let copy_region = VkBufferCopy {
 			srcOffset: offset,
 			dstOffset: offset,
 			size: size as VkDeviceSize,
 		};
-		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.buffer.get_vk_buffer(), self.staging_buffer.read().unwrap().as_ref().unwrap().get_vk_buffer(), 1, &copy_region)?;
+		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.buffer.get_vk_buffer(), lock.as_ref().unwrap().get_vk_buffer(), 1, &copy_region)?;
 		Ok(())
 	}
 
 	/// Download the data to the staging buffer
 	pub fn download_staging_buffer_multi(&self, cmdbuf: VkCommandBuffer, regions: &[BufferRegion]) -> Result<(), VulkanError> {
-		self.ensure_staging_buffer()?;
+		let lock = self.ensure_staging_buffer()?;
 		let copy_regions: Vec<VkBufferCopy> = regions.iter().map(|r|VkBufferCopy {
 			srcOffset: r.offset,
 			dstOffset: r.offset,
 			size: r.size as VkDeviceSize,
 		}).collect();
-		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.buffer.get_vk_buffer(), self.staging_buffer.read().unwrap().as_ref().unwrap().get_vk_buffer(), copy_regions.len() as u32, copy_regions.as_ptr())?;
+		self.device.vkcore.vkCmdCopyBuffer(cmdbuf, self.buffer.get_vk_buffer(), lock.as_ref().unwrap().get_vk_buffer(), copy_regions.len() as u32, copy_regions.as_ptr())?;
 		Ok(())
 	}
 
@@ -233,7 +237,7 @@ where
 	}
 
 	/// Create the staging buffer if not exist
-	pub fn ensure_staging_buffer(&self) -> Result<(), VulkanError> {
+	pub fn ensure_staging_buffer<'a>(&'a self) -> Result<RwLockWriteGuard<'a, Option<StagingBuffer>>, VulkanError> {
 		self.buffer.ensure_staging_buffer()
 	}
 
@@ -369,7 +373,7 @@ where
 	}
 
 	/// Create the staging buffer if not exist
-	pub fn ensure_staging_buffer(&self) -> Result<(), VulkanError> {
+	pub fn ensure_staging_buffer<'a>(&'a self) -> Result<RwLockWriteGuard<'a, Option<StagingBuffer>>, VulkanError> {
 		self.buffer.ensure_staging_buffer()
 	}
 
