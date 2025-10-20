@@ -441,3 +441,43 @@ fn main() {
 	}).unwrap();
 }
 ```
+
+## 常见问题
+
+### 问题：编译依赖项 `shaderc` 时失败，并提供以下报错：
+```
+warning: shaderc-sys@0.10.1: shaderc: requested to build from source
+error: failed to run custom build command for `shaderc-sys v0.10.1`
+
+Caused by:
+  process didn't exit successfully: `C:\your\path\to\your\crate\target\release\build\shaderc-sys-03dfa106721f22d5\build-script-build` (exit code: 101)
+  --- stdout
+  cargo:warning=shaderc: requested to build from source
+
+  --- stderr
+
+  thread 'main' panicked at C:\Users\your_name\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\shaderc-sys-0.10.1\build\cmd_finder.rs:55:13:
+
+
+  couldn't find required command: "ninja"
+
+
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+```
+
+* 答案：你需要安装 ninja 并重新编译。
+	* Windows 系统：运行 `winget install Ninja-build.Ninja`
+	* Debian/Ubuntu 系统：运行 `sudo apt install ninja-build`
+	* Fedora/RHEL 系统：运行 `sudo dnf install ninja-build`
+	* MacOS 系统：运行 `brew install ninja`
+参见：https://github.com/ninja-build/ninja/releases`
+
+### 问题：启用 `validation_layer` 特性后，运行失败。错误信息包含以下内容：
+
+```
+called `Result::unwrap()` on an `Err` value: VkError(VkErrorLayerNotPresent("vkCreateInstance"))
+```
+
+* 答案：这是因为你的 GPU 驱动程序不支持 Vulkan 验证层。你只能在不使用 Vulkan 验证层的情况下调试你的 Vulkan 代码。
+	* 买一张 NVIDIA 显卡可以解决此问题，因为其驱动程序支持 Vulkan 验证层。

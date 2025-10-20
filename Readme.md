@@ -441,3 +441,43 @@ fn main() {
 	}).unwrap();
 }
 ```
+
+## FAQ
+
+### Question: When building the dependent `shaderc`, it fails and shows the following information:
+```
+warning: shaderc-sys@0.10.1: shaderc: requested to build from source
+error: failed to run custom build command for `shaderc-sys v0.10.1`
+
+Caused by:
+  process didn't exit successfully: `C:\your\path\to\your\crate\target\release\build\shaderc-sys-03dfa106721f22d5\build-script-build` (exit code: 101)
+  --- stdout
+  cargo:warning=shaderc: requested to build from source
+
+  --- stderr
+
+  thread 'main' panicked at C:\Users\your_name\.cargo\registry\src\index.crates.io-1949cf8c6b5b557f\shaderc-sys-0.10.1\build\cmd_finder.rs:55:13:
+
+
+  couldn't find required command: "ninja"
+
+
+  note: run with `RUST_BACKTRACE=1` environment variable to display a backtrace
+warning: build failed, waiting for other jobs to finish...
+```
+
+* Answer: Install ninja, then build it again.
+	* For Windows: run `winget install Ninja-build.Ninja`
+	* For Debian/Ubuntu: run `sudo apt install ninja-build`
+	* For Fedora/RHEL: run `sudo dnf install ninja-build`
+	* For MacOS: run `brew install ninja`
+See: https://github.com/ninja-build/ninja/releases`
+
+### Question: When the `validation_layer` feature was enabled, it failed to run. The error information says:
+
+```
+called `Result::unwrap()` on an `Err` value: VkError(VkErrorLayerNotPresent("vkCreateInstance"))
+```
+
+* Answer: This is because your GPU driver doesn't support the Vulkan validation layer. You can only debug your Vulkan code without it.
+	* Buying an NVIDIA GPU device could resolve this problem, as its driver supports the Vulkan validation layer.
