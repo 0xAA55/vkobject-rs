@@ -370,10 +370,11 @@ mod tests {
 				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
 				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, ObjVertPositionTexcoord2DNormalTangent, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}; Self::OBJ_ROWS * Self::OBJ_COLS]))?;
 				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone(), None)?);
-				let desc_props = Arc::new(DescriptorProps::default());
-				desc_props.new_uniform_buffer(0, 0, uniform_input_scene.clone());
+				let mut desc_props_set = HashMap::new();
 				let mut pipelines: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
-				for mesh in object.meshset.values() {
+				for (set_name, mesh) in object.meshset.iter() {
+					let desc_props = Arc::new(DescriptorProps::default());
+					desc_props.new_uniform_buffer(0, 0, uniform_input_scene.clone());
 					if let Some(material) = &mesh.material {
 						if let Some(albedo) = material.get_albedo() {
 							if let MaterialComponent::Texture(texture) = albedo {
@@ -396,12 +397,13 @@ mod tests {
 							}
 						}
 					}
+					desc_props_set.insert(set_name, desc_props);
 				}
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 				object.discard_staging_buffers();
 				for (set_name, mesh) in object.meshset.iter() {
-					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props.clone())?
+					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props_set.get(set_name).unwrap().clone())?
 					.set_depth_test(true)
 					.set_depth_write(true)
 					.build()?;
