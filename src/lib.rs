@@ -400,12 +400,12 @@ mod tests {
 				drop(pool_in_use);
 				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
 				object.discard_staging_buffers();
-				for (matname, mesh) in object.meshset.iter() {
+				for (set_name, mesh) in object.meshset.iter() {
 					let pipeline = ctx.create_pipeline_builder(mesh.clone(), draw_shaders.clone(), desc_props.clone())?
 					.set_depth_test(true)
 					.set_depth_write(true)
 					.build()?;
-					pipelines.insert(matname.clone(), pipeline);
+					pipelines.insert(set_name.clone(), pipeline);
 				}
 				Ok(Self {
 					uniform_input_scene,
