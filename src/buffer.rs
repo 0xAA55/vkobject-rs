@@ -392,8 +392,8 @@ impl<U> UniformBuffer<U>
 where
 	U: UniformStructType {
 	/// Create the `UniformBuffer`
-	pub fn new(device: Arc<VulkanDevice>, default: Option<U>) -> Result<Self, VulkanError> {
-		let def = default.unwrap_or(U::default());
+	pub fn new(device: Arc<VulkanDevice>, initial_value: Option<U>) -> Result<Self, VulkanError> {
+		let def = initial_value.unwrap_or_default();
 		let buffer = Buffer::new(device.clone(), size_of::<U>() as VkDeviceSize, Some(&def as *const U as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT as VkBufferUsageFlags)?;
 		Ok(Self {
 			buffer,
@@ -538,12 +538,12 @@ impl<S> StorageBuffer<S>
 where
 	S: StorageBufferStructType {
 	/// Create the `StorageBuffer`
-	pub fn new(device: Arc<VulkanDevice>) -> Result<Self, VulkanError> {
-		let def = S::default();
+	pub fn new(device: Arc<VulkanDevice>, initial_value: Option<S>) -> Result<Self, VulkanError> {
+		let def = initial_value.unwrap_or_default();
 		let buffer = Buffer::new(device.clone(), size_of::<S>() as VkDeviceSize, Some(&def as *const S as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_STORAGE_BUFFER_BIT as VkBufferUsageFlags)?;
 		Ok(Self {
 			buffer,
-			iterable: def,
+			iterable: S::default(),
 		})
 	}
 
