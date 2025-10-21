@@ -392,12 +392,12 @@ impl<U> UniformBuffer<U>
 where
 	U: UniformStructType {
 	/// Create the `UniformBuffer`
-	pub fn new(device: Arc<VulkanDevice>) -> Result<Self, VulkanError> {
-		let def = U::default();
+	pub fn new(device: Arc<VulkanDevice>, default: Option<U>) -> Result<Self, VulkanError> {
+		let def = default.unwrap_or(U::default());
 		let buffer = Buffer::new(device.clone(), size_of::<U>() as VkDeviceSize, Some(&def as *const U as *const c_void), VkBufferUsageFlagBits::VK_BUFFER_USAGE_UNIFORM_BUFFER_BIT as VkBufferUsageFlags)?;
 		Ok(Self {
 			buffer,
-			iterable: def,
+			iterable: U::default(),
 		})
 	}
 
@@ -446,6 +446,9 @@ pub trait GenericUniformBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
+	/// Iterate through the members of the generic type `U`
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
+
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
 
@@ -461,6 +464,10 @@ where
 	U: UniformStructType {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
+	}
+
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
+		self.iterable.iter()
 	}
 
 	fn get_size(&self) -> VkDeviceSize {
@@ -488,6 +495,9 @@ where
 pub trait GenericStorageBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
+
+	/// Iterate through the members of the generic type `S`
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -582,6 +592,10 @@ where
 	S: StorageBufferStructType {
 	fn get_vk_buffer(&self) -> VkBuffer {
 		self.buffer.get_vk_buffer()
+	}
+
+	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
+		self.iterable.iter()
 	}
 
 	fn get_size(&self) -> VkDeviceSize {
