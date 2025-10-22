@@ -448,12 +448,12 @@ mod tests {
 				scene.set_viewport_swapchain(0.0, 1.0)?;
 				scene.set_scissor_swapchain()?;
 				for pipeline in self.pipelines.values() {
-					let ui_data = unsafe {from_raw_parts_mut(self.uniform_input_scene.get_staging_buffer_address()? as *mut UniformInputScene, 1)};
-					ui_data[0].view_matrix = view_matrix;
-					ui_data[0].proj_matrix = proj_matrix;
-					ui_data[0].light_dir = normalize(&Vec3::new(-1.2, -1.0, -1.0));
-					ui_data[0].light_color = Vec3::new(1.0, 1.0, 1.0);
-					ui_data[0].ambient_color = Vec3::new(0.1, 0.2, 0.1);
+					let ui_data = unsafe {&mut *(self.uniform_input_scene.get_staging_buffer_address()? as *mut UniformInputScene)};
+					ui_data.view_matrix = view_matrix;
+					ui_data.proj_matrix = proj_matrix;
+					ui_data.light_dir = normalize(&Vec3::new(-1.2, -1.0, -1.0));
+					ui_data.light_color = Vec3::new(1.0, 1.0, 1.0);
+					ui_data.ambient_color = Vec3::new(0.1, 0.2, 0.1);
 					self.uniform_input_scene.flush(cmdbuf)?;
 					pipeline.prepare_data(cmdbuf)?;
 					scene.begin_renderpass(Vec4::new(0.0, 0.2, 0.3, 1.0), 1.0, 0)?;
