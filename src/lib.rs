@@ -120,7 +120,6 @@ mod tests {
 		collections::HashMap,
 		ffi::CStr,
 		path::PathBuf,
-		slice::from_raw_parts_mut,
 		sync::{
 			Arc,
 			Mutex,
@@ -304,8 +303,8 @@ mod tests {
 				let cmdbuf = scene.get_cmdbuf();
 				let extent = scene.get_rendertarget_extent();
 
-				let ui_data = unsafe {from_raw_parts_mut(self.uniform_input.get_staging_buffer_address()? as *mut UniformInput, 1)};
-				ui_data[0] = UniformInput {
+				let ui_data = unsafe {&mut *(self.uniform_input.get_staging_buffer_address()? as *mut UniformInput)};
+				*ui_data = UniformInput {
 					resolution: Vec3::new(extent.width as f32, extent.height as f32, 1.0),
 					time: run_time as f32,
 				};
