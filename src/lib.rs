@@ -144,11 +144,12 @@ mod tests {
 	}
 
 	impl TestInstance {
-		pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode) -> Result<Self, VulkanError> {
+		pub fn new(width: u32, height: u32, title: &str, window_mode: glfw::WindowMode, additional_hints: Option<&[WindowHint]>) -> Result<Self, VulkanError> {
 			static GLFW_LOCK: Mutex<u32> = Mutex::new(0);
 			let glfw_lock = GLFW_LOCK.lock().unwrap();
 			let mut glfw = glfw::init(glfw::fail_on_errors).unwrap();
 			glfw.window_hint(WindowHint::ClientApi(ClientApiHint::NoApi));
+			additional_hints.map(|hints| hints.iter().map(|hint| glfw.window_hint(hint.clone())));
 			let (mut window, events) = glfw.create_window(width, height, title, window_mode).expect("Failed to create GLFW window.");
 			drop(glfw_lock);
 			window.set_key_polling(true);
@@ -236,6 +237,13 @@ mod tests {
 	unsafe impl Sync for TestInstance {}
 
 	#[test]
+	fn device_info() {
+		let additional_hints = [WindowHint::Visible(false)];
+		let inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed, Some(&additional_hints)).unwrap());
+		dbg!(&inst.ctx.device.get_gpu().mem_properties);
+	}
+
+	#[test]
 	fn basic_test() {
 		derive_vertex_type! {
 			pub struct VertexType {
@@ -320,7 +328,7 @@ mod tests {
 			}
 		}
 
-		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed).unwrap());
+		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed, None).unwrap());
 		let resources = Resources::new(&inst.ctx.write().unwrap()).unwrap();
 		inst.run(Some(TEST_TIME),
 		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
@@ -464,7 +472,7 @@ mod tests {
 			}
 		}
 
-		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan avocado test", glfw::WindowMode::Windowed).unwrap());
+		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan avocado test", glfw::WindowMode::Windowed, None).unwrap());
 		let resources = Resources::new(&inst.ctx.write().unwrap()).unwrap();
 		inst.run(Some(TEST_TIME),
 		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
