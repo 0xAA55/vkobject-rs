@@ -137,7 +137,7 @@ mod tests {
 
 	#[derive(Debug)]
 	pub struct TestInstance {
-		pub ctx: Arc<RwLock<VulkanContext>>,
+		pub ctx: Arc<VulkanContext>,
 		pub window: PWindow,
 		pub events: GlfwReceiver<(f64, WindowEvent)>,
 		pub glfw: Glfw,
@@ -158,14 +158,12 @@ mod tests {
 				can_compute: false,
 				name_subtring: "",
 			};
-			let ctx = Arc::new(RwLock::new(create_vulkan_context(&window, device_requirement, PresentInterval::VSync, 1, false)?));
-			let ctx_lock = ctx.read().unwrap();
-			for gpu in VulkanGpuInfo::get_gpu_info(&ctx_lock.vkcore)?.iter() {
+			let ctx = Arc::new(create_vulkan_context(&window, device_requirement, PresentInterval::VSync, 1, false)?);
+			for gpu in VulkanGpuInfo::get_gpu_info(&ctx.vkcore)?.iter() {
 				println!("Found GPU: {}", unsafe{CStr::from_ptr(gpu.properties.deviceName.as_ptr())}.to_str().unwrap());
 			}
-			println!("Chosen GPU name: {}", unsafe{CStr::from_ptr(ctx_lock.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
-			println!("Chosen GPU type: {:?}", ctx_lock.device.get_gpu().properties.deviceType);
-			drop(ctx_lock);
+			println!("Chosen GPU name: {}", unsafe{CStr::from_ptr(ctx.device.get_gpu().properties.deviceName.as_ptr())}.to_str().unwrap());
+			println!("Chosen GPU type: {:?}", ctx.device.get_gpu().properties.deviceType);
 			Ok(Self {
 				glfw,
 				window,
@@ -197,7 +195,7 @@ mod tests {
 				while !exit_flag_cloned.load(Ordering::Relaxed) {
 					let cur_frame_time = glfw_get_time();
 					let run_time = cur_frame_time - start_time;
-					on_render(&mut ctx.write().unwrap(), run_time).unwrap();
+					on_render(&ctx, run_time).unwrap();
 					num_frames += 1;
 					let new_time_in_sec = run_time.floor() as u64;
 					if new_time_in_sec > time_in_sec {
@@ -329,7 +327,7 @@ mod tests {
 		}
 
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed, None).unwrap());
-		let resources = Resources::new(&inst.ctx.write().unwrap()).unwrap();
+		let resources = Resources::new(&inst.ctx).unwrap();
 		inst.run(Some(TEST_TIME),
 		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
@@ -473,7 +471,7 @@ mod tests {
 		}
 
 		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan avocado test", glfw::WindowMode::Windowed, None).unwrap());
-		let resources = Resources::new(&inst.ctx.write().unwrap()).unwrap();
+		let resources = Resources::new(&inst.ctx).unwrap();
 		inst.run(Some(TEST_TIME),
 		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
 			resources.draw(ctx, run_time)
