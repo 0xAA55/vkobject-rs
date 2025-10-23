@@ -238,7 +238,15 @@ mod tests {
 	fn device_info() {
 		let additional_hints = [WindowHint::Visible(false)];
 		let inst = Box::new(TestInstance::new(1024, 768, "Vulkan test", glfw::WindowMode::Windowed, Some(&additional_hints)).unwrap());
-		dbg!(&inst.ctx.device.get_gpu().mem_properties);
+		let gpu = inst.ctx.device.get_gpu();
+		for i in 0..gpu.mem_properties.memoryTypeCount {
+			let memtype = &gpu.mem_properties.memoryTypes[i as usize];
+			println!("memory type {i}: {memtype:#?}");
+		}
+		for i in 0..gpu.mem_properties.memoryHeapCount {
+			let heap = &gpu.mem_properties.memoryHeaps[i as usize];
+			println!("heap {i}: {}: {heap:#?}", format_size(heap.size));
+		}
 	}
 
 	#[test]
