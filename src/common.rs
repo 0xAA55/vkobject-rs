@@ -211,3 +211,24 @@ pub trait IterableDataAttrib {
 		data_attribs.into_iter()
 	}
 }
+
+pub fn format_size(size: u64) -> String {
+	let eib = 1024 * 1024 * 1024 * 1024 * 1024;
+	let tib = 1024 * 1024 * 1024 * 1024;
+	let gib = 1024 * 1024 * 1024;
+	let mib = 1024 * 1024;
+	let kib = 1024;
+	if size >= eib {
+		format!("{:.3} EiB", size as f64 / eib as f64)
+	} else if size >= tib {
+		format!("{:.3} TiB", size as f64 / tib as f64)
+	} else if size >= gib {
+		format!("{:.3} GiB", size as f64 / gib as f64)
+	} else if size >= mib {
+		format!("{:.3} MiB", size as f64 / mib as f64)
+	} else if size >= kib {
+		format!("{:.3} KiB", size as f64 / kib as f64)
+	} else {
+		format!("{size} B")
+	}
+}
