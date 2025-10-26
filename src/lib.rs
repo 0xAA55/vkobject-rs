@@ -97,6 +97,8 @@ pub mod prelude {
 	pub use crate::derive_vertex_type;
 	pub use crate::derive_uniform_buffer_type;
 	pub use crate::derive_storage_buffer_type;
+	pub use crate::get_generic_uniform_buffer_cache;
+	pub use crate::get_generic_storage_buffer_cache;
 
 	unsafe extern "C" {
 		fn glfwGetTime() -> f64;
@@ -317,7 +319,7 @@ mod tests {
 				let cmdbuf = scene.get_cmdbuf();
 				let extent = scene.get_rendertarget_extent();
 
-				let ui_data = unsafe {&mut *(self.uniform_input.get_staging_buffer_address()? as *mut UniformInput)};
+				let ui_data = unsafe {get_generic_uniform_buffer_cache!(self.uniform_input, UniformInput)};
 				*ui_data = UniformInput {
 					resolution: Vec3::new(extent.width as f32, extent.height as f32, 1.0),
 					time: run_time as f32,
@@ -461,7 +463,7 @@ mod tests {
 				scene.set_viewport_swapchain(0.0, 1.0)?;
 				scene.set_scissor_swapchain()?;
 				for pipeline in self.pipelines.values() {
-					let ui_data = unsafe {&mut *(self.uniform_input_scene.get_staging_buffer_address()? as *mut UniformInputScene)};
+					let ui_data = unsafe {get_generic_uniform_buffer_cache!(self.uniform_input_scene, UniformInputScene)};
 					ui_data.view_matrix = view_matrix;
 					ui_data.proj_matrix = proj_matrix;
 					ui_data.light_dir = normalize(&Vec3::new(-1.2, -1.0, -1.0));

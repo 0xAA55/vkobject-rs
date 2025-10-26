@@ -618,3 +618,13 @@ where
 		self.iterable.iter()
 	}
 }
+
+#[macro_export]
+macro_rules! get_generic_uniform_buffer_cache {
+	($gub:expr,$t:ty) => (&mut *($gub.get_staging_buffer_address()? as *mut $t))
+}
+
+#[macro_export]
+macro_rules! get_generic_storage_buffer_cache {
+	($gsb:expr,$t:ty) => (&mut *($gsb.get_staging_buffer_address()? as *mut $t))
+}
