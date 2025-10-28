@@ -17,11 +17,10 @@ use std::{
 	},
 	vec::IntoIter,
 };
-use struct_iterable::Iterable;
 
 /// The type that could be the item of the `BufferVec`
-pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any {}
-impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Send + Sync + Debug + Iterable + Any {}
+pub trait BufferVecStructItem: Clone + Copy + Sized + Default + Send + Sync + Debug + FFIStruct + Any {}
+impl<T> BufferVecStructItem for T where T: Clone + Copy + Sized + Default + Send + Sync + Debug + FFIStruct + Any {}
 
 /// A wrapper for `Buffer`
 #[derive(Debug, Clone)]
@@ -297,7 +296,8 @@ where
 }
 
 /// If a buffer you don't need, use this for your buffer item type
-#[derive(Default, Debug, Clone, Copy, Iterable)]
+#[ffi_struct]
+#[derive(Default, Debug, Clone, Copy)]
 pub struct UnusedBufferItem {}
 
 /// If a buffer you don't need, use this for your buffer type
@@ -435,16 +435,16 @@ pub trait GenericMesh: Debug + Any + Send + Sync {
 	fn get_command_count(&self) -> usize;
 
 	/// Get the iterator for the vertex buffer item structure
-	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
+	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, MemberInfo)>;
 
 	/// Get the TypeId of the index buffer item
 	fn get_index_type_id(&self) -> Option<TypeId>;
 
 	/// Get the iterator for the vertex buffer item structure
-	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &dyn Any)>>;
+	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, MemberInfo)>>;
 
 	/// Get the iterator for the vertex buffer item structure
-	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &dyn Any)>>;
+	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, MemberInfo)>>;
 
 	/// Get the stride of the vertex buffer
 	fn get_vertex_type_name(&self) -> &'static str;
@@ -593,20 +593,20 @@ where
 		}
 	}
 
-	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.vertex_type.iter()
+	fn iter_vertex_buffer_struct_members(&self) -> IntoIter<(&'static str, MemberInfo)> {
+		self.vertex_type.iter_members()
 	}
 
 	fn get_index_type_id(&self) -> Option<TypeId> {
 		self.indices.as_ref().map(|_|self.element_type.type_id())
 	}
 
-	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &dyn Any)>> {
-		self.instances.as_ref().map(|_|self.instance_type.iter())
+	fn iter_instance_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, MemberInfo)>> {
+		self.instances.as_ref().map(|_|self.instance_type.iter_members())
 	}
 
-	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, &dyn Any)>> {
-		self.commands.as_ref().map(|_|self.command_type.iter())
+	fn iter_command_buffer_struct_members(&self) -> Option<IntoIter<(&'static str, MemberInfo)>> {
+		self.commands.as_ref().map(|_|self.command_type.iter_members())
 	}
 
 	fn get_vertex_type_name(&self) -> &'static str {

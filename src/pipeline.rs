@@ -7,19 +7,50 @@ use std::{
 	ptr::null,
 	sync::Arc,
 };
-use struct_iterable::Iterable;
 use shader_analyzer::*;
 use rspirv::spirv::*;
 
 /// The trait that the struct of vertices or instances must implement
-pub trait VertexType: Copy + Clone + Sized + Default + Debug + Iterable + Any {}
-impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + Iterable + Any {}
+pub trait VertexType: Copy + Clone + Sized + Default + Debug + FFIStruct + Any {}
+impl<T> VertexType for T where T: Copy + Clone + Sized + Default + Debug + FFIStruct + Any {}
 
 #[macro_export]
 macro_rules! derive_vertex_type {
 	($item: item) => {
-		#[repr(C)]
-		#[derive(Iterable, Default, Debug, Clone, Copy)]
+		#[ffi_struct]
+		#[derive(Default, Debug, Clone, Copy)]
+		#[size_of_type (Vec1 = 4, Vec2 = 8, Vec3 = 12, Vec4 = 16)]
+		#[align_of_type(Vec1 = 4, Vec2 = 4, Vec3 = 4, Vec4 = 4)]
+		#[size_of_type (Mat1 = 4, Mat2 = 16, Mat3 = 36, Mat4 = 64)]
+		#[align_of_type(Mat1 = 4, Mat2 = 4, Mat3 = 4, Mat4 = 4)]
+		#[size_of_type (Mat1x1 = 4, Mat2x2 = 16, Mat3x3 = 36, Mat4x4 = 64)]
+		#[align_of_type(Mat1x1 = 4, Mat2x2 = 4, Mat3x3 = 4, Mat4x4 = 4)]
+		#[size_of_type (Mat1x2 = 8, Mat1x3 = 12, Mat1x4 = 16)]
+		#[align_of_type(Mat1x2 = 4, Mat1x3 = 4, Mat1x4 = 4)]
+		#[size_of_type (Mat2x1 = 8, Mat2x3 = 24, Mat2x4 = 32)]
+		#[align_of_type(Mat2x1 = 4, Mat2x3 = 4, Mat2x4 = 4)]
+		#[size_of_type (Mat2x3 = 24, Mat2x4 = 32)]
+		#[align_of_type(Mat2x3 = 4, Mat2x4 = 4)]
+		#[size_of_type (Mat3x2 = 24, Mat3x4 = 48)]
+		#[align_of_type(Mat3x2 = 4, Mat3x4 = 4)]
+		#[size_of_type (Mat4x2 = 32, Mat4x3 = 48)]
+		#[align_of_type(Mat4x2 = 4, Mat4x3 = 4)]
+		#[size_of_type (DVec1 = 8, DVec2 = 16, DVec3 = 24, DVec4 = 32)]
+		#[align_of_type(DVec1 = 4, DVec2 = 4, DVec3 = 4, DVec4 = 4)]
+		#[size_of_type (DMat1 = 8, DMat2 = 32, DMat3 = 72, DMat4 = 128)]
+		#[align_of_type(DMat1 = 4, DMat2 = 4, DMat3 = 4, DMat4 = 4)]
+		#[size_of_type (DMat1x1 = 8, DMat2x2 = 32, DMat3x3 = 72, DMat4x4 = 128)]
+		#[align_of_type(DMat1x1 = 4, DMat2x2 = 4, DMat3x3 = 4, DMat4x4 = 4)]
+		#[size_of_type (DMat1x2 = 16, DMat1x3 = 24, DMat1x4 = 32)]
+		#[align_of_type(DMat1x2 = 4, DMat1x3 = 4, DMat1x4 = 4)]
+		#[size_of_type (DMat2x1 = 16, DMat2x3 = 48, DMat2x4 = 64)]
+		#[align_of_type(DMat2x1 = 4, DMat2x3 = 4, DMat2x4 = 4)]
+		#[size_of_type (DMat2x3 = 48, DMat2x4 = 64)]
+		#[align_of_type(DMat2x3 = 4, DMat2x4 = 4)]
+		#[size_of_type (DMat3x2 = 48, DMat3x4 = 96)]
+		#[align_of_type(DMat3x2 = 4, DMat3x4 = 4)]
+		#[size_of_type (DMat4x2 = 64, DMat4x3 = 96)]
+		#[align_of_type(DMat4x2 = 4, DMat4x3 = 4)]
 		$item
 	};
 }
@@ -173,7 +204,7 @@ impl WriteDescriptorSets {
 										let buffers: Vec<_> = desc_props.get_desc_props_uniform_buffers(set, binding, total_element_count)?;
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
-											let struct_data: HashMap<&str, (usize, usize)> = buffer.iter_members_data_attribs().map(|(name, offset, size)|(name, (offset, size))).collect();
+											let struct_data: HashMap<&str, (usize, usize)> = buffer.iter_members().map(|(name, member_info)|(name, (member_info.offset, member_info.size))).collect();
 											for member in s.members.iter() {
 												let name: &str = &member.member_name;
 												if let Some((offset, size)) = struct_data.get(&name) {
@@ -245,7 +276,7 @@ impl WriteDescriptorSets {
 										let buffers: Vec<_> = desc_props.get_desc_props_storage_buffers(set, binding, total_element_count)?;
 										let buffer_info_index = self.buffer_info.len();
 										for buffer in buffers.iter() {
-											let struct_data: HashMap<&str, (usize, usize)> = buffer.iter_members_data_attribs().map(|(name, offset, size)|(name, (offset, size))).collect();
+											let struct_data: HashMap<&str, (usize, usize)> = buffer.iter_members().map(|(name, member_info)|(name, (member_info.offset, member_info.size))).collect();
 											for member in s.members.iter() {
 												let name: &str = &member.member_name;
 												if let Some((offset, size)) = struct_data.get(&name) {
@@ -1091,7 +1122,7 @@ pub struct Pipeline {
 }
 
 #[derive(Debug, Clone, Copy)]
-struct MemberInfo<'a> {
+struct VertexMemberInfo<'a> {
 	name: &'a str,
 	type_name: &'static str,
 	row_format: VkFormat,
@@ -1121,45 +1152,41 @@ impl Pipeline {
 			pSpecializationInfo: null(),
 		}).collect();
 		let type_id_to_info = TypeInfo::get_map_of_type_id_to_info();
-		let mut mesh_vertex_inputs: BTreeMap<u32, MemberInfo> = BTreeMap::new();
-		let mut mesh_instance_inputs: BTreeMap<u32, MemberInfo> = BTreeMap::new();
+		let mut mesh_vertex_inputs: BTreeMap<u32, VertexMemberInfo> = BTreeMap::new();
+		let mut mesh_instance_inputs: BTreeMap<u32, VertexMemberInfo> = BTreeMap::new();
 		let vertex_stride = mesh.geometry.get_vertex_stride();
 		let instance_stride = mesh.geometry.get_instance_stride();
 		let topology = mesh.geometry.get_primitive_type();
 		let mut cur_binding_number = 0;
-		let mut cur_vertex_offset = 0;
 		for (name, var) in mesh.geometry.iter_vertex_buffer_struct_members() {
-			if let Some(info) = type_id_to_info.get(&var.type_id()) {
-				mesh_vertex_inputs.insert(cur_binding_number, MemberInfo {
+			if let Some(info) = type_id_to_info.get(&var.type_id) {
+				mesh_vertex_inputs.insert(cur_binding_number, VertexMemberInfo {
 					name,
 					type_name: info.type_name,
 					row_format: info.row_format,
 					num_rows: info.num_rows,
-					offset: cur_vertex_offset,
+					offset: var.offset as u32,
 					size: info.size,
 				});
-				cur_vertex_offset += info.size as u32;
 				cur_binding_number += 1;
 			} else {
-				panic!("Unknown member {:?} of the vertex struct: `{:?}`", var, var.type_id());
+				panic!("Unknown member {var:?} of the vertex struct.`");
 			}
 		}
 		if let Some(instance_member_iter) = mesh.geometry.iter_instance_buffer_struct_members() {
-			let mut cur_instance_offset = 0;
 			for (name, var) in instance_member_iter {
-				if let Some(info) = type_id_to_info.get(&var.type_id()) {
-					mesh_instance_inputs.insert(cur_binding_number, MemberInfo {
+				if let Some(info) = type_id_to_info.get(&var.type_id) {
+					mesh_instance_inputs.insert(cur_binding_number, VertexMemberInfo {
 						name,
 						type_name: info.type_name,
 						row_format: info.row_format,
 						num_rows: info.num_rows,
-						offset: cur_instance_offset,
+						offset: var.offset as u32,
 						size: info.size,
 					});
-					cur_instance_offset += info.size as u32;
 					cur_binding_number += 1;
 				} else {
-					panic!("Unknown member {:?} of the instance struct: `{:?}`", var, var.type_id());
+					panic!("Unknown member {var:?} of the instance struct.");
 				}
 			}
 		}

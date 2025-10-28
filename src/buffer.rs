@@ -14,7 +14,6 @@ use std::{
 	},
 	vec::IntoIter,
 };
-use struct_iterable::Iterable;
 
 /// The Vulkan buffer object, same as the OpenGL buffer object, could be used to store vertices, elements(indices), and the other data.
 pub struct Buffer {
@@ -364,14 +363,46 @@ where
 }
 
 /// The trait that the struct of uniform must implement
-pub trait UniformStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
-impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
+pub trait UniformStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + FFIStruct + Any {}
+impl<T> UniformStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + FFIStruct + Any {}
 
 #[macro_export]
 macro_rules! derive_uniform_buffer_type {
 	($item: item) => {
-		#[repr(C)]
-		#[derive(Iterable, Default, Debug, Clone, Copy)]
+		#[ffi_struct]
+		#[derive(Default, Debug, Clone, Copy)]
+		#[size_of_type (Vec1 = 4, Vec2 = 8, Vec3 = 12, Vec4 = 16)]
+		#[align_of_type(Vec1 = 4, Vec2 = 8, Vec3 = 16, Vec4 = 16)]
+		#[size_of_type (Mat1 = 4, Mat2 = 16, Mat3 = 48, Mat4 = 64)]
+		#[align_of_type(Mat1 = 4, Mat2 = 8, Mat3 = 16, Mat4 = 16)]
+		#[size_of_type (Mat1x1 = 4, Mat2x2 = 16, Mat3x3 = 48, Mat4x4 = 64)]
+		#[align_of_type(Mat1x1 = 4, Mat2x2 = 8, Mat3x3 = 16, Mat4x4 = 16)]
+		#[size_of_type (Mat1x2 = 8, Mat1x3 = 12, Mat1x4 = 16)]
+		#[align_of_type(Mat1x2 = 4, Mat1x3 = 4, Mat1x4 = 4)]
+		#[size_of_type (Mat2x1 = 8, Mat2x3 = 24, Mat2x4 = 32)]
+		#[align_of_type(Mat2x1 = 8, Mat2x3 = 8, Mat2x4 = 8)]
+		#[size_of_type (Mat2x3 = 24, Mat2x4 = 32)]
+		#[align_of_type(Mat2x3 = 8, Mat2x4 = 8)]
+		#[size_of_type (Mat3x2 = 32, Mat3x4 = 64)]
+		#[align_of_type(Mat3x2 = 16, Mat3x4 = 16)]
+		#[size_of_type (Mat4x2 = 32, Mat4x3 = 48)]
+		#[align_of_type(Mat4x2 = 16, Mat4x3 = 16)]
+		#[size_of_type (DVec1 = 8, DVec2 = 16, DVec3 = 24, DVec4 = 32)]
+		#[align_of_type(DVec1 = 8, DVec2 = 16, DVec3 = 32, DVec4 = 32)]
+		#[size_of_type (DMat1 = 8, DMat2 = 32, DMat3 = 96, DMat4 = 128)]
+		#[align_of_type(DMat1 = 8, DMat2 = 16, DMat3 = 32, DMat4 = 32)]
+		#[size_of_type (DMat1x1 = 8, DMat2x2 = 32, DMat3x3 = 96, DMat4x4 = 128)]
+		#[align_of_type(DMat1x1 = 8, DMat2x2 = 16, DMat3x3 = 32, DMat4x4 = 32)]
+		#[size_of_type (DMat1x2 = 16, DMat1x3 = 24, DMat1x4 = 32)]
+		#[align_of_type(DMat1x2 = 8, DMat1x3 = 8, DMat1x4 = 8)]
+		#[size_of_type (DMat2x1 = 16, DMat2x3 = 48, DMat2x4 = 64)]
+		#[align_of_type(DMat2x1 = 16, DMat2x3 = 16, DMat2x4 = 16)]
+		#[size_of_type (DMat2x3 = 48, DMat2x4 = 64)]
+		#[align_of_type(DMat2x3 = 16, DMat2x4 = 32)]
+		#[size_of_type (DMat3x2 = 64, DMat3x4 = 128)]
+		#[align_of_type(DMat3x2 = 32, DMat3x4 = 32)]
+		#[size_of_type (DMat4x2 = 64, DMat4x3 = 96)]
+		#[align_of_type(DMat4x2 = 32, DMat4x3 = 32)]
 		$item
 	};
 }
@@ -442,12 +473,12 @@ unsafe impl<U> Send for UniformBuffer<U> where U: UniformStructType {}
 unsafe impl<U> Sync for UniformBuffer<U> where U: UniformStructType {}
 
 /// The trait for the `UniformBuffer` to be able to wrap into an object
-pub trait GenericUniformBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
+pub trait GenericUniformBuffer: Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
 	/// Iterate through the members of the generic type `U`
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
+	fn iter_members(&self) -> IntoIter<(&'static str, MemberInfo)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -466,8 +497,8 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.iterable.iter()
+	fn iter_members(&self) -> IntoIter<(&'static str, MemberInfo)> {
+		self.iterable.iter_members()
 	}
 
 	fn get_size(&self) -> VkDeviceSize {
@@ -483,21 +514,13 @@ where
 	}
 }
 
-impl<U> IterableDataAttrib for UniformBuffer<U>
-where
-	U: UniformStructType {
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.iterable.iter()
-	}
-}
-
 /// The trait for the `StorageBuffer` to be able to wrap into an object
-pub trait GenericStorageBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
+pub trait GenericStorageBuffer: Debug + Any + Send + Sync {
 	/// Get the `VkBuffer`
 	fn get_vk_buffer(&self) -> VkBuffer;
 
 	/// Iterate through the members of the generic type `S`
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)>;
+	fn iter_members(&self) -> IntoIter<(&'static str, MemberInfo)>;
 
 	/// Get the size of the buffer
 	fn get_size(&self) -> VkDeviceSize;
@@ -510,14 +533,46 @@ pub trait GenericStorageBuffer: IterableDataAttrib + Debug + Any + Send + Sync {
 }
 
 /// The trait that the struct of uniform must implement
-pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
-impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + Iterable + Any {}
+pub trait StorageBufferStructType: Copy + Clone + Sized + Default + Send + Sync + Debug + FFIStruct + Any {}
+impl<T> StorageBufferStructType for T where T: Copy + Clone + Sized + Default + Send + Sync + Debug + FFIStruct + Any {}
 
 #[macro_export]
 macro_rules! derive_storage_buffer_type {
 	($item: item) => {
 		#[repr(C)]
-		#[derive(Iterable, Default, Debug, Clone, Copy)]
+		#[derive(Default, Debug, Clone, Copy)]
+		#[size_of_type (Vec1 = 4, Vec2 = 8, Vec3 = 12, Vec4 = 16)]
+		#[align_of_type(Vec1 = 4, Vec2 = 4, Vec3 = 4, Vec4 = 4)]
+		#[size_of_type (Mat1 = 4, Mat2 = 16, Mat3 = 36, Mat4 = 64)]
+		#[align_of_type(Mat1 = 4, Mat2 = 4, Mat3 = 4, Mat4 = 4)]
+		#[size_of_type (Mat1x1 = 4, Mat2x2 = 16, Mat3x3 = 36, Mat4x4 = 64)]
+		#[align_of_type(Mat1x1 = 4, Mat2x2 = 4, Mat3x3 = 4, Mat4x4 = 4)]
+		#[size_of_type (Mat1x2 = 8, Mat1x3 = 12, Mat1x4 = 16)]
+		#[align_of_type(Mat1x2 = 4, Mat1x3 = 4, Mat1x4 = 4)]
+		#[size_of_type (Mat2x1 = 8, Mat2x3 = 24, Mat2x4 = 32)]
+		#[align_of_type(Mat2x1 = 4, Mat2x3 = 4, Mat2x4 = 4)]
+		#[size_of_type (Mat2x3 = 24, Mat2x4 = 32)]
+		#[align_of_type(Mat2x3 = 4, Mat2x4 = 4)]
+		#[size_of_type (Mat3x2 = 24, Mat3x4 = 48)]
+		#[align_of_type(Mat3x2 = 4, Mat3x4 = 4)]
+		#[size_of_type (Mat4x2 = 32, Mat4x3 = 48)]
+		#[align_of_type(Mat4x2 = 4, Mat4x3 = 4)]
+		#[size_of_type (DVec1 = 8, DVec2 = 16, DVec3 = 24, DVec4 = 32)]
+		#[align_of_type(DVec1 = 4, DVec2 = 4, DVec3 = 4, DVec4 = 4)]
+		#[size_of_type (DMat1 = 8, DMat2 = 32, DMat3 = 72, DMat4 = 128)]
+		#[align_of_type(DMat1 = 4, DMat2 = 4, DMat3 = 4, DMat4 = 4)]
+		#[size_of_type (DMat1x1 = 8, DMat2x2 = 32, DMat3x3 = 72, DMat4x4 = 128)]
+		#[align_of_type(DMat1x1 = 4, DMat2x2 = 4, DMat3x3 = 4, DMat4x4 = 4)]
+		#[size_of_type (DMat1x2 = 16, DMat1x3 = 24, DMat1x4 = 32)]
+		#[align_of_type(DMat1x2 = 4, DMat1x3 = 4, DMat1x4 = 4)]
+		#[size_of_type (DMat2x1 = 16, DMat2x3 = 48, DMat2x4 = 64)]
+		#[align_of_type(DMat2x1 = 4, DMat2x3 = 4, DMat2x4 = 4)]
+		#[size_of_type (DMat2x3 = 48, DMat2x4 = 64)]
+		#[align_of_type(DMat2x3 = 4, DMat2x4 = 4)]
+		#[size_of_type (DMat3x2 = 48, DMat3x4 = 96)]
+		#[align_of_type(DMat3x2 = 4, DMat3x4 = 4)]
+		#[size_of_type (DMat4x2 = 64, DMat4x3 = 96)]
+		#[align_of_type(DMat4x2 = 4, DMat4x3 = 4)]
 		$item
 	};
 }
@@ -594,8 +649,8 @@ where
 		self.buffer.get_vk_buffer()
 	}
 
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.iterable.iter()
+	fn iter_members(&self) -> IntoIter<(&'static str, MemberInfo)> {
+		self.iterable.iter_members()
 	}
 
 	fn get_size(&self) -> VkDeviceSize {
@@ -608,14 +663,6 @@ where
 
 	fn flush(&self, cmdbuf: VkCommandBuffer) -> Result<(), VulkanError> {
 		self.buffer.upload_staging_buffer(cmdbuf, 0, self.get_size() as VkDeviceSize)
-	}
-}
-
-impl<S> IterableDataAttrib for StorageBuffer<S>
-where
-	S: StorageBufferStructType {
-	fn iter_members(&self) -> IntoIter<(&'static str, &dyn Any)> {
-		self.iterable.iter()
 	}
 }
 
