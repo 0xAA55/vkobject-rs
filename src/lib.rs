@@ -72,7 +72,7 @@ pub mod prelude {
 	pub use vkcore_rs::*;
 	pub use glm::*;
 	pub use half::f16;
-	pub use struct_iterable::Iterable;
+	pub use ffi_struct::*;
 	pub use crate::common::*;
 	pub use crate::init::*;
 	pub use crate::basics::*;
@@ -356,11 +356,8 @@ mod tests {
 				view_matrix: Mat4,
 				proj_matrix: Mat4,
 				light_dir: Vec3,
-				_pad1: f32,
 				light_color: Vec3,
-				_pad2: f32,
 				ambient_color: Vec3,
-				_pad3: f32,
 			}
 		}
 		struct Resources {
