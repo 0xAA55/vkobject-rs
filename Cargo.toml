@@ -25,7 +25,7 @@ fbx = "0.2.0"
 gltf = "1.4.1"
 num-traits = "0.2.19"
 simba = "0.9.1"
-ffi_struct = { path = "../ffi_struct", version = "0.3" }
+ffi_struct = "0.3"
 
 [dev-dependencies]
 glfw = { version = "0.59.0", features = ["vulkan", "image"] }
