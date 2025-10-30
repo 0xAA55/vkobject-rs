@@ -573,6 +573,8 @@ macro_rules! derive_storage_buffer_type {
 		#[align_of_type(DMat3x2 = 4, DMat3x4 = 4)]
 		#[size_of_type (DMat4x2 = 64, DMat4x3 = 96)]
 		#[align_of_type(DMat4x2 = 4, DMat4x3 = 4)]
+		#[size_of_type (bool = 4, int = 4)]
+		#[align_of_type(bool = 4, int = 4)]
 		$item
 	};
 }
