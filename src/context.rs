@@ -140,6 +140,12 @@ pub struct VulkanContextCreateInfo<'a, 'b> {
 }
 
 /// The Vulkan context has device, surface, swapchain, and command pools
+///
+/// # Important
+///
+/// The `VulkanContext` would not going to own the surface. For example, if you are using GLFW, the surface is the GLFW window.
+/// If your surface is dropped earlier than then context, the context could not be dropped safely.
+/// **You must make sure the context is dropped before the surface is dropped.**
 #[derive(Debug)]
 pub struct VulkanContext {
 	/// The swapchain
