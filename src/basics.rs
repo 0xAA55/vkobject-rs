@@ -1470,6 +1470,57 @@ impl VulkanSampler {
 		Self::new(device, &sampler_ci)
 	}
 
+	/// Create the sampler that's most common used: filter = linear, address mode = repeat, mipmap = nearest
+	pub fn new_linear_clamp(device: Arc<VulkanDevice>, with_mipmaps: bool, anisotropy: bool) -> Result<Self, VulkanError> {
+		let max_anisotropy = device.get_gpu().properties.limits.maxSamplerAnisotropy;
+		let sampler_ci = VkSamplerCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			magFilter: VkFilter::VK_FILTER_LINEAR,
+			minFilter: VkFilter::VK_FILTER_LINEAR,
+			mipmapMode: VkSamplerMipmapMode::VK_SAMPLER_MIPMAP_MODE_NEAREST,
+			addressModeU: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			addressModeV: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			addressModeW: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			mipLodBias: 0.0,
+			anisotropyEnable: if anisotropy {1} else {0},
+			maxAnisotropy: max_anisotropy,
+			compareEnable: 0,
+			compareOp: VkCompareOp::VK_COMPARE_OP_NEVER,
+			minLod: 0.0,
+			maxLod: if with_mipmaps {VK_LOD_CLAMP_NONE} else {0.0},
+			borderColor: VkBorderColor::VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+			unnormalizedCoordinates: 0,
+		};
+		Self::new(device, &sampler_ci)
+	}
+
+	/// Create the sampler that doesn't do interpolation between pixels
+	pub fn new_nearest_clamp(device: Arc<VulkanDevice>, with_mipmaps: bool) -> Result<Self, VulkanError> {
+		let sampler_ci = VkSamplerCreateInfo {
+			sType: VkStructureType::VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO,
+			pNext: null(),
+			flags: 0,
+			magFilter: VkFilter::VK_FILTER_NEAREST,
+			minFilter: VkFilter::VK_FILTER_NEAREST,
+			mipmapMode: VkSamplerMipmapMode::VK_SAMPLER_MIPMAP_MODE_NEAREST,
+			addressModeU: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			addressModeV: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			addressModeW: VkSamplerAddressMode::VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE,
+			mipLodBias: 0.0,
+			anisotropyEnable: 0,
+			maxAnisotropy: 1.0,
+			compareEnable: 0,
+			compareOp: VkCompareOp::VK_COMPARE_OP_NEVER,
+			minLod: 0.0,
+			maxLod: if with_mipmaps {VK_LOD_CLAMP_NONE} else {0.0},
+			borderColor: VkBorderColor::VK_BORDER_COLOR_FLOAT_TRANSPARENT_BLACK,
+			unnormalizedCoordinates: 0,
+		};
+		Self::new(device, &sampler_ci)
+	}
+
 	/// Get the `VkSampler`
 	pub fn get_vk_sampler(&self) -> VkSampler {
 		self.sampler
