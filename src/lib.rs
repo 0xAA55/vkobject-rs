@@ -483,4 +483,194 @@ mod tests {
 			resources.draw(ctx, run_time)
 		}).unwrap();
 	}
+
+	#[test]
+	fn pano() {
+		derive_vertex_type! {
+			pub struct VertexType {
+				pub position: Vec2,
+			}
+		}
+		derive_vertex_type! {
+			pub struct InstanceType {
+				pub transform: Mat4,
+			}
+		}
+		derive_uniform_buffer_type! {
+			pub struct UniformInputSky {
+				resolution: Vec2,
+				view_matrix: Mat4,
+				proj_matrix: Mat4,
+			}
+		}
+		derive_uniform_buffer_type! {
+			pub struct UniformInputScene {
+				camera: Vec3,
+				view_matrix: Mat4,
+				proj_matrix: Mat4,
+			}
+		}
+
+		struct Resources {
+			uniform_input_sky: Arc<dyn GenericUniformBuffer>,
+			uniform_input_scene: Arc<dyn GenericUniformBuffer>,
+			pipeline_pano: Pipeline,
+			pipelines_avocado: HashMap<String, Pipeline>,
+		}
+
+		impl Resources {
+			pub fn new(ctx: &VulkanContext) -> Result<Self, VulkanError> {
+				let device = ctx.device.clone();
+				let pano_shaders = Arc::new(DrawShaders::new(
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/panosky.vsh")), false, "main", OptimizationLevel::Performance, false)?),
+					None,
+					None,
+					None,
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/panosky.fsh")), false, "main", OptimizationLevel::Performance, false)?),
+				));
+				let reflection_shaders = Arc::new(DrawShaders::new(
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::VertexShader(PathBuf::from("shaders/objdisp_refl.vsh")), false, "main", OptimizationLevel::Performance, false)?),
+					None,
+					None,
+					None,
+					Arc::new(VulkanShader::new_from_source_file_or_cache(device.clone(), ShaderSourcePath::FragmentShader(PathBuf::from("shaders/objdisp_refl.fsh")), false, "main", OptimizationLevel::Performance, false)?),
+				));
+				let pool_in_use = ctx.cmdpools[0].use_pool(None)?;
+				let vertices_data = vec![
+					VertexType {
+						position: Vec2::new(-1.0,  1.0),
+					},
+					VertexType {
+						position: Vec2::new( 1.0,  1.0),
+					},
+					VertexType {
+						position: Vec2::new(-1.0, -1.0),
+					},
+					VertexType {
+						position: Vec2::new( 1.0, -1.0),
+					},
+				];
+				let uniform_input_sky: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputSky>::new(device.clone(), None)?);
+				let uniform_input_scene: Arc<dyn GenericUniformBuffer> = Arc::new(UniformBuffer::<UniformInputScene>::new(device.clone(), None)?);
+				let texture_pano = Arc::new(VulkanTexture::new_from_path(device.clone(), pool_in_use.cmdbuf, "assets/pano.jpg", true, None, VkImageUsageFlagBits::VK_IMAGE_USAGE_SAMPLED_BIT as VkImageUsageFlags)?);
+				let texture_pano_sample = TextureForSample {
+					texture: texture_pano.clone(),
+					sampler: Arc::new(VulkanSampler::new_linear_clamp(device.clone(), false, false)?),
+				};
+				texture_pano.prepare_for_sample(pool_in_use.cmdbuf)?;
+				let pano_shaders_inputs = Arc::new(DescriptorProps::default());
+				pano_shaders_inputs.new_uniform_buffer(0, 0, uniform_input_sky.clone());
+				pano_shaders_inputs.new_texture(0, 1, texture_pano_sample.clone());
+				let vertices = Arc::new(RwLock::new(BufferWithType::new(device.clone(), &vertices_data, pool_in_use.cmdbuf, VkBufferUsageFlagBits::VK_BUFFER_USAGE_VERTEX_BUFFER_BIT as VkBufferUsageFlags)?));
+				let mesh = Arc::new(GenericMeshWithMaterial::new(Arc::new(Mesh::new(VkPrimitiveTopology::VK_PRIMITIVE_TOPOLOGY_TRIANGLE_STRIP, vertices, buffer_unused(), buffer_unused(), buffer_unused())), "", None));
+				mesh.geometry.flush(pool_in_use.cmdbuf)?;
+				let object = GenericMeshSet::create_meshset_from_obj_file::<f32, ObjVertPositionTexcoord2DNormalTangent, _>(device.clone(), "assets/testobj/avocado.obj", pool_in_use.cmdbuf, Some(&[InstanceType {transform: Mat4::identity()}; 1]))?;
+				let mut avocado_shader_inputs = HashMap::new();
+				let mut pipelines_avocado: HashMap<String, Pipeline> = HashMap::with_capacity(object.meshset.len());
+				for (set_name, mesh) in object.meshset.iter() {
+					let desc_props = Arc::new(DescriptorProps::default());
+					desc_props.new_uniform_buffer(0, 0, uniform_input_scene.clone());
+					desc_props.new_texture(0, 3, texture_pano_sample.clone());
+					if let Some(material) = &mesh.material {
+						if let Some(albedo) = material.get_albedo() {
+							if let MaterialComponent::Texture(texture) = albedo {
+								texture.prepare_for_sample(pool_in_use.cmdbuf)?;
+								let texture_input_albedo = TextureForSample {
+									texture: texture.clone(),
+									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
+								};
+								desc_props.new_texture(0, 1, texture_input_albedo);
+							}
+						}
+						if let Some(normal) = material.get_normal() {
+							if let MaterialComponent::Texture(texture) = normal {
+								texture.prepare_for_sample(pool_in_use.cmdbuf)?;
+								let texture_input_normal = TextureForSample {
+									texture: texture.clone(),
+									sampler: Arc::new(VulkanSampler::new_linear(device.clone(), true, false)?),
+								};
+								desc_props.new_texture(0, 2, texture_input_normal);
+							}
+						}
+					}
+					avocado_shader_inputs.insert(set_name, desc_props);
+				}
+				drop(pool_in_use);
+				ctx.cmdpools[0].wait_for_submit(u64::MAX)?;
+				mesh.geometry.discard_staging_buffers();
+				texture_pano.discard_staging_buffer();
+				let pipeline_pano = ctx.create_pipeline_builder(mesh, pano_shaders, pano_shaders_inputs)?
+				.set_depth_test(false)
+				.set_depth_write(false)
+				.build()?;
+				for (set_name, mesh) in object.meshset.iter() {
+					let pipeline = ctx.create_pipeline_builder(mesh.clone(), reflection_shaders.clone(), avocado_shader_inputs.get(set_name).unwrap().clone())?
+					.set_depth_test(true)
+					.set_depth_write(true)
+					.build()?;
+					pipelines_avocado.insert(set_name.clone(), pipeline);
+				}
+				Ok(Self {
+					uniform_input_sky,
+					uniform_input_scene,
+					pipeline_pano,
+					pipelines_avocado,
+				})
+			}
+
+			pub fn draw(&self, ctx: &VulkanContext, run_time: f64) -> Result<(), VulkanError> {
+				let scene = ctx.begin_scene(0, None)?;
+				let cmdbuf = scene.get_cmdbuf();
+				let extent = scene.get_rendertarget_extent();
+
+				let h_rotation = run_time * pi::<f64>() * 0.2;
+				let eye = glm::normalize(&glm::vec3(h_rotation.cos() as f32, (run_time * 0.3).sin() as f32, h_rotation.sin() as f32)) * 30.0;
+				let view_matrix = {
+					let center = glm::vec3(0.0, 0.0, 0.0);
+					let up = glm::vec3(0.0, 1.0, 0.0);
+					glm::look_at(&eye, &center, &up)
+				};
+
+				let mut proj_matrix = {
+					let fovy = pi::<f32>() / 3.0;
+					let aspect = extent.width as f32 / extent.height as f32;
+					perspective(aspect, fovy, 0.1, 1000.0)
+				};
+				proj_matrix[(1, 1)] *= -1.0;
+
+				let ui_data = unsafe {get_generic_uniform_buffer_cache!(self.uniform_input_sky, UniformInputSky)};
+				ui_data.resolution = Vec2::new(extent.width as f32, extent.height as f32);
+				ui_data.view_matrix = view_matrix;
+				ui_data.proj_matrix = proj_matrix;
+				self.uniform_input_sky.flush(cmdbuf)?;
+
+				let ui_data = unsafe {get_generic_uniform_buffer_cache!(self.uniform_input_scene, UniformInputScene)};
+				ui_data.camera = eye;
+				ui_data.view_matrix = view_matrix;
+				ui_data.proj_matrix = proj_matrix;
+				self.uniform_input_scene.flush(cmdbuf)?;
+				for pipeline_avocado in self.pipelines_avocado.values() {
+					pipeline_avocado.prepare_data(cmdbuf)?;
+				}
+
+				scene.set_viewport_swapchain(0.0, 1.0)?;
+				scene.set_scissor_swapchain()?;
+				scene.begin_renderpass(Vec4::new(0.0, 0.0, 0.2, 1.0), 1.0, 0)?;
+				self.pipeline_pano.draw(cmdbuf)?;
+				for pipeline_avocado in self.pipelines_avocado.values() {
+					pipeline_avocado.draw(cmdbuf)?;
+				}
+				scene.end_renderpass()?;
+				scene.finish();
+				Ok(())
+			}
+		}
+
+		let mut inst = Box::new(TestInstance::new(1024, 768, "Vulkan panorama test", glfw::WindowMode::Windowed, None).unwrap());
+		let resources = Resources::new(&inst.ctx).unwrap();
+		inst.run(Some(TEST_TIME),
+		move |ctx: &VulkanContext, run_time: f64| -> Result<(), VulkanError> {
+			resources.draw(ctx, run_time)
+		}).unwrap();
+	}
 }
